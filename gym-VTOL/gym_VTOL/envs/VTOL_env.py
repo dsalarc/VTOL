@@ -47,12 +47,35 @@ class Vahana_VertFlight(gym.Env):
         self.observation_space = spaces.Box(low=-self.MaxState,
                                             high=self.MaxState,
                                             dtype=np.float16)  
-    
-    def Euler_2nd(self,X,Xdot,Xdotdot,t_step):
-        
-        X = X + Xdot*t_step + (Xdotdot*t_step**2)/2
-        return X
 
+    
+    def reset(self,XV=0):
+
+      self.StartUp()
+      # Reset the state of the environment to an initial state
+      if type(XV) == np.ndarray:
+          X = XV[0]
+          V = XV[1]
+      else:
+          Energy = 100
+          Theta = np.random.random(1) * 2 * np.pi
+          X = Energy**0.5 * np.cos(Theta[0])
+          V = Energy**0.5 * np.sin(Theta[0])
+
+      self.EQM['sta']        = np.zeros(shape=12,dtype = np.float32)
+      self.EQM['sta'][2]     = X
+      self.EQM['sta'][8]     = V
+      self.EQM['sta_dot']    = np.zeros(shape=np.shape(self.EQM['sta']),dtype = np.float32)
+      self.EQM['sta_dotdot'] = np.zeros(shape=np.shape(self.EQM['sta']),dtype = np.float32)
+      
+      self.EQM_fcn(np.array([0,0,0]), np.array([0,0,0]), self.MASS['I_kgm'], self.MASS['Weight_kgf'])
+      
+      self.CurrentStep = 0
+      
+      self.AllStates = self.EQM['sta']
+      
+      return self.EQM['sta']
+  
     def step(self, action):
       self.CurrentStep += 1
       
@@ -98,30 +121,7 @@ class Vahana_VertFlight(gym.Env):
         Reward = 10 - (self.EQM['sta'][2]**2 + self.EQM['sta'][8]**2)/10
         return Reward    
     
-    def reset(self,XV=0):
 
-      self.StartUp()
-      # Reset the state of the environment to an initial state
-      if type(XV) == np.ndarray:
-          X = XV[0]
-          V = XV[1]
-      else:
-          Energy = 100
-          Theta = np.random.random(1) * 2 * np.pi
-          X = Energy**0.5 * np.cos(Theta[0])
-          V = Energy**0.5 * np.sin(Theta[0])
-
-      self.EQM['sta']        = np.zeros(shape=12,dtype = np.float32)
-      self.EQM['sta'][2]     = X
-      self.EQM['sta'][8]     = V
-      self.EQM['sta_dot']    = np.zeros(shape=np.shape(self.EQM['sta']),dtype = np.float32)
-      self.EQM['sta_dotdot'] = np.zeros(shape=np.shape(self.EQM['sta']),dtype = np.float32)
-      
-      self.CurrentStep = 0
-      
-      self.AllStates = self.EQM['sta']
-      
-      return self.EQM['sta']
      
       
     def render(self, mode='console', close=False):
@@ -134,7 +134,7 @@ class Vahana_VertFlight(gym.Env):
         plt.ylim((self.observation_space.low[1],self.observation_space.high[1]))
         if self.CurrentStep > 0:
             plt.plot(self.AllStates[:,2],self.AllStates[:,8],'tab:gray')
-            plt.plot(self.AllStates[-1,2],self.AllStates[-1,8],'ob')
+            plt.plot(self.AllStates[-1,2],self.AllStates[-1,8],'or')
         else:
             plt.plot(self.AllStates[2],self.AllStates[8],'ob')
         plt.xlabel('Position Z [m]')
@@ -144,6 +144,13 @@ class Vahana_VertFlight(gym.Env):
     def close(self):
         pass
     
+    
+    # %% EULER INTEGRATOR
+    def Euler_2nd(self,X,Xdot,Xdotdot,t_step):
+        
+        X = X + Xdot*t_step + (Xdotdot*t_step**2)/2
+        return X
+
     # %% SARTUP FUNCTION
     def StartUp (self):
  
@@ -153,11 +160,17 @@ class Vahana_VertFlight(gym.Env):
       self.MASS = {}
       self.MOT  = {}
       self.AERO = {}
+      self.CONS = {}
       
       # DEFINE CONSTANTS
       
       # ATM
       self.ATM['dISA_C'] = 0
+      
+      self.ATM['WindX_kt'] = 0
+      self.ATM['WindY_kt'] = 0
+      self.ATM['WindZ_kt'] = 0
+      
       self.ATM['Const'] = {}
       
       self.ATM['Const']['C2K'] = 273.15
@@ -174,7 +187,34 @@ class Vahana_VertFlight(gym.Env):
       # MASS
       self.MASS['Weight_kgf'] = self.M
       self.MASS['I_kgm'] = self.I
+      
+      #
+      self.CONS['kt2mps'] = 0.514444
+      self.CONS['mps2kt'] = 1 / self.CONS['kt2mps']
     
+    # %% GENERAL FUNCTIONS
+    def RotationMatrix(self,Phi_rad,Theta_rad,Psi_rad):
+        
+        LE2B = np.array([
+            [+np.cos(Theta_rad)*np.cos(Psi_rad)                                                   , +np.cos(Theta_rad)*np.sin(Psi_rad)                                                   , -np.sin(Theta_rad)],
+            [+np.sin(Phi_rad)*np.sin(Theta_rad)*np.cos(Psi_rad) - np.cos(Phi_rad)*np.sin(Psi_rad) , +np.cos(Phi_rad)*np.cos(Psi_rad) + np.sin(Phi_rad)*np.sin(Theta_rad)*np.sin(Psi_rad) , +np.sin(Phi_rad)*np.cos(Theta_rad)],
+            [+np.cos(Phi_rad)*np.sin(Theta_rad)*np.cos(Psi_rad) + np.sin(Phi_rad)*np.sin(Psi_rad) , -np.sin(Phi_rad)*np.cos(Psi_rad) + np.cos(Phi_rad)*np.sin(Theta_rad)*np.sin(Psi_rad) , +np.cos(Phi_rad)*np.cos(Theta_rad)]])
+        
+        LB2E = np.transpose(LE2B)
+        
+        return LE2B,LB2E
+
+    def EulerRotation(self,Phi_rad,Theta_rad,Psi_rad):
+        
+        LR2E = np.array([
+                  [1 , np.sin(Phi_rad)*np.tan(Theta_rad) , np.cos(Phi_rad)*np.tan(Theta_rad)],
+                  [0 , np.cos(Phi_rad)                   , -np.sin(Phi_rad)],
+                  [0 , np.sin(Phi_rad)/np.cos(Theta_rad) , np.cos(Phi_rad)/np.cos(Theta_rad)]])
+        
+        # LE2R = np.linalg.inv (LR2E)
+        
+        return LR2E
+   
     # %% EQM FUNCTION
     def EQM_fcn(self,F_b,M_b,I,m):
         """
@@ -205,29 +245,19 @@ class Vahana_VertFlight(gym.Env):
             Com massas, inercias, forças e momentos, calcula as derivadas doos estados
             É uma função genérica para qualquer corpo rídido no espaço
         """
-        g0 = -9.806
+
         # LEITURA DOS VETORES NOS ESTADOS
         VL_b = self.EQM['sta'][6:9]
         VR_b = self.EQM['sta'][9:12]
         XL_e = self.EQM['sta'][0:3]
         XR_e = self.EQM['sta'][3:6]
         
-        # MATRIZ DE ROTACAO
-    
-        cos_phi = np.cos(XR_e[0]); sin_phi = np.sin(XR_e[0]); 
-        cos_the = np.cos(XR_e[1]); sin_the = np.sin(XR_e[1]); tan_the = np.tan(XR_e[1])
-        cos_psi = np.cos(XR_e[2]); sin_psi = np.sin(XR_e[2]); 
-        
-        # Matriz de Rotação do Eixo Terra para Eixo Corpo    
-        Lbt = np.array([[cos_the*cos_psi                           , cos_the*sin_psi                           , -sin_the],
-                        [sin_phi*sin_the*cos_psi - cos_phi*sin_psi , sin_phi*sin_the*sin_psi + cos_phi*cos_psi , sin_phi*cos_the],
-                        [cos_phi*sin_the*cos_psi + sin_phi*sin_psi , cos_phi*sin_the*sin_psi - sin_phi*cos_psi , cos_phi*cos_the]])
-        
-        # Matriz de Rotação do Eixo Corpo para Eixo Terra
-        Ltb = np.transpose(Lbt)
+        # ROTATION MATRIX
+        self.EQM['LE2B'],self.EQM['LB2E'] = self.RotationMatrix(XR_e[0],XR_e[1],XR_e[2])
+        self.EQM['LR2E']                  = self.EulerRotation(XR_e[0],XR_e[1],XR_e[2])
         
         # Vetor Peso no Eixo Corpo
-        W_b = np.dot(Lbt,np.array([0,0,m*g0]))
+        W_b = np.dot(self.EQM['LE2B'],np.array([0,0,m*self.EQM['g_mps2']]))
         
         # CALCULO DAS DERIVADAS
         VLd_b = (F_b+W_b)/m - np.cross(VR_b,VL_b)
@@ -235,12 +265,15 @@ class Vahana_VertFlight(gym.Env):
         VRd_b = np.dot(np.linalg.inv(I),(M_b - np.cross(VR_b,np.dot(I,VR_b))))
     
         
-        XLd_e = np.dot(Ltb,VL_b)
+        XLd_e = np.dot(self.EQM['LB2E'] , VL_b)
         
-        XRd_e = np.dot(np.array([
-                    [1 , sin_phi*tan_the , cos_phi*tan_the],
-                    [0 , cos_phi         , -sin_phi],
-                    [0 , sin_phi/cos_the , cos_phi/cos_the]]),VR_b)    
+        XRd_e = np.dot(self.EQM['LR2E'] , VR_b)    
+        
+        # OUTPUt
+        self.EQM['VL_b'] = VL_b
+        self.EQM['VR_b'] = VR_b
+        self.EQM['XL_e'] = XL_e 
+        self.EQM['XR_e'] = XR_e 
         
         # VETOR SAIDA COM OS ESTADOS
         self.EQM['sta_dot'][6:9]  = VLd_b
@@ -248,7 +281,7 @@ class Vahana_VertFlight(gym.Env):
         self.EQM['sta_dot'][0:3]  = XLd_e
         self.EQM['sta_dot'][3:6]  = XRd_e
 
-    # %% ATOSPHERE FUNCTION
+    # %% ATMOSPHERE FUNCTION
     def StdAtm_fcn(self):
         """
         Status da função:
@@ -266,10 +299,12 @@ class Vahana_VertFlight(gym.Env):
                      Atmosphere model.
         """
         # CONSTANTS
-        BodySpeeds_mps = self.EQM['sta_dot'][6:9].copy()
         Altitude_m     = -self.EQM['sta_dot'][2]
+        
+        # WIND VECTOR
+        WindVec_kt = np.array([self.ATM['WindX_kt'],self.ATM['WindY_kt'] ,self.ATM['WindZ_kt'] ])
+        WindVec_mps = WindVec_kt * self.CONS['kt2mps']
         # INITIAL CALCULATIIONS
-        self.ATM['TAS_mps'] = np.linalg.norm(BodySpeeds_mps)
         
         if Altitude_m < 11000:
             self.ATM['TStd_C'] = self.ATM['Const']['T0_C'] - 0.0065*Altitude_m
@@ -278,17 +313,25 @@ class Vahana_VertFlight(gym.Env):
         else:
             self.ATM['TStd_C'] = -56.5
             self.ATM['T_C']    = self.ATM['TStd_C'] + self.ATM['dISA_C']
-            self.ATM['P_Pa']   = 22632 * np.exp(-g0/(self.ATM['Const']['R']*216.65)*(Altitude_m-11000))
+            self.ATM['P_Pa']   = 22632 * np.exp(-self.EQM['g_mps2']/(self.ATM['Const']['R']*216.65)*(Altitude_m-11000))
         
         self.ATM['rho_kgm3']   = self.ATM['P_Pa'] / (self.ATM['Const']['R']*(self.ATM['T_C'] + self.ATM['Const']['C2K']))
         self.ATM['Vsound_mps'] = np.sqrt(1.4*self.ATM['Const']['R']*(self.ATM['T_C']+self.ATM['Const']['C2K']))
         self.ATM['TAS2EAS']    = np.sqrt(self.ATM['rho_kgm3']/self.ATM['Const']['rho0_kgm3'])
         
-        self.ATM['EAS_mps'] = self.ATM['TAS_mps'] * self.ATM['TAS2EAS']
-        self.ATM['Mach']    = self.ATM['TAS_mps'] / self.ATM['Vsound_mps']
+        self.ATM['Vaero']      = np.cross(self.EQM['LE2B'] , WindVec_mps) + self.EQM['VL_b']
+        self.ATM['TAS_mps']    = np.linalg.norm(self.ATM['Vaero'])
+
+        self.ATM['EAS_mps']    = self.ATM['TAS_mps'] * self.ATM['TAS2EAS']
+        self.ATM['Mach']       = self.ATM['TAS_mps'] / self.ATM['Vsound_mps']
+
+        self.ATM['PDyn_Pa']    = self.ATM['EAS_mps'] **2 * self.ATM['rho_kgm3'] / 2
         
-        self.ATM['PDyn']    = self.ATM['EAS_mps'] **2 * self.ATM['rho_kgm3'] / 2
+        self.ATM['qc']         = self.ATM['P_Pa'] *((1+0.2*self.ATM['Mach']**2)**(7/2)-1)
+        self.ATM['CAS_mps']    = self.ATM['Const']['Vsound0_mps']*np.sqrt(5*((self.ATM['qc'] /self.ATM['Const']['P0_Pa']+1)**(2/7)-1))
         
-        self.ATM['qc'] = self.ATM['P_Pa'] *((1+0.2*self.ATM['Mach']**2)**(7/2)-1)
-        self.ATM['CAS_mps']  = self.ATM['Const']['Vsound0_mps']*np.sqrt(5*((self.ATM['qc'] /self.ATM['Const']['P0_Pa']+1)**(2/7)-1))
-        
+        self.ATM['Alpha_deg'] = np.rad2deg(
+                                np.arctan2(self.ATM['Vaero'][2],self.ATM['Vaero'][0]))
+        self.ATM['Beta_deg']  = np.rad2deg(
+                                np.arctan2(self.ATM['Vaero'][1]*np.cos(np.deg2rad(self.ATM['Alpha_deg'] )),
+                                           self.ATM['Vaero'][0]))
