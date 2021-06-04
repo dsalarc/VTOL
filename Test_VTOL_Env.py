@@ -41,7 +41,6 @@ import numpy as np
 TestEnv = gym.make('gym_VTOL:Vahana_VertFlight-v0')
 # %%
 obs = TestEnv.reset(np.array([0,0]))
-TestEnv.render()
 
 print(TestEnv.observation_space)
 print(TestEnv.action_space)
