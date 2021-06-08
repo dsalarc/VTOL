@@ -12,21 +12,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 class Vahana_VertFlight(gym.Env):
-    """Custom Environment that follows gym interface"""
-    #metadata = {'render.modes': ['human']}
     metadata = {'render.modes': ['console']}
 
-    def __init__(self, K=1, M=1, C=0, g = 0, MaxForce = 3):
+    def __init__(self):
         # super(Vahana_VertFlight, self).__init__() 
         
         #Define Constants
-        self.K = K
-        self.M = M
-        self.C = C
-        self.g = g
-        self.I = np.array([[1,0,0],[0,1,0],[0,0,1]])
         
-        self.MaxForce = MaxForce        
         self.n_states = 12
         self.t_step = 0.05
         
@@ -40,9 +32,15 @@ class Vahana_VertFlight(gym.Env):
         '''
         self.MaxState = np.array([20,20,20,np.pi,np.pi,np.pi,20,20,20,np.pi,np.pi,np.pi])
         
-        self.action_space = spaces.Box(low=-self.MaxForce, 
-                                       high=self.MaxForce,
-                                       shape=(1,),
+        '''
+        ACTIONS:
+            8 motor throttle (in % of RPM)
+            2 surface deflection (in % of Max Deflection)
+        '''
+        
+        self.action_space = spaces.Box(low=0, 
+                                       high=1,
+                                       shape=(10,),
                                        dtype=np.float16)
         self.observation_space = spaces.Box(low=-self.MaxState,
                                             high=self.MaxState,
@@ -84,21 +82,21 @@ class Vahana_VertFlight(gym.Env):
     def step(self, action):
       self.CurrentStep += 1
       
+      # Calculate Atmosphere, Motor Forces and Aero Forces
       self.StdAtm_fcn()
       self.MOT_fcn()
+      self.AERO_fcn()
       
       # Execute one time step within the environment
-      
-      ExtForce    = np.array([0],dtype = np.float16)
-      ExtForce[0] = min(max(action[0], -self.MaxForce), self.MaxForce)
-      SysForce    = np.array([0],dtype = np.float16)
-      SysForce[0] = (-self.EQM['sta'][2]*self.K - self.EQM['sta'][8]*self.C)
-      
-      TotalForce  = np.array([0,0,ExtForce[0]+SysForce[0]])
-      TotalMoment = np.array([0,0,0])   
-      
+ 
+      self.EQM['TotalForce'] = (self.MOT['TotalForce_BodyAx_N'] +
+                                self.AERO['TotalForce_BodyAx_N'])
+      self.EQM['TotalMoment'] = (self.MOT['TotalMoment_BodyAx_N'] +
+                                 self.AERO['TotalMoment_BodyAx_N'])  
+     
+ 
       Last_Xdot    = self.EQM['sta_dot'].copy()
-      self.EQM_fcn(TotalForce,TotalMoment,self.I,self.M)
+      self.EQM_fcn(self.EQM['TotalForce'],self.EQM['TotalMoment'],self.MASS['I_kgm'],self.MASS['Weight_kgf'])
       self.EQM['sta_dotdot'] = (self.EQM['sta_dot'] - Last_Xdot)/self.t_step
       
       self.EQM['sta'] = self.Euler_2nd(self.EQM['sta'],self.EQM['sta_dot'],self.EQM['sta_dotdot'],self.t_step)
@@ -108,18 +106,15 @@ class Vahana_VertFlight(gym.Env):
       # Calculate Reward
       self.LastReward = self.CalcReward()
       
-      # Terminal State
-      if self.LastReward > 0.99:
-          done = True
-      else:
-          done = False
-      
+      # Terminal State = False    
       done = False
-      # Optionally we can pass additional info, we are not using that for now
+      
+      # Export Model Oututs throught info
       info = {}          
-      info['ATM'] = self.ATM
-      info['EQM'] = self.EQM
-      info['MOT'] = self.MOT
+      info['ATM']  = self.ATM
+      info['EQM']  = self.EQM
+      info['MOT']  = self.MOT
+      info['AERO'] = self.AERO
       
       obs = np.take(self.EQM['sta'],np.array([0,5]))
       return obs, self.LastReward, done, info
@@ -158,12 +153,18 @@ class Vahana_VertFlight(gym.Env):
         
         X = X + Xdot*t_step + (Xdotdot*t_step**2)/2
         return X
+    
+    def Euler_1st(self,X,Xdot,t_step):
+        
+        X = X + Xdot*t_step
+        return X
 
     # %% SARTUP FUNCTION
     def StartUp (self):
  
       # INITIALIZE DICTS
       self.EQM  = {}
+      self.GEOM = {}
       self.ATM  = {}
       self.MASS = {}
       self.MOT  = {}
@@ -193,13 +194,25 @@ class Vahana_VertFlight(gym.Env):
       self.ATM['Const']['Vsound0_mps'] = np.sqrt(1.4*self.ATM['Const']['R']*(self.ATM['Const']['T0_K']))
         
       # EQM  
-      self.EQM['g_mps2'] = -9.806
+      self.EQM['g_mps2'] = 9.806
       
+      # GEOM
+      self.GEOM['Wing']          = {}
+      self.GEOM['Wing']['cma_m'] = np.array([1,1])
+      self.GEOM['Wing']['b_m']   = np.array([8,8])
+      self.GEOM['Wing']['S_m2']  = np.array([8,8])
+      self.GEOM['Wing']['X_m']   = np.array([1,4])
+      self.GEOM['Wing']['Y_m']   = np.array([0,0])
+      self.GEOM['Wing']['Z_m']   = np.array([0,0])
+ 
       # MASS
-      self.MASS['Weight_kgf'] = self.M
-      self.MASS['I_kgm'] = self.I
+      self.MASS['Weight_kgf'] = 2.5
+      self.MASS['I_kgm'] = np.array([[1000,0,0],[0,1000,0],[0,0,1000]])
       self.MASS['CG_m'] = np.array([2.5,0,0])
       
+      # AERO
+      self.AERO['Wing'] = {}
+
       # MOTOR
       x1 = 1
       x2 = 4
@@ -229,7 +242,6 @@ class Vahana_VertFlight(gym.Env):
                                          [0.04, 0.04, 0.01]])
 
       self.MOT['TiltSurf_link']  = np.array([0,0,0,0,1,1,1,1])                 #ID of surface which the motor is linked. Every motor will rotate the same amount
-      # self.MOT['Tilt_p']         = np.ones(self.MOT['n_motor'])
       
       # CONTROL
       self.CONT['n_TiltSurf']    = 2
@@ -262,7 +274,21 @@ class Vahana_VertFlight(gym.Env):
         # LE2R = np.linalg.inv (LR2E)
         
         return LR2E
-   
+    
+    def cosd(self,theta):
+        return np.cos(np.deg2rad(theta))
+    
+    def sind(self,theta):
+        return np.sin(np.deg2rad(theta))   
+    
+    def NearZeroArray(self,Array,Saturation):
+        NewArray = Array.copy()
+        for i in range(np.size(NewArray)):
+            if abs(NewArray[i]) < Saturation:
+                NewArray[i] = 0
+        
+        return NewArray
+    
     # %% EQM FUNCTION
     def EQM_fcn(self,F_b,M_b,I,m):
         """
@@ -318,11 +344,15 @@ class Vahana_VertFlight(gym.Env):
         XRd_e = np.dot(self.EQM['LR2E'] , VR_b)    
         
         # OUTPUt
-        self.EQM['VL_b'] = VL_b
-        self.EQM['VR_b'] = VR_b
-        self.EQM['XL_e'] = XL_e 
-        self.EQM['XR_e'] = XR_e 
+        self.EQM['VelLin_BodyAx_mps']   = VL_b
+        self.EQM['VelRot_BodyAx_radps'] = VR_b
+        self.EQM['PosLin_EarthAx_m']    = XL_e 
+        self.EQM['EulerAngles_rad']     = XR_e 
         
+        self.EQM['AccLin_BodyAx_mps2']   = VLd_b
+        self.EQM['AccRot_BodyAx_radps2'] = VRd_b
+        self.EQM['VelLin_EarthAx_mps']   = XLd_e   
+       
         # VETOR SAIDA COM OS ESTADOS
         self.EQM['sta_dot'][6:9]  = VLd_b
         self.EQM['sta_dot'][9:12] = VRd_b
@@ -367,22 +397,29 @@ class Vahana_VertFlight(gym.Env):
         self.ATM['Vsound_mps'] = np.sqrt(1.4*self.ATM['Const']['R']*(self.ATM['T_C']+self.ATM['Const']['C2K']))
         self.ATM['TAS2EAS']    = np.sqrt(self.ATM['rho_kgm3']/self.ATM['Const']['rho0_kgm3'])
         
-        self.ATM['Vaero']      = np.dot(self.EQM['LE2B'] , WindVec_mps) + self.EQM['VL_b']
+        self.ATM['Vaero']      = np.dot(self.EQM['LE2B'] , WindVec_mps) + self.EQM['VelLin_BodyAx_mps']
         self.ATM['TAS_mps']    = np.linalg.norm(self.ATM['Vaero'])
 
         self.ATM['EAS_mps']    = self.ATM['TAS_mps'] * self.ATM['TAS2EAS']
         self.ATM['Mach']       = self.ATM['TAS_mps'] / self.ATM['Vsound_mps']
 
-        self.ATM['PDyn_Pa']    = self.ATM['EAS_mps'] **2 * self.ATM['rho_kgm3'] / 2
+        self.ATM['DynPres_Pa']    = self.ATM['EAS_mps'] **2 * self.ATM['rho_kgm3'] / 2
         
         self.ATM['qc']         = self.ATM['P_Pa'] *((1+0.2*self.ATM['Mach']**2)**(7/2)-1)
         self.ATM['CAS_mps']    = self.ATM['Const']['Vsound0_mps']*np.sqrt(5*((self.ATM['qc'] /self.ATM['Const']['P0_Pa']+1)**(2/7)-1))
         
-        self.ATM['Alpha_deg'] = np.rad2deg(
-                                np.arctan2(self.ATM['Vaero'][2],self.ATM['Vaero'][0]))
-        self.ATM['Beta_deg']  = np.rad2deg(
-                                np.arctan2(self.ATM['Vaero'][1]*np.cos(np.deg2rad(self.ATM['Alpha_deg'] )),
-                                           self.ATM['Vaero'][0]))
+        if abs(self.ATM['Vaero'][0]) < 1e-4:                                   # Saturation to improve stability
+            self.ATM['Alpha_deg'] = np.rad2deg(
+                                    np.arctan2(self.ATM['Vaero'][2],0))
+            self.ATM['Beta_deg']  = np.rad2deg(
+                                    np.arctan2(self.ATM['Vaero'][1]*np.cos(np.deg2rad(self.ATM['Alpha_deg'] )),
+                                               0))
+        else:
+            self.ATM['Alpha_deg'] = np.rad2deg(
+                                    np.arctan2(self.ATM['Vaero'][2],self.ATM['Vaero'][0]))
+            self.ATM['Beta_deg']  = np.rad2deg(
+                                    np.arctan2(self.ATM['Vaero'][1]*np.cos(np.deg2rad(self.ATM['Alpha_deg'] )),
+                                               self.ATM['Vaero'][0]))
         
     # %% MOTOR MODEL
     def MOT_fcn(self):
@@ -406,7 +443,7 @@ class Vahana_VertFlight(gym.Env):
         # Aircraft Rotation (p,q,r)
         MOT_Vind      = np.zeros([self.MOT['n_motor'],3])
         MOT_VTotal_b  = np.zeros([self.MOT['n_motor'],3])
-        MOT_Vind      = np.cross(self.EQM['VR_b'],self.MOT['Position_m'])
+        MOT_Vind      = np.cross(self.EQM['VelRot_BodyAx_radps'],self.MOT['Position_m'])
         MOT_VTotal_b  = np.add(self.ATM['Vaero'],MOT_Vind)
         
         
@@ -423,10 +460,12 @@ class Vahana_VertFlight(gym.Env):
             
             MOT_VTotal_p[i,:] = np.dot(LB2M[:,:,i] , MOT_VTotal_b[i,:])
         
-        # Calculate Angle of attack of propeller axis    
-        self.MOT['Alpha_deg'] = np.rad2deg(np.arctan2(MOT_VTotal_p[:,2],MOT_VTotal_p[:,0]))
+        # Calculate Angle of attack of propeller axis 
+        Denominator = self.NearZeroArray(MOT_VTotal_p[:,0],1e-4)
+        self.MOT['Alpha_deg'] = np.rad2deg(np.arctan2(MOT_VTotal_p[:,2],Denominator))
         self.MOT['Beta_deg']  = np.rad2deg(np.arctan2(MOT_VTotal_p[:,1]*np.cos(np.deg2rad(self.MOT['Alpha_deg'])),
-                                                      MOT_VTotal_p[:,0]))
+                                                          Denominator))
+            
         # Calculate Advance Ratio (J) CT (Thrust Coef) and CP (Power Coef)
         # Source: Diss. Mestrado Daud Filho
         MOT_J = MOT_VTotal_p[:,0] / (self.MOT['RPM']/60 * self.MOT['Diameter_m'])
@@ -448,3 +487,130 @@ class Vahana_VertFlight(gym.Env):
         self.MOT['TotalForce_BodyAx_N'] = np.sum(self.MOT['Force_BodyAx_N'] , axis = 0)
         self.MOT['TotalMoment_BodyAx_N'] = np.sum(self.MOT['Moment_BodyAx_N'] , axis = 0)
         
+    def AERO_fcn(self):
+        
+        def CalcInducedAOA(Xw_m,XCG_m,q_radps,TAS_mps,Inc_deg,AOA_Acft_deg,EPS_deg):
+            '''
+            Function to calculate the final Angle of Attack of surface (SurfaceAoA), considering
+            Aircraft AOA (AOA_Acft_deg), surface incidence (Inc_deg), Downwash (EPS_deg),
+            and induced angle due to pitch rate (q_degps)
+            '''
+            
+            if abs(TAS_mps) < 1e-4:
+                SurfaceAoA = (+AOA_Acft_deg
+                              +Inc_deg
+                              -EPS_deg
+                              + np.rad2deg( np.arctan2(
+                                            (Xw_m - XCG_m) * q_radps,
+                                            0)))
+            else:
+                 SurfaceAoA = (+AOA_Acft_deg
+                              +Inc_deg
+                              -EPS_deg
+                              + np.rad2deg( np.arctan2(
+                                            (Xw_m - XCG_m) * q_radps,
+                                            TAS_mps)))                   
+            
+            return SurfaceAoA
+
+        def CalcInducedBETA(Xw_m,XCG_m,r_radps,TAS_mps,Inc_deg,BETA_Acft_deg,Sidewash_deg):
+            '''
+            Function to calculate the final Angle of Sideslip of surface (SurfaceBETA), considering
+            Aircraft Beta (BETA_Acft_deg), surface incidence (Inc_deg), Sidewash (Sidewash_deg),
+            and induced angle due to yaw rate (r_radps)
+            '''
+            if abs(TAS_mps) < 1e-4:
+                 SurfaceBETA = (+BETA_Acft_deg
+                              -Inc_deg
+                              +Sidewash_deg
+                              - np.rad2deg( np.arctan2(
+                                            (Xw_m - XCG_m) * r_radps,
+                                            0)))
+            else:
+                 SurfaceBETA = (+BETA_Acft_deg
+                              -Inc_deg
+                              +Sidewash_deg
+                              - np.rad2deg( np.arctan2(
+                                            (Xw_m - XCG_m) * r_radps,
+                                            TAS_mps)))
+            
+            return SurfaceBETA
+        
+        
+        self.AERO['Wing']['Incidence_deg'] = (self.CONT['MinTilt_deg'][0] 
+                                            + self.CONT['TiltRange_deg'][0] * self.CONT['Tilt_p'])
+        
+        self.AERO['Wing']['EPS_deg'] = np.array([0,0])
+
+        self.AERO['Wing']['Alpha_deg'] = CalcInducedAOA(self.GEOM['Wing']['X_m'],
+                                                         self.MASS['CG_m'][0],
+                                                         self.EQM['VelRot_BodyAx_radps'][1],
+                                                         self.ATM['TAS_mps'],
+                                                         self.AERO['Wing']['Incidence_deg'],
+                                                         self.ATM['Alpha_deg'],
+                                                         self.AERO['Wing']['EPS_deg'])
+    
+        self.AERO['Wing']['Beta_deg'] = CalcInducedBETA(self.GEOM['Wing']['X_m'],
+                                                        self.MASS['CG_m'][0],
+                                                        self.EQM['VelRot_BodyAx_radps'][2],
+                                                        self.ATM['TAS_mps'],
+                                                        np.array([0,0]),
+                                                        self.ATM['Beta_deg'],
+                                                        np.array([0,0]))
+        
+        # Calculate Coefficients in Stability Axis
+        # CL and CD for the Flat Plate model - Jie Xu - Learning to Fly: Computational Controller Design for Hybrid ...-
+        self.AERO['Wing']['CDS']   = 2*self.sind(self.AERO['Wing']['Alpha_deg'])*self.sind(self.AERO['Wing']['Alpha_deg'])
+        self.AERO['Wing']['CYS']   = np.array([0,0])
+        self.AERO['Wing']['CLS']   = 2*self.sind(self.AERO['Wing']['Alpha_deg'])*self.cosd(self.AERO['Wing']['Alpha_deg'])
+        self.AERO['Wing']['CRS25'] = np.array([0,0])
+        self.AERO['Wing']['CMS25'] = np.array([0,0])
+        self.AERO['Wing']['CNS25'] = np.array([0,0])
+        
+        # Calculate Coefficcient in Body Axis - Rotate using Aricraft Alpha_deg
+ 
+        self.AERO['Wing']['CDB']   = (+ self.cosd(self.ATM['Alpha_deg']) * self.AERO['Wing']['CDS'] 
+                                      - self.sind(self.ATM['Alpha_deg']) * self.AERO['Wing']['CLS'] )
+        self.AERO['Wing']['CYB']   = self.AERO['Wing']['CYS']
+        self.AERO['Wing']['CLB']   = (+ self.cosd(self.ATM['Alpha_deg']) * self.AERO['Wing']['CLS'] 
+                                      + self.sind(self.ATM['Alpha_deg']) * self.AERO['Wing']['CDS'] )    
+      
+        self.AERO['Wing']['CXB']   = -self.AERO['Wing']['CDB']
+        self.AERO['Wing']['CZB']   = -self.AERO['Wing']['CLB']
+        
+        self.AERO['Wing']['CRB25'] = (+ self.cosd(self.ATM['Alpha_deg']) * self.AERO['Wing']['CRS25'] 
+                                      - self.sind(self.ATM['Alpha_deg']) * self.AERO['Wing']['CNS25'] )
+        self.AERO['Wing']['CMB25'] = np.array([0,0])
+        self.AERO['Wing']['CNB25'] = (+ self.cosd(self.ATM['Alpha_deg']) * self.AERO['Wing']['CNS25'] 
+                                      + self.sind(self.ATM['Alpha_deg']) * self.AERO['Wing']['CRS25'] )    
+        
+        # Calculate Moments in CG
+        self.AERO['Wing']['CRBCG'] = ( + self.AERO['Wing']['CZB'] * (self.GEOM['Wing']['Y_m'] - self.MASS['CG_m'][1]) / self.GEOM['Wing']['b_m']
+                                       + self.AERO['Wing']['CYB'] * (self.GEOM['Wing']['Z_m'] - self.MASS['CG_m'][2]) / self.GEOM['Wing']['b_m']
+                                       + self.AERO['Wing']['CRS25'] )
+                                      
+        self.AERO['Wing']['CMBCG'] = ( + self.AERO['Wing']['CZB'] * (self.GEOM['Wing']['X_m'] - self.MASS['CG_m'][0]) / self.GEOM['Wing']['cma_m']
+                                       - self.AERO['Wing']['CXB'] * (self.GEOM['Wing']['Z_m'] - self.MASS['CG_m'][2]) / self.GEOM['Wing']['cma_m']
+                                       + self.AERO['Wing']['CMS25'] )
+        
+        self.AERO['Wing']['CNBCG'] = ( - self.AERO['Wing']['CYB'] * (self.GEOM['Wing']['X_m'] - self.MASS['CG_m'][0]) / self.GEOM['Wing']['b_m']
+                                       - self.AERO['Wing']['CXB'] * (self.GEOM['Wing']['Y_m'] - self.MASS['CG_m'][1]) / self.GEOM['Wing']['b_m']
+                                       + self.AERO['Wing']['CNS25'] )
+        
+        # Calculate Surfaces Forces and Moments
+        self.AERO['Wing']['FXB_N']   = self.AERO['Wing']['CXB'] * self.ATM['DynPres_Pa'] * self.GEOM['Wing']['S_m2']
+        self.AERO['Wing']['FYB_N']   = self.AERO['Wing']['CYB'] * self.ATM['DynPres_Pa'] * self.GEOM['Wing']['S_m2']
+        self.AERO['Wing']['FZB_N']   = self.AERO['Wing']['CZB'] * self.ATM['DynPres_Pa'] * self.GEOM['Wing']['S_m2']
+        self.AERO['Wing']['MXB_Nm']  = self.AERO['Wing']['CRBCG'] * self.ATM['DynPres_Pa'] * self.GEOM['Wing']['S_m2'] * self.GEOM['Wing']['b_m']
+        self.AERO['Wing']['MYB_Nm']  = self.AERO['Wing']['CMBCG'] * self.ATM['DynPres_Pa'] * self.GEOM['Wing']['S_m2'] * self.GEOM['Wing']['cma_m']
+        self.AERO['Wing']['MZB_Nm']  = self.AERO['Wing']['CNBCG'] * self.ATM['DynPres_Pa'] * self.GEOM['Wing']['S_m2'] * self.GEOM['Wing']['b_m']
+        
+        # Calculate Total Forces and Moments
+        self.AERO['TotalForce_BodyAx_N']  = np.array([np.sum( self.AERO['Wing']['FXB_N'] ),
+                                                      np.sum( self.AERO['Wing']['FYB_N'] ),
+                                                      np.sum( self.AERO['Wing']['FZB_N'] )])
+        self.AERO['TotalMoment_BodyAx_N'] = np.array([np.sum( self.AERO['Wing']['MXB_Nm'] ),
+                                                      np.sum( self.AERO['Wing']['MYB_Nm'] ),
+                                                      np.sum( self.AERO['Wing']['MZB_Nm'] )])
+
+ 
