@@ -25,12 +25,13 @@ class Vahana_VertFlight(gym.Env):
         # Define action and observation space
         '''
         sta: vetor de estados na ordem:
-        VL_b: vetor velocidades lineares no eixo do corpo (u,v,w)
-        VR_b: vetor velocidade rotacional no eixo do corpo (p, q, r)
         XL_e: vetor posição lineares no eixo da terra (X, Y, Z)
         XR_e: vetor posição rotacional no eixo da terra (phi, theta psi)  
+        VL_b: vetor velocidades lineares no eixo do corpo (u,v,w)
+        VR_b: vetor velocidade rotacional no eixo do corpo (p, q, r)
         '''
-        self.MaxState = np.array([20,20,20,np.pi,np.pi,np.pi,20,20,20,np.pi,np.pi,np.pi])
+        self.MaxState = np.array([np.inf,np.inf,np.inf,np.pi,np.pi,np.pi,np.inf,np.inf,np.inf,np.pi,np.pi,np.pi,
+                                  np.inf,np.inf,np.inf,np.pi,np.pi,np.pi,np.inf,np.inf,np.inf,np.pi,np.pi,np.pi])
         
         '''
         ACTIONS:
@@ -47,42 +48,44 @@ class Vahana_VertFlight(gym.Env):
                                             dtype=np.float16)  
 
     
-    def reset(self,XV=0):
+    def reset(self,Z=0):
       # Initialize Contants  
       self.StartUp()
       
-      # Reset the state of the environment to an initial state
-      if type(XV) == np.ndarray:
-          X = XV[0]
-          V = XV[1]
-      else:
-          Energy = 100
-          Theta = np.random.random(1) * 2 * np.pi
-          X = Energy**0.5 * np.cos(Theta[0])
-          V = Energy**0.5 * np.sin(Theta[0])
+      # # Reset the state of the environment to an initial state
+      # if type(Z) == np.ndarray:
+      #     X = XV[0]
+      #     V = XV[1]
+      # else:
+      #     Energy = 100
+      #     Theta = np.random.random(1) * 2 * np.pi
+      #     X = Energy**0.5 * np.cos(Theta[0])
+      #     V = Energy**0.5 * np.sin(Theta[0])
 
       self.EQM['sta']        = np.zeros(shape=12,dtype = np.float32)
-      self.EQM['sta'][2]     = X
-      self.EQM['sta'][8]     = V
+      self.EQM['sta'][2]     = Z
       self.EQM['sta_dot']    = np.zeros(shape=np.shape(self.EQM['sta']),dtype = np.float32)
       self.EQM['sta_dotdot'] = np.zeros(shape=np.shape(self.EQM['sta']),dtype = np.float32)
       
       self.EQM_fcn(np.array([0,0,0]), np.array([0,0,0]), self.MASS['I_kgm'], self.MASS['Weight_kgf'])
       
       # Set Initial Control
-      self.CONT['RPM_p']  = np.ones(self.MOT['n_motor']) * 0.5
-      self.CONT['Tilt_p'] = np.ones(2) * 1
+      self.CONT['RPM_p']  = np.ones(self.MOT['n_motor']) * 1**2
+      self.CONT['Tilt_p'] = np.ones(self.CONT['n_TiltSurf']) * 1
       
       self.CurrentStep = 0
       
       self.AllStates = self.EQM['sta']
+
+      obs = np.hstack((self.EQM['sta'],self.EQM['sta_dot'],self.CONT['RPM_p']))
       
-      return self.EQM['sta']
+      return obs
   
     def step(self, action):
       self.CurrentStep += 1
       
       # Calculate Atmosphere, Motor Forces and Aero Forces
+      self.CONT_fcn(action)
       self.StdAtm_fcn()
       self.MOT_fcn()
       self.AERO_fcn()
@@ -115,8 +118,10 @@ class Vahana_VertFlight(gym.Env):
       info['EQM']  = self.EQM
       info['MOT']  = self.MOT
       info['AERO'] = self.AERO
+      info['CONT'] = self.CONT
       
-      obs = np.take(self.EQM['sta'],np.array([0,5]))
+      # obs = np.take(self.EQM['sta'],np.array([0,5]))
+      obs = np.hstack((self.EQM['sta'],self.EQM['sta_dot'],self.CONT['RPM_p']))
       return obs, self.LastReward, done, info
       
     def CalcReward(self):
@@ -133,8 +138,8 @@ class Vahana_VertFlight(gym.Env):
         plt.figure(1)
         plt.clf()
         plt.grid('on')
-        plt.xlim((self.observation_space.low[0],self.observation_space.high[0]))
-        plt.ylim((self.observation_space.low[1],self.observation_space.high[1]))
+        # plt.xlim((self.observation_space.low[0],self.observation_space.high[0]))
+        # plt.ylim((self.observation_space.low[1],self.observation_space.high[1]))
         if self.CurrentStep > 0:
             plt.plot(self.AllStates[:,2],self.AllStates[:,8],'tab:gray')
             plt.plot(self.AllStates[-1,2],self.AllStates[-1,8],'or')
@@ -185,8 +190,8 @@ class Vahana_VertFlight(gym.Env):
       
       self.ATM['Const'] = {}
       
-      self.ATM['Const']['C2K'] = 273.15
-      self.ATM['Const']['R']   = 287.04  
+      self.ATM['Const']['C2K']         = 273.15
+      self.ATM['Const']['R']           = 287.04  
       self.ATM['Const']['P0_Pa']       = 101325
       self.ATM['Const']['T0_C']        = 15
       self.ATM['Const']['T0_K']        = self.ATM['Const']['T0_C'] + self.ATM['Const']['C2K']
@@ -206,40 +211,63 @@ class Vahana_VertFlight(gym.Env):
       self.GEOM['Wing']['Z_m']   = np.array([0,0])
  
       # MASS
-      self.MASS['Weight_kgf'] = 2.5
-      self.MASS['I_kgm'] = np.array([[1000,0,0],[0,1000,0],[0,0,1000]])
-      self.MASS['CG_m'] = np.array([2.5,0,0])
+      self.MASS['Pax']             = np.array([1,1])
+      self.MASS['PaxWeight_kgf']   = 100
+      self.MASS['EmptyWeight_kgf'] = 820 
+      self.MASS['Weight_kgf'] = self.MASS['EmptyWeight_kgf'] + np.sum(self.MASS['Pax']) * self.MASS['PaxWeight_kgf']
+      self.MASS['Empty_CG_m'] = np.array([1.59 , 0.0 , 0.43])
+      self.MASS['PaxPos_m'] = np.array([[0.9 , 0.0 , 1.0],
+                                        [2.5 , 0.0 , 1.0]])
+      self.MASS['CG_m'] = np.array(self.MASS['Empty_CG_m']    * self.MASS['EmptyWeight_kgf'] + 
+                                   self.MASS['PaxPos_m'][0,:] * self.MASS['Pax'][0] * self.MASS['PaxWeight_kgf'] +
+                                   self.MASS['PaxPos_m'][1,:] * self.MASS['Pax'][1] * self.MASS['PaxWeight_kgf']) / self.MASS['Weight_kgf']
+      Pax2CG_sq = (self.MASS['PaxPos_m'] - self.MASS['CG_m'])**2                  
+      Emp2CG_sq = (self.MASS['Empty_CG_m'] - self.MASS['CG_m'])**2                  
+      Ixx = 2774 + ((Pax2CG_sq[0][1] + Pax2CG_sq[0][2]) * self.MASS['Pax'][0] * self.MASS['PaxWeight_kgf'] +
+                    (Pax2CG_sq[1][1] + Pax2CG_sq[1][2]) * self.MASS['Pax'][1] * self.MASS['PaxWeight_kgf'] + 
+                    (Emp2CG_sq[1]    + Emp2CG_sq[2])    * self.MASS['EmptyWeight_kgf'])
+      Iyy = 1812 + ((Pax2CG_sq[0][0] + Pax2CG_sq[0][2]) * self.MASS['Pax'][0] * self.MASS['PaxWeight_kgf'] +
+                    (Pax2CG_sq[1][0] + Pax2CG_sq[1][2]) * self.MASS['Pax'][1] * self.MASS['PaxWeight_kgf'] +
+                    (Emp2CG_sq[0]    + Emp2CG_sq[2])    * self.MASS['EmptyWeight_kgf'])
+      Izz = 3740 + ((Pax2CG_sq[0][0] + Pax2CG_sq[0][1]) * self.MASS['Pax'][0] * self.MASS['PaxWeight_kgf'] +
+                    (Pax2CG_sq[1][0] + Pax2CG_sq[1][1]) * self.MASS['Pax'][1] * self.MASS['PaxWeight_kgf'] +
+                    (Emp2CG_sq[0]    + Emp2CG_sq[1])    * self.MASS['EmptyWeight_kgf'])
+      self.MASS['I_kgm'] = np.array([[Ixx,0,0],[0,Iyy,0],[0,0,Izz]])
+                                   
       
       # AERO
       self.AERO['Wing'] = {}
 
       # MOTOR
-      x1 = 1
-      x2 = 4
-      y1 = 1
-      y2 = 3
-      z  = 0
+      x1 = 0.0375
+      x2 = 2*self.MASS['CG_m'][0] - x1
+      y1 = 1.3
+      y2 = 3.0
+      z1  = 0
+      z2 = 1.5
       
       self.MOT['n_motor'] = 8
-      self.MOT['Position_m'] = np.array([[x1,-y2,z],
-                                         [x1,-y1,z],
-                                         [x1,+y1,z],
-                                         [x1,+y2,z],
-                                         [x2,-y2,z],
-                                         [x2,-y1,z],
-                                         [x2,+y1,z],
-                                         [x2,+y2,z]])
+      self.MOT['Position_m'] = np.array([[x1,-y2,z1],
+                                         [x1,-y1,z1],
+                                         [x1,+y1,z1],
+                                         [x1,+y2,z1],
+                                         [x2,-y2,z2],
+                                         [x2,-y1,z2],
+                                         [x2,+y1,z2],
+                                         [x2,+y2,z2]])
 
       self.MOT['MaxRPM']        = np.ones(self.MOT['n_motor']) * 3000
-      self.MOT['Diameter_m']    = np.ones(self.MOT['n_motor']) * 19 * 0.0254
+      self.MOT['MinRPM']        = np.ones(self.MOT['n_motor']) * 0.01
+      self.MOT['RPMRange']      = self.MOT['MaxRPM'] - self.MOT['MinRPM'] 
+      self.MOT['Diameter_m']    = np.ones(self.MOT['n_motor']) * 1.5
       self.MOT['RotationSense'] = np.array([-1,+1,-1,+1,
                                             +1,-1,+1,-1])  
       
-      # CT e CP - Source Fig 5.177-178 John Brandt - SMALL-SCALE PROPELLER PERFORMANCE AT LOW SPEEDS
-      self.MOT['CT_J']       = np.array([[0.0 , 0.5 , 0.9 ] , 
-                                         [0.09, 0.05, 0.00]])
-      self.MOT['CP_J']       = np.array([[0.0 , 0.5 , 0.9 ] , 
-                                         [0.04, 0.04, 0.01]])
+      # CT e CP - Vide planilha
+      self.MOT['CT_J']       = np.array([[0.0 , 0.01 , 0.80] , 
+                                         [0.14, 0.14 , 0.00]])
+      self.MOT['CP_J']       = np.array([[0.0 , 0.01 , 0.80] , 
+                                         [0.06, 0.06 , 0.01]])
 
       self.MOT['TiltSurf_link']  = np.array([0,0,0,0,1,1,1,1])                 #ID of surface which the motor is linked. Every motor will rotate the same amount
       
@@ -422,13 +450,13 @@ class Vahana_VertFlight(gym.Env):
                                                self.ATM['Vaero'][0]))
         
     # %% MOTOR MODEL
-    def MOT_fcn(self):
+    def MOT_fcn(self):            
         # Calcular Tracao/Torque de Cada Helice
         # Calcular Fp de cada hélice
         # Calcular Torque devido a inercia (conservacao momento angular)
         
         # Calculate RPM and Rotation of each Propeller
-        self.MOT['RPM'] = np.multiply(self.CONT['RPM_p'],self.MOT['MaxRPM'])
+        self.MOT['RPM'] = np.multiply(self.CONT['RPM_p'],self.MOT['RPMRange']) + self.MOT['MinRPM']
         self.MOT['RPS'] = self.MOT['RPM'] / 60
         
         
@@ -468,7 +496,7 @@ class Vahana_VertFlight(gym.Env):
             
         # Calculate Advance Ratio (J) CT (Thrust Coef) and CP (Power Coef)
         # Source: Diss. Mestrado Daud Filho
-        MOT_J = MOT_VTotal_p[:,0] / (self.MOT['RPM']/60 * self.MOT['Diameter_m'])
+        MOT_J = MOT_VTotal_p[:,0] / (self.MOT['RPS'] * self.MOT['Diameter_m'])
         MOT_CT = np.interp(MOT_J,self.MOT['CT_J'][0,:],self.MOT['CT_J'][1,:])
         MOT_CP = np.interp(MOT_J,self.MOT['CP_J'][0,:],self.MOT['CP_J'][1,:])
         MOT_CQ = MOT_CP / (2*np.pi)
@@ -482,7 +510,10 @@ class Vahana_VertFlight(gym.Env):
         
         for i in range(self.MOT['n_motor']):
             self.MOT['Force_BodyAx_N'][i,:]  = np.dot(LM2B[:,:,i],np.array([self.MOT['Thrust_N'][i],0,0]))
-            self.MOT['Moment_BodyAx_N'][i,:] = np.cross(self.MOT['Position_m'][i,:] - self.MASS['CG_m'],self.MOT['Force_BodyAx_N'][i,:]) + np.dot(LM2B[:,:,i],np.array([self.MOT['Torque_Nm'][i],0,0]))*self.MOT['RotationSense'][i]
+            r    = self.MOT['Position_m'][i,:] - self.MASS['CG_m']
+            r[0] = -r[0]
+            r[2] = -r[2]
+            self.MOT['Moment_BodyAx_N'][i,:] = np.cross(r,self.MOT['Force_BodyAx_N'][i,:]) + np.dot(LM2B[:,:,i],np.array([self.MOT['Torque_Nm'][i],0,0]))*self.MOT['RotationSense'][i]
         
         self.MOT['TotalForce_BodyAx_N'] = np.sum(self.MOT['Force_BodyAx_N'] , axis = 0)
         self.MOT['TotalMoment_BodyAx_N'] = np.sum(self.MOT['Moment_BodyAx_N'] , axis = 0)
@@ -613,4 +644,6 @@ class Vahana_VertFlight(gym.Env):
                                                       np.sum( self.AERO['Wing']['MYB_Nm'] ),
                                                       np.sum( self.AERO['Wing']['MZB_Nm'] )])
 
- 
+    def CONT_fcn(self,action_vec):
+        self.CONT['RPM_p']  = action_vec[0:self.MOT['n_motor']] ** (1/2) 
+        self.CONT['Tilt_p'] = action_vec[self.MOT['n_motor']:self.MOT['n_motor'] + self.CONT['n_TiltSurf']]
