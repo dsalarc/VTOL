@@ -35,6 +35,14 @@ def SaveSelection(step,SaveVec,info):
     SaveVec = AppendValue(SaveVec,'Phi_deg',np.rad2deg(info['EQM']['EulerAngles_rad'][0]))
     SaveVec = AppendValue(SaveVec,'Theta_deg',np.rad2deg(info['EQM']['EulerAngles_rad'][1]))
     SaveVec = AppendValue(SaveVec,'Psi_deg',np.rad2deg(info['EQM']['EulerAngles_rad'][2]))
+    
+    SaveVec = AppendValue(SaveVec,'P_degps',np.rad2deg(info['EQM']['VelRot_BodyAx_radps'][0]))
+    SaveVec = AppendValue(SaveVec,'Q_degps',np.rad2deg(info['EQM']['VelRot_BodyAx_radps'][1]))
+    SaveVec = AppendValue(SaveVec,'R_degps',np.rad2deg(info['EQM']['VelRot_BodyAx_radps'][2]))
+    
+    SaveVec = AppendValue(SaveVec,'Pdot_radps2',np.rad2deg(info['EQM']['AccRot_BodyAx_radps2'][0]))
+    SaveVec = AppendValue(SaveVec,'Qdot_radps2',np.rad2deg(info['EQM']['AccRot_BodyAx_radps2'][1]))
+    SaveVec = AppendValue(SaveVec,'Rdot_radps2',np.rad2deg(info['EQM']['AccRot_BodyAx_radps2'][2]))
  
     SaveVec = AppendValue(SaveVec,'FX_N',info['EQM']['TotalForce'][0])
     SaveVec = AppendValue(SaveVec,'FY_N',info['EQM']['TotalForce'][1])
@@ -44,7 +52,12 @@ def SaveSelection(step,SaveVec,info):
     SaveVec = AppendValue(SaveVec,'MY_Nm',info['EQM']['TotalMoment'][1])
     SaveVec = AppendValue(SaveVec,'MZ_Nm',-info['EQM']['TotalMoment'][2])
  
+    SaveVec = AppendValue(SaveVec,'MXaero_Nm',info['AERO']['TotalMoment_BodyAx_Nm'][0])
+    SaveVec = AppendValue(SaveVec,'MYaero_Nm',info['AERO']['TotalMoment_BodyAx_Nm'][1])
+    SaveVec = AppendValue(SaveVec,'MZaero_Nm',-info['AERO']['TotalMoment_BodyAx_Nm'][2])
+ 
     SaveVec = AppendValue(SaveVec,'Alpha_deg',info['ATM']['Alpha_deg'])
+    SaveVec = AppendValue(SaveVec,'DynPres_Pa',info['ATM']['DynPres_Pa'])
 
     SaveVec = AppendValue(SaveVec,'W1_Alpha_deg',info['AERO']['Wing']['Alpha_deg'][0])
     SaveVec = AppendValue(SaveVec,'W2_Alpha_deg',info['AERO']['Wing']['Alpha_deg'][1])
@@ -94,11 +107,11 @@ def PID_eVTOL(Reference,obs,Last_u):
 
 def PID_Vert(WRef_mps,W_mps,AZ_mps2, Wint_m, KI=0, KD=0, KP=0, gamma = 0.99):
     Wint_m = Wint_m*gamma + (WRef_mps-W_mps)
-    u = -(KP*(WRef_mps-W_mps) + KD*AZ_mps2 + KI*Wint_m)
+    u = -(KP*(WRef_mps-W_mps) - KD*AZ_mps2 + KI*Wint_m)
     return u,Wint_m
 
 def PIDd_Vert(WRef_mps,W_mps,AZ_mps2, KI=0, KP=0, gamma = 0.99):
-    du = -(KI*(WRef_mps-W_mps) + KP*AZ_mps2)
+    du = -(KI*(WRef_mps-W_mps) - KP*AZ_mps2)
     return du
 
 def PID_Pitch(ThetaRef_rad,Theta_rad,Q_radps,KD=0,KP=0):
@@ -139,118 +152,153 @@ SaveVec = {}
 Reference = np.array([0,0,0,0]) # W,p,q,r
 Control_u = np.array([0,0,0,0]) # 
 # FORCE INPUT
-INP_RPM_p = np.array([[0, 5  , 10 , 11  , 12   , 13 , 30 , 35 , 40 , 50 , 60  ],
+INP_RPM_p = np.array([[0, 5  , 10 , 11  , 12   , 13 , 30 , 35 , 40 , 50 , 1000  ],
                       np.array([1, 1  , 1  , 1   , 1    , 1  , 1  , 1  , 1  , 1  , 1   ])*0.6,
                       [0, 0  , 0  , 0.01, -0.015, 0  , 0  , 0  , 0  , 0  , 0   ]])
 
-WRef = np.array([[0 , 10 , 15 , 20 , 60  ],
+WRef = np.array([[0 , 10 , 15 , 20 , 1000  ],
                  [0 , 0  , -5  , 0  , 0   ]])
 
-ThetaRef = np.array([[0 , 30 , 35 , 40 , 60  ],
+ThetaRef = np.array([[0 , 30 , 35 , 40 , 1000  ],
                      [0 , 0  , 5  , 0  , 0   ]])
 
-PhiRef = np.array([[0 , 40 , 45 , 50 , 60  ],
+PhiRef = np.array([[0 , 40 , 45 , 50 , 1000  ],
                    [0 , 0  , 5  , 0  , 0   ]])
 
 # %
 # Hardcoded best agent: always go left!
-n_steps = 1200
+n_steps = int(70/TestEnv.t_step)
 W_int = 0
 
-u_Vert=0.7
+u_Vert    = np.ones(n_steps+1)*0.8
+u_Pitch   = np.zeros(n_steps+1)
+u_Roll    = np.zeros(n_steps+1)
+
 for step in range(n_steps):
     
-    u_Vert,W_int  = PID_Vert(np.interp(step*0.05,WRef[0,:],WRef[1,:]),
-                              obs[8],obs[20],W_int,KD=0,KP=0.5, KI=0.05, gamma=0.99)
     
-    # u_Vert  += PIDd_Vert(np.interp(step*0.05,WRef[0,:],WRef[1,:]),
-    #                          obs[8],obs[20],KP=0.0, KI=0.01)
-    
-    u_Pitch = PID_Pitch(np.interp(step*0.05,ThetaRef[0,:],np.deg2rad(ThetaRef[1,:])),
-                        obs[4],obs[10],KD=0.5,KP=1)
-    
-    u_Roll  = PID_Roll(np.interp(step*0.05,PhiRef[0,:],np.deg2rad(PhiRef[1,:])),
-                        obs[3],obs[9],KD=0.5,KP=1)
-    
-    RPM_p  = ControlMixer(VerticalControlAllocation(u_Vert),
-                          PitchControlAllocation(u_Pitch),
-                          RollControlAllocation(u_Roll),
-                          YawControlAllocation(0))
+    if step < 1000/TestEnv.t_step:
+        RPM_p  = ControlMixer(VerticalControlAllocation(u_Vert[step]),
+                              PitchControlAllocation(u_Pitch[step]),
+                              RollControlAllocation(u_Roll[step]),
+                              YawControlAllocation(0))
+        
     Tilt_p = np.ones(2)
     InputVec = np.hstack((RPM_p,Tilt_p))
-    if step >= 350:
-        a=1
     
     obs, reward, done, info = TestEnv.step(InputVec)
     SaveVec = SaveSelection(step,SaveVec,info)
     if done:
       print("Goal reached!", "reward=", reward)
       break
+  
+    # u_Vert[step+1],W_int  = PID_Vert(np.interp(step*0.05,WRef[0,:],WRef[1,:]),
+    #                           obs[8],obs[20],W_int,KD=0,KP=0.5, KI=0.05, gamma=1)
+  
+    u_Vert[step+1]  = u_Vert[step] + PIDd_Vert(np.interp(step*TestEnv.t_step,WRef[0,:],WRef[1,:]),
+                                                obs[8],obs[20],KP=0.01, KI=0.05)
+  
+    u_Pitch[step+1] = PID_Pitch(np.interp(step*TestEnv.t_step,ThetaRef[0,:],np.deg2rad(ThetaRef[1,:])),
+                              obs[4],obs[10],KD=0.5,KP=1)
+  
+    u_Roll[step+1]  = PID_Roll(np.interp(step*TestEnv.t_step,PhiRef[0,:],np.deg2rad(PhiRef[1,:])),
+                              obs[3],obs[9],KD=0.5,KP=1)
 
-# % PLOT IN TIME
-t_step  = 0.05
+
+# %% PLOT IN TIME
+t_step  = TestEnv.t_step
 SimTime = n_steps*t_step
 TimeVec = np.arange(t_step,SimTime,t_step)
 if (SimTime - TimeVec[-1]) > t_step/2:
     TimeVec = np.append(TimeVec,SimTime)
 
-PlotTimeLim = SimTime
+PlotTime1 = 54
+PlotTime2 = SimTime
 fig = plt.figure()
 
 plt_l = 4
 plt_c = 2
 plt_n = 1
 
-plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
-plt.grid('on')
-plt.xlim([0,PlotTimeLim])
-plt.plot(TimeVec,SaveVec['Z_m'])
-plt.ylabel('Z [m]')
-plt.xlabel('Time [s]')
+# plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
+# plt.grid('on')
+# plt.xlim([PlotTime1,PlotTime2])
+# plt.plot(TimeVec,SaveVec['Z_m'])
+# plt.ylabel('Z [m]')
+# plt.xlabel('Time [s]')
 
 plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
 plt.grid('on')
-plt.xlim([0,PlotTimeLim])
+plt.xlim([PlotTime1,PlotTime2])
+plt.plot(TimeVec,SaveVec['U_mps'])
+# plt.plot(TimeVec,SaveVec['V_mps'])
+plt.plot(WRef[0,:],-WRef[1,:],'k--')
+plt.ylabel('U [m/s]')
+plt.xlabel('Time [s]')
+plt.ylim([-0.5,0.5])
+
+plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
+plt.grid('on')
+plt.xlim([PlotTime1,PlotTime2])
 plt.plot(TimeVec,SaveVec['W_mps'])
 plt.plot(WRef[0,:],-WRef[1,:],'k--')
 plt.ylabel('W [m/s]')
 plt.xlabel('Time [s]')
 
+# plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
+# plt.grid('on')
+# plt.xlim([PlotTime1,PlotTime2])
+# plt.plot(TimeVec,SaveVec['AZ_mps2'])
+# plt.ylabel('AZ [m/s²]')
+# plt.xlabel('Time [s]')
+
 plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
 plt.grid('on')
-plt.xlim([0,PlotTimeLim])
-plt.plot(TimeVec,SaveVec['AZ_mps2'])
-plt.ylabel('AZ [m/s²]')
+plt.xlim([PlotTime1,PlotTime2])
+plt.plot(TimeVec,SaveVec['DynPres_Pa'])
+plt.ylabel('DynPres [Pa]')
 plt.xlabel('Time [s]')
 
 plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
 plt.grid('on')
-plt.xlim([0,PlotTimeLim])
+plt.xlim([PlotTime1,PlotTime2])
+# plt.ylim([-100,100])
 # plt.plot(TimeVec,SaveVec['FZ_N'])
 # plt.ylabel('FZ [N]')
-plt.plot(TimeVec,SaveVec['MY_Nm'])
-plt.ylabel('MY [N]')
+# plt.plot(TimeVec,SaveVec['MY_Nm'])
+plt.plot(TimeVec,SaveVec['MYaero_Nm'])
+plt.ylabel('MYaero [N]')
 plt.xlabel('Time [s]')
 
 plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
 plt.grid('on')
-plt.xlim([0,PlotTimeLim])
+plt.xlim([PlotTime1,PlotTime2])
 plt.plot(TimeVec,SaveVec['Theta_deg'])
 plt.plot(ThetaRef[0,:],ThetaRef[1,:],'k--')
 plt.ylabel('Theta [deg]')
 plt.xlabel('Time [s]')
+plt.ylim([0,1])
 
 plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
 plt.grid('on')
-plt.xlim([0,PlotTimeLim])
-plt.plot(TimeVec,SaveVec['Phi_deg'])
-plt.plot(PhiRef[0,:],PhiRef[1,:],'k--')
-plt.ylabel('Phi [deg]')
+plt.xlim([PlotTime1,PlotTime2])
+plt.plot(TimeVec,SaveVec['Q_degps'])
+plt.plot(ThetaRef[0,:],ThetaRef[1,:],'k--')
+plt.ylabel('Q [deg/s]')
 plt.xlabel('Time [s]')
+plt.ylim([-1,1])
 
 # plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
 # plt.grid('on')
-# plt.xlim([0,PlotTimeLim])
+# plt.xlim([PlotTime1,PlotTime2])
+# plt.plot(TimeVec,SaveVec['Phi_deg'])
+# plt.plot(PhiRef[0,:],PhiRef[1,:],'k--')
+# plt.ylabel('Phi [deg]')
+# plt.xlabel('Time [s]')
+
+# plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
+# plt.grid('on')
+# plt.xlim([PlotTime1,PlotTime2])
 # plt.plot(TimeVec,SaveVec['Alpha_deg'],label = 'Alpha_deg')
 # plt.plot(TimeVec,SaveVec['W1_Alpha_deg'],label = 'W1_Alpha_deg')
 # plt.plot(TimeVec,SaveVec['W2_Alpha_deg'],label = 'W2_Alpha_deg')
@@ -259,17 +307,26 @@ plt.xlabel('Time [s]')
 
 plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
 plt.grid('on')
-plt.xlim([0,PlotTimeLim])
-plt.plot(TimeVec,SaveVec['RPM_1'],label='1')
-plt.plot(TimeVec,SaveVec['RPM_4'],label='4')
-plt.plot(TimeVec,SaveVec['RPM_5'],label='5')
-plt.ylabel('RPM')
+plt.xlim([PlotTime1,PlotTime2])
+plt.plot(TimeVec,u_Pitch[:-1],label='1')
+plt.ylabel('u_Pitch')
 plt.legend()
 plt.xlabel('Time [s]')
 
+# plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
+# plt.grid('on')
+# plt.xlim([PlotTime1,PlotTime2])
+# plt.plot(TimeVec,SaveVec['RPM_1'],label='1')
+# plt.plot(TimeVec,SaveVec['RPM_4'],label='4')
+# plt.plot(TimeVec,SaveVec['RPM_5'],label='5')
+# plt.ylabel('RPM')
+# plt.legend()
+# plt.xlabel('Time [s]')
+
 plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
 plt.grid('on')
-plt.xlim([0,PlotTimeLim])
+plt.xlim([PlotTime1,PlotTime2])
+plt.ylim([1200,1300])
 plt.plot(TimeVec,SaveVec['Thrust1_N'],label='1')
 plt.plot(TimeVec,SaveVec['Thrust4_N'],label='4')
 plt.plot(TimeVec,SaveVec['Thrust5_N'],label='5')
@@ -280,11 +337,100 @@ fig.set_size_inches(6, 7.5)
 fig.tight_layout() 
 
 plt.show()
+# %% PLOT IN TIME
+t_step  = TestEnv.t_step
+SimTime = n_steps*t_step
+TimeVec = np.arange(t_step,SimTime,t_step)
+if (SimTime - TimeVec[-1]) > t_step/2:
+    TimeVec = np.append(TimeVec,SimTime)
 
+PlotTime1 = 0
+PlotTime2 = SimTime
+fig = plt.figure()
+
+plt_l = 4
+plt_c = 2
+plt_n = 1
+
+plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
+plt.grid('on')
+plt.xlim([PlotTime1,PlotTime2])
+plt.plot(TimeVec,SaveVec['Z_m'])
+plt.ylabel('Z [m]')
+plt.xlabel('Time [s]')
+
+plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
+plt.grid('on')
+plt.xlim([PlotTime1,PlotTime2])
+plt.plot(TimeVec,SaveVec['U_mps'],label='U [mps]')
+plt.plot(TimeVec,SaveVec['V_mps'],label='V [mps]')
+plt.plot(TimeVec,SaveVec['W_mps'],label='W [mps]')
+plt.plot(WRef[0,:],-WRef[1,:],'k--')
+plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+plt.ylabel('Body Speed [m/s]')
+plt.xlabel('Time [s]')
+
+plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
+plt.grid('on')
+plt.xlim([PlotTime1,PlotTime2])
+plt.plot(TimeVec,SaveVec['AZ_mps2'])
+plt.ylabel('AZ [m/s²]')
+plt.xlabel('Time [s]')
+
+plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
+plt.grid('on')
+plt.xlim([PlotTime1,PlotTime2])
+plt.plot(TimeVec,SaveVec['MY_Nm'])
+# plt.plot(TimeVec,SaveVec['MYaero_Nm'])
+plt.ylabel('MYaero [N]')
+plt.xlabel('Time [s]')
+
+plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
+plt.grid('on')
+plt.xlim([PlotTime1,PlotTime2])
+plt.plot(TimeVec,SaveVec['Theta_deg'])
+plt.plot(ThetaRef[0,:],ThetaRef[1,:],'k--')
+plt.ylabel('Theta [deg]')
+plt.xlabel('Time [s]')
+
+plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
+plt.grid('on')
+plt.xlim([PlotTime1,PlotTime2])
+plt.plot(TimeVec,SaveVec['Phi_deg'])
+plt.plot(PhiRef[0,:],PhiRef[1,:],'k--')
+plt.ylabel('Phi [deg]')
+plt.xlabel('Time [s]')
+
+plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
+plt.grid('on')
+plt.xlim([PlotTime1,PlotTime2])
+plt.plot(TimeVec,SaveVec['RPM_1'],label='1')
+plt.plot(TimeVec,SaveVec['RPM_4'],label='4')
+plt.plot(TimeVec,SaveVec['RPM_5'],label='5')
+plt.ylabel('RPM')
+plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+plt.xlabel('Time [s]')
+
+plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
+plt.grid('on')
+plt.xlim([PlotTime1,PlotTime2])
+# plt.ylim([1200,1300])
+plt.plot(TimeVec,SaveVec['Thrust1_N'],label='1')
+plt.plot(TimeVec,SaveVec['Thrust4_N'],label='4')
+plt.plot(TimeVec,SaveVec['Thrust5_N'],label='5')
+plt.ylabel('Thrust [N]')
+plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+plt.xlabel('Time [s]')
+fig.set_size_inches(9, 7.5)
+fig.tight_layout() 
+
+plt.show()
+
+# %%
 # fig = plt.figure()
 # plt.plot(plt_l,plt_c,plt_n); plt_n+=1
 # plt.grid('on')
-# plt.xlim([0,PlotTimeLim])
+# plt.xlim([PlotTime1,PlotTime2])
 # plt.plot(TimeVec,SaveVec['Alpha_deg'],label = 'Alpha_deg')
 # plt.plot(TimeVec,SaveVec['W1_Alpha_deg'],label = 'W1_Alpha_deg')
 # plt.plot(TimeVec,SaveVec['W2_Alpha_deg'],label = 'W2_Alpha_deg')
@@ -295,7 +441,7 @@ plt.show()
 # fig = plt.figure()
 # plt.plot(plt_l,plt_c,plt_n); plt_n+=1
 # plt.grid('on')
-# plt.xlim([0,PlotTimeLim])
+# plt.xlim([PlotTime1,PlotTime2])
 # plt.plot(TimeVec,SaveVec['W1_CLS'],label = 'W1_CLS')
 # plt.plot(TimeVec,SaveVec['W2_CLS'],label = 'W2_CLS')
 # plt.legend()
@@ -305,7 +451,7 @@ plt.show()
 # fig = plt.figure()
 # plt.plot(plt_l,plt_c,plt_n); plt_n+=1
 # plt.grid('on')
-# plt.xlim([0,PlotTimeLim])
+# plt.xlim([PlotTime1,PlotTime2])
 # plt.plot(TimeVec,SaveVec['U_mps'],label = 'U_mps')
 # plt.plot(TimeVec,SaveVec['V_mps'],label = 'V_mps')
 # plt.legend()

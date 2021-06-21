@@ -70,7 +70,7 @@ class Vahana_VertFlight(gym.Env):
       self.EQM_fcn(np.array([0,0,0]), np.array([0,0,0]), self.MASS['I_kgm'], self.MASS['Weight_kgf'])
       
       # Set Initial Control
-      self.CONT['RPM_p']  = np.ones(self.MOT['n_motor']) * 1**2
+      self.CONT['RPM_p']  = np.ones(self.MOT['n_motor']) * 0.8**2
       self.CONT['Tilt_p'] = np.ones(self.CONT['n_TiltSurf']) * 1
       
       self.CurrentStep = 0
@@ -94,8 +94,8 @@ class Vahana_VertFlight(gym.Env):
  
       self.EQM['TotalForce'] = (self.MOT['TotalForce_BodyAx_N'] +
                                 self.AERO['TotalForce_BodyAx_N'])
-      self.EQM['TotalMoment'] = (self.MOT['TotalMoment_BodyAx_N'] +
-                                 self.AERO['TotalMoment_BodyAx_N'])  
+      self.EQM['TotalMoment'] = (self.MOT['TotalMoment_BodyAx_Nm'] +
+                                 self.AERO['TotalMoment_BodyAx_Nm'])  
      
  
       Last_Xdot    = self.EQM['sta_dot'].copy()
@@ -206,9 +206,17 @@ class Vahana_VertFlight(gym.Env):
       self.GEOM['Wing']['cma_m'] = np.array([1,1])
       self.GEOM['Wing']['b_m']   = np.array([8,8])
       self.GEOM['Wing']['S_m2']  = np.array([8,8])
-      self.GEOM['Wing']['X_m']   = np.array([1,4])
+      self.GEOM['Wing']['X_m']   = np.array([0.3,3.4])
       self.GEOM['Wing']['Y_m']   = np.array([0,0])
       self.GEOM['Wing']['Z_m']   = np.array([0,0])
+      
+      self.GEOM['Fus']          = {}
+      self.GEOM['Fus']['cma_m'] = np.array([3])
+      self.GEOM['Fus']['b_m']   = np.array([.9])
+      self.GEOM['Fus']['S_m2']  = np.array([np.pi * 0.45**2])
+      self.GEOM['Fus']['X_m']   = np.array([1.85])
+      self.GEOM['Fus']['Y_m']   = np.array([0])
+      self.GEOM['Fus']['Z_m']   = np.array([0])
  
       # MASS
       self.MASS['Pax']             = np.array([1,1])
@@ -237,6 +245,7 @@ class Vahana_VertFlight(gym.Env):
       
       # AERO
       self.AERO['Wing'] = {}
+      self.AERO['Fus']  = {}
 
       # MOTOR
       x1 = 0.0375
@@ -516,7 +525,7 @@ class Vahana_VertFlight(gym.Env):
             self.MOT['Moment_BodyAx_N'][i,:] = np.cross(r,self.MOT['Force_BodyAx_N'][i,:]) + np.dot(LM2B[:,:,i],np.array([self.MOT['Torque_Nm'][i],0,0]))*self.MOT['RotationSense'][i]
         
         self.MOT['TotalForce_BodyAx_N'] = np.sum(self.MOT['Force_BodyAx_N'] , axis = 0)
-        self.MOT['TotalMoment_BodyAx_N'] = np.sum(self.MOT['Moment_BodyAx_N'] , axis = 0)
+        self.MOT['TotalMoment_BodyAx_Nm'] = np.sum(self.MOT['Moment_BodyAx_N'] , axis = 0)
         
     def AERO_fcn(self):
         
@@ -589,15 +598,24 @@ class Vahana_VertFlight(gym.Env):
                                                         self.ATM['Beta_deg'],
                                                         np.array([0,0]))
         
+        self.AERO['Fus']['Beta_deg'] = self.ATM['Beta_deg']
+        
         # Calculate Coefficients in Stability Axis
         # CL and CD for the Flat Plate model - Jie Xu - Learning to Fly: Computational Controller Design for Hybrid ...-
-        self.AERO['Wing']['CDS']   = 2*self.sind(self.AERO['Wing']['Alpha_deg'])*self.sind(self.AERO['Wing']['Alpha_deg'])
+        self.AERO['Wing']['CDS']   = 2*self.sind(self.AERO['Wing']['Alpha_deg'])*self.sind(self.AERO['Wing']['Alpha_deg'])*abs(self.cosd(self.AERO['Wing']['Beta_deg']))
         self.AERO['Wing']['CYS']   = np.array([0,0])
-        self.AERO['Wing']['CLS']   = 2*self.sind(self.AERO['Wing']['Alpha_deg'])*self.cosd(self.AERO['Wing']['Alpha_deg'])
+        self.AERO['Wing']['CLS']   = 2*self.sind(self.AERO['Wing']['Alpha_deg'])*self.cosd(self.AERO['Wing']['Alpha_deg'])*abs(self.cosd(self.AERO['Wing']['Beta_deg']))
         self.AERO['Wing']['CRS25'] = np.array([0,0])
         self.AERO['Wing']['CMS25'] = np.array([0,0])
         self.AERO['Wing']['CNS25'] = np.array([0,0])
         
+        self.AERO['Fus']['CDS']   = 0.1
+        self.AERO['Fus']['CYS']   = - 0.4 * self.sind(self.AERO['Fus']['Beta_deg'])
+        self.AERO['Fus']['CLS']   = 0
+        self.AERO['Fus']['CRS25'] = 0
+        self.AERO['Fus']['CMS25'] = 0
+        self.AERO['Fus']['CNS25'] = 0
+       
         # Calculate Coefficcient in Body Axis - Rotate using Aricraft Alpha_deg
  
         self.AERO['Wing']['CDB']   = (+ self.cosd(self.ATM['Alpha_deg']) * self.AERO['Wing']['CDS'] 
@@ -611,10 +629,27 @@ class Vahana_VertFlight(gym.Env):
         
         self.AERO['Wing']['CRB25'] = (+ self.cosd(self.ATM['Alpha_deg']) * self.AERO['Wing']['CRS25'] 
                                       - self.sind(self.ATM['Alpha_deg']) * self.AERO['Wing']['CNS25'] )
-        self.AERO['Wing']['CMB25'] = np.array([0,0])
+        self.AERO['Wing']['CMB25'] = self.AERO['Wing']['CMS25'] 
         self.AERO['Wing']['CNB25'] = (+ self.cosd(self.ATM['Alpha_deg']) * self.AERO['Wing']['CNS25'] 
                                       + self.sind(self.ATM['Alpha_deg']) * self.AERO['Wing']['CRS25'] )    
         
+        
+        self.AERO['Fus']['CDB']   = (+ self.cosd(self.ATM['Alpha_deg']) * self.AERO['Fus']['CDS'] 
+                                      - self.sind(self.ATM['Alpha_deg']) * self.AERO['Fus']['CLS'] )
+        self.AERO['Fus']['CYB']   = self.AERO['Fus']['CYS']
+        self.AERO['Fus']['CLB']   = (+ self.cosd(self.ATM['Alpha_deg']) * self.AERO['Fus']['CLS'] 
+                                      + self.sind(self.ATM['Alpha_deg']) * self.AERO['Fus']['CDS'] )    
+      
+        self.AERO['Fus']['CXB']   = -self.AERO['Fus']['CDB']
+        self.AERO['Fus']['CZB']   = -self.AERO['Fus']['CLB']
+        
+        self.AERO['Fus']['CRB25'] = (+ self.cosd(self.ATM['Alpha_deg']) * self.AERO['Fus']['CRS25'] 
+                                      - self.sind(self.ATM['Alpha_deg']) * self.AERO['Fus']['CNS25'] )
+        self.AERO['Fus']['CMB25'] = np.array([0,0])
+        self.AERO['Fus']['CNB25'] = (+ self.cosd(self.ATM['Alpha_deg']) * self.AERO['Fus']['CNS25'] 
+                                      + self.sind(self.ATM['Alpha_deg']) * self.AERO['Fus']['CRS25'] )    
+
+
         # Calculate Moments in CG
         self.AERO['Wing']['CRBCG'] = ( + self.AERO['Wing']['CZB'] * (self.GEOM['Wing']['Y_m'] - self.MASS['CG_m'][1]) / self.GEOM['Wing']['b_m']
                                        + self.AERO['Wing']['CYB'] * (self.GEOM['Wing']['Z_m'] - self.MASS['CG_m'][2]) / self.GEOM['Wing']['b_m']
@@ -627,6 +662,18 @@ class Vahana_VertFlight(gym.Env):
         self.AERO['Wing']['CNBCG'] = ( - self.AERO['Wing']['CYB'] * (self.GEOM['Wing']['X_m'] - self.MASS['CG_m'][0]) / self.GEOM['Wing']['b_m']
                                        - self.AERO['Wing']['CXB'] * (self.GEOM['Wing']['Y_m'] - self.MASS['CG_m'][1]) / self.GEOM['Wing']['b_m']
                                        + self.AERO['Wing']['CNS25'] )
+
+        self.AERO['Fus']['CRBCG'] = ( + self.AERO['Fus']['CZB'] * (self.GEOM['Fus']['Y_m'] - self.MASS['CG_m'][1]) / self.GEOM['Fus']['b_m']
+                                       + self.AERO['Fus']['CYB'] * (self.GEOM['Fus']['Z_m'] - self.MASS['CG_m'][2]) / self.GEOM['Fus']['b_m']
+                                       + self.AERO['Fus']['CRS25'] )
+                                      
+        self.AERO['Fus']['CMBCG'] = ( + self.AERO['Fus']['CZB'] * (self.GEOM['Fus']['X_m'] - self.MASS['CG_m'][0]) / self.GEOM['Fus']['cma_m']
+                                       - self.AERO['Fus']['CXB'] * (self.GEOM['Fus']['Z_m'] - self.MASS['CG_m'][2]) / self.GEOM['Fus']['cma_m']
+                                       + self.AERO['Fus']['CMS25'] )
+        
+        self.AERO['Fus']['CNBCG'] = ( - self.AERO['Fus']['CYB'] * (self.GEOM['Fus']['X_m'] - self.MASS['CG_m'][0]) / self.GEOM['Fus']['b_m']
+                                       - self.AERO['Fus']['CXB'] * (self.GEOM['Fus']['Y_m'] - self.MASS['CG_m'][1]) / self.GEOM['Fus']['b_m']
+                                       + self.AERO['Fus']['CNS25'] )
         
         # Calculate Surfaces Forces and Moments
         self.AERO['Wing']['FXB_N']   = self.AERO['Wing']['CXB'] * self.ATM['DynPres_Pa'] * self.GEOM['Wing']['S_m2']
@@ -635,14 +682,28 @@ class Vahana_VertFlight(gym.Env):
         self.AERO['Wing']['MXB_Nm']  = self.AERO['Wing']['CRBCG'] * self.ATM['DynPres_Pa'] * self.GEOM['Wing']['S_m2'] * self.GEOM['Wing']['b_m']
         self.AERO['Wing']['MYB_Nm']  = self.AERO['Wing']['CMBCG'] * self.ATM['DynPres_Pa'] * self.GEOM['Wing']['S_m2'] * self.GEOM['Wing']['cma_m']
         self.AERO['Wing']['MZB_Nm']  = self.AERO['Wing']['CNBCG'] * self.ATM['DynPres_Pa'] * self.GEOM['Wing']['S_m2'] * self.GEOM['Wing']['b_m']
+
+        self.AERO['Fus']['FXB_N']   = self.AERO['Fus']['CXB'] * self.ATM['DynPres_Pa'] * self.GEOM['Fus']['S_m2']
+        self.AERO['Fus']['FYB_N']   = self.AERO['Fus']['CYB'] * self.ATM['DynPres_Pa'] * self.GEOM['Fus']['S_m2']
+        self.AERO['Fus']['FZB_N']   = self.AERO['Fus']['CZB'] * self.ATM['DynPres_Pa'] * self.GEOM['Fus']['S_m2']
+        self.AERO['Fus']['MXB_Nm']  = self.AERO['Fus']['CRBCG'] * self.ATM['DynPres_Pa'] * self.GEOM['Fus']['S_m2'] * self.GEOM['Fus']['b_m']
+        self.AERO['Fus']['MYB_Nm']  = self.AERO['Fus']['CMBCG'] * self.ATM['DynPres_Pa'] * self.GEOM['Fus']['S_m2'] * self.GEOM['Fus']['cma_m']
+        self.AERO['Fus']['MZB_Nm']  = self.AERO['Fus']['CNBCG'] * self.ATM['DynPres_Pa'] * self.GEOM['Fus']['S_m2'] * self.GEOM['Fus']['b_m']
         
         # Calculate Total Forces and Moments
-        self.AERO['TotalForce_BodyAx_N']  = np.array([np.sum( self.AERO['Wing']['FXB_N'] ),
-                                                      np.sum( self.AERO['Wing']['FYB_N'] ),
-                                                      np.sum( self.AERO['Wing']['FZB_N'] )])
-        self.AERO['TotalMoment_BodyAx_N'] = np.array([np.sum( self.AERO['Wing']['MXB_Nm'] ),
-                                                      np.sum( self.AERO['Wing']['MYB_Nm'] ),
-                                                      np.sum( self.AERO['Wing']['MZB_Nm'] )])
+        self.AERO['TotalForce_BodyAx_N']  = (np.array([np.sum( self.AERO['Wing']['FXB_N'] ),
+                                                       np.sum( self.AERO['Wing']['FYB_N'] ),
+                                                       np.sum( self.AERO['Wing']['FZB_N'] )]) +
+                                             np.array([np.sum( self.AERO['Fus']['FXB_N'] ),
+                                                       np.sum( self.AERO['Fus']['FYB_N'] ),
+                                                       np.sum( self.AERO['Fus']['FZB_N'] )]) )
+                                            
+        self.AERO['TotalMoment_BodyAx_Nm'] = (np.array([np.sum( self.AERO['Wing']['MXB_Nm'] ),
+                                                       np.sum( self.AERO['Wing']['MYB_Nm'] ),
+                                                       np.sum( self.AERO['Wing']['MZB_Nm'] )]) + 
+                                              np.array([np.sum( self.AERO['Fus']['MXB_Nm'] ),
+                                                       np.sum( self.AERO['Fus']['MYB_Nm'] ),
+                                                       np.sum( self.AERO['Fus']['MZB_Nm'] )]))
 
     def CONT_fcn(self,action_vec):
         self.CONT['RPM_p']  = action_vec[0:self.MOT['n_motor']] ** (1/2) 
