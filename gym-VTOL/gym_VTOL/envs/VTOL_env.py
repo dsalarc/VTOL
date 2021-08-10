@@ -52,16 +52,6 @@ class Vahana_VertFlight(gym.Env):
       # Initialize Contants  
       self.StartUp()
       
-      # # Reset the state of the environment to an initial state
-      # if type(Z) == np.ndarray:
-      #     X = XV[0]
-      #     V = XV[1]
-      # else:
-      #     Energy = 100
-      #     Theta = np.random.random(1) * 2 * np.pi
-      #     X = Energy**0.5 * np.cos(Theta[0])
-      #     V = Energy**0.5 * np.sin(Theta[0])
-
       self.EQM['sta']        = np.zeros(shape=12,dtype = np.float32)
       self.EQM['sta'][2]     = Z
       self.EQM['sta_dot']    = np.zeros(shape=np.shape(self.EQM['sta']),dtype = np.float32)
@@ -78,13 +68,15 @@ class Vahana_VertFlight(gym.Env):
       self.AllStates = self.EQM['sta']
 
       obs = np.hstack((self.EQM['sta'],self.EQM['sta_dot'],self.CONT['RPM_p']))
+      # obs = np.array([obs[8],obs[20]])
       
       return obs
-  
+
     def step(self, action):
       self.CurrentStep += 1
       
-      # Calculate Atmosphere, Motor Forces and Aero Forces
+      # Calculate Control, Atmosphere, Motor Forces and Aero Forces
+      
       self.CONT_fcn(action)
       self.StdAtm_fcn()
       self.MOT_fcn()
@@ -122,11 +114,13 @@ class Vahana_VertFlight(gym.Env):
       
       # obs = np.take(self.EQM['sta'],np.array([0,5]))
       obs = np.hstack((self.EQM['sta'],self.EQM['sta_dot'],self.CONT['RPM_p']))
+      # obs = np.array([obs[8],obs[20]])
+
       return obs, self.LastReward, done, info
       
     def CalcReward(self):
         # Reward = 1 - np.sqrt(np.sum((self.EQM['sta'] / self.MaxState)**2))
-        Reward = 10 - (self.EQM['sta'][2]**2 + self.EQM['sta'][8]**2)/10
+        Reward =  - ( abs(self.EQM['sta'][8]) )
         return Reward    
     
 
@@ -287,8 +281,7 @@ class Vahana_VertFlight(gym.Env):
       self.CONT['TiltRange_deg'] = self.CONT['MaxTilt_deg'] - self.CONT['MinTilt_deg'] 
      
       # OTHER CONSTANTS
-
-    
+      
     # %% GENERAL FUNCTIONS
     def RotationMatrix(self,Phi_rad,Theta_rad,Psi_rad):
         
@@ -444,20 +437,31 @@ class Vahana_VertFlight(gym.Env):
         
         self.ATM['qc']         = self.ATM['P_Pa'] *((1+0.2*self.ATM['Mach']**2)**(7/2)-1)
         self.ATM['CAS_mps']    = self.ATM['Const']['Vsound0_mps']*np.sqrt(5*((self.ATM['qc'] /self.ATM['Const']['P0_Pa']+1)**(2/7)-1))
+
         
-        if abs(self.ATM['Vaero'][0]) < 1e-4:                                   # Saturation to improve stability
-            self.ATM['Alpha_deg'] = np.rad2deg(
-                                    np.arctan2(self.ATM['Vaero'][2],0))
-            self.ATM['Beta_deg']  = np.rad2deg(
-                                    np.arctan2(self.ATM['Vaero'][1]*np.cos(np.deg2rad(self.ATM['Alpha_deg'] )),
-                                               0))
+        if abs(self.ATM['Vaero'][0]) < 1e-2:
+            u = 0
         else:
-            self.ATM['Alpha_deg'] = np.rad2deg(
-                                    np.arctan2(self.ATM['Vaero'][2],self.ATM['Vaero'][0]))
-            self.ATM['Beta_deg']  = np.rad2deg(
-                                    np.arctan2(self.ATM['Vaero'][1]*np.cos(np.deg2rad(self.ATM['Alpha_deg'] )),
-                                               self.ATM['Vaero'][0]))
+            u = self.ATM['Vaero'][0]
+            
+        if abs(self.ATM['Vaero'][1]) < 1e-2:
+            v = 0
+        else:
+            v = self.ATM['Vaero'][1]
+            
+        if abs(self.ATM['Vaero'][2]) < 1e-2:
+            w = 0
+        else:
+            w = self.ATM['Vaero'][2]
+            
+        self.ATM['Alpha_deg'] = np.rad2deg(
+                               np.arctan2(w,u))
+       
+        Beta_aux  = np.rad2deg(
+                                np.arctan2(v*np.cos(np.deg2rad(self.ATM['Alpha_deg'] )),u))      
         
+        self.ATM['Beta_deg'] = Beta_aux * np.sign(self.cosd(Beta_aux))         #sign correction to consider backward flight (AOA = 180)
+       
     # %% MOTOR MODEL
     def MOT_fcn(self):            
         # Calcular Tracao/Torque de Cada Helice
@@ -480,7 +484,7 @@ class Vahana_VertFlight(gym.Env):
         # Aircraft Rotation (p,q,r)
         MOT_Vind      = np.zeros([self.MOT['n_motor'],3])
         MOT_VTotal_b  = np.zeros([self.MOT['n_motor'],3])
-        MOT_Vind      = np.cross(self.EQM['VelRot_BodyAx_radps'],self.MOT['Position_m'])
+        MOT_Vind      = np.cross(self.EQM['VelRot_BodyAx_radps'],(self.MOT['Position_m'] - self.MASS['CG_m']))
         MOT_VTotal_b  = np.add(self.ATM['Vaero'],MOT_Vind)
         
         
@@ -706,5 +710,16 @@ class Vahana_VertFlight(gym.Env):
                                                        np.sum( self.AERO['Fus']['MZB_Nm'] )]))
 
     def CONT_fcn(self,action_vec):
-        self.CONT['RPM_p']  = action_vec[0:self.MOT['n_motor']] ** (1/2) 
-        self.CONT['Tilt_p'] = action_vec[self.MOT['n_motor']:self.MOT['n_motor'] + self.CONT['n_TiltSurf']]
+        def VerticalControlAllocation(u):    
+          return np.array([+1,+1,+1,+1,+1,+1,+1,+1]) * u
+       
+        # RPM_vec = VerticalControlAllocation(action_vec[0:self.MOT['n_motor']])
+        # TILT_vec = action_vec[self.MOT['n_motor']:self.MOT['n_motor'] + self.CONT['n_TiltSurf']]
+        
+        RPM_vec = action_vec[0:self.MOT['n_motor']]
+        TILT_vec = action_vec[self.MOT['n_motor']:self.MOT['n_motor'] + self.CONT['n_TiltSurf']]
+
+        self.CONT['RPM_p']  = RPM_vec ** (1/2) 
+        self.CONT['Tilt_p'] = TILT_vec
+        
+
