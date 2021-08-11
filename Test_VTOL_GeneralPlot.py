@@ -6,9 +6,9 @@ Created on Tue Aug 10 20:10:33 2021
 @author: dsalarc
 """
 
-SimTime = n_steps*t_step
-TimeVec = np.arange(t_step,SimTime,t_step)
-if (SimTime - TimeVec[-1]) > t_step/2:
+SimTime = n_steps*TestEnv.t_step
+TimeVec = np.arange(TestEnv.t_step,SimTime,TestEnv.t_step)
+if (SimTime - TimeVec[-1]) > TestEnv.t_step/2:
     TimeVec = np.append(TimeVec,SimTime)
 
 PlotTime1 = 0
@@ -73,7 +73,7 @@ plt.xlabel('Time [s]')
 plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
 plt.grid('on')
 plt.xlim([PlotTime1,PlotTime2])
-plt.ylim([2100,2600])
+plt.ylim([1900,2400])
 plt.plot(TimeVec,SaveVec['RPM_1'],label='1')
 plt.plot(TimeVec,SaveVec['RPM_4'],label='4')
 plt.plot(TimeVec,SaveVec['RPM_5'],label='5')

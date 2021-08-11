@@ -197,27 +197,27 @@ class Vahana_VertFlight(gym.Env):
       
       # GEOM
       self.GEOM['Wing']          = {}
-      self.GEOM['Wing']['cma_m'] = np.array([1,1])
-      self.GEOM['Wing']['b_m']   = np.array([8,8])
-      self.GEOM['Wing']['S_m2']  = np.array([8,8])
+      self.GEOM['Wing']['cma_m'] = np.array([0.65,0.65])
+      self.GEOM['Wing']['b_m']   = np.array([6,6])
+      self.GEOM['Wing']['S_m2']  = np.array([3.9,3.9])
       self.GEOM['Wing']['X_m']   = np.array([0.3,3.4])
       self.GEOM['Wing']['Y_m']   = np.array([0,0])
-      self.GEOM['Wing']['Z_m']   = np.array([0,0])
+      self.GEOM['Wing']['Z_m']   = np.array([0,1.5])
       
       self.GEOM['Fus']          = {}
-      self.GEOM['Fus']['cma_m'] = np.array([3])
+      self.GEOM['Fus']['cma_m'] = np.array([4.1])
       self.GEOM['Fus']['b_m']   = np.array([.9])
       self.GEOM['Fus']['S_m2']  = np.array([np.pi * 0.45**2])
-      self.GEOM['Fus']['X_m']   = np.array([1.85])
+      self.GEOM['Fus']['X_m']   = np.array([2.05])
       self.GEOM['Fus']['Y_m']   = np.array([0])
       self.GEOM['Fus']['Z_m']   = np.array([0])
  
       # MASS
       self.MASS['Pax']             = np.array([1,1])
       self.MASS['PaxWeight_kgf']   = 100
-      self.MASS['EmptyWeight_kgf'] = 820 
+      self.MASS['EmptyWeight_kgf'] = 616
       self.MASS['Weight_kgf'] = self.MASS['EmptyWeight_kgf'] + np.sum(self.MASS['Pax']) * self.MASS['PaxWeight_kgf']
-      self.MASS['Empty_CG_m'] = np.array([1.59 , 0.0 , 0.43])
+      self.MASS['Empty_CG_m'] = np.array([1.85 , 0.0 , 0.53])
       self.MASS['PaxPos_m'] = np.array([[0.9 , 0.0 , 1.0],
                                         [2.5 , 0.0 , 1.0]])
       self.MASS['CG_m'] = np.array(self.MASS['Empty_CG_m']    * self.MASS['EmptyWeight_kgf'] + 
@@ -225,13 +225,13 @@ class Vahana_VertFlight(gym.Env):
                                    self.MASS['PaxPos_m'][1,:] * self.MASS['Pax'][1] * self.MASS['PaxWeight_kgf']) / self.MASS['Weight_kgf']
       Pax2CG_sq = (self.MASS['PaxPos_m'] - self.MASS['CG_m'])**2                  
       Emp2CG_sq = (self.MASS['Empty_CG_m'] - self.MASS['CG_m'])**2                  
-      Ixx = 2774 + ((Pax2CG_sq[0][1] + Pax2CG_sq[0][2]) * self.MASS['Pax'][0] * self.MASS['PaxWeight_kgf'] +
+      Ixx = 1987 + ((Pax2CG_sq[0][1] + Pax2CG_sq[0][2]) * self.MASS['Pax'][0] * self.MASS['PaxWeight_kgf'] +
                     (Pax2CG_sq[1][1] + Pax2CG_sq[1][2]) * self.MASS['Pax'][1] * self.MASS['PaxWeight_kgf'] + 
                     (Emp2CG_sq[1]    + Emp2CG_sq[2])    * self.MASS['EmptyWeight_kgf'])
-      Iyy = 1812 + ((Pax2CG_sq[0][0] + Pax2CG_sq[0][2]) * self.MASS['Pax'][0] * self.MASS['PaxWeight_kgf'] +
+      Iyy = 1648 + ((Pax2CG_sq[0][0] + Pax2CG_sq[0][2]) * self.MASS['Pax'][0] * self.MASS['PaxWeight_kgf'] +
                     (Pax2CG_sq[1][0] + Pax2CG_sq[1][2]) * self.MASS['Pax'][1] * self.MASS['PaxWeight_kgf'] +
                     (Emp2CG_sq[0]    + Emp2CG_sq[2])    * self.MASS['EmptyWeight_kgf'])
-      Izz = 3740 + ((Pax2CG_sq[0][0] + Pax2CG_sq[0][1]) * self.MASS['Pax'][0] * self.MASS['PaxWeight_kgf'] +
+      Izz = 2967 + ((Pax2CG_sq[0][0] + Pax2CG_sq[0][1]) * self.MASS['Pax'][0] * self.MASS['PaxWeight_kgf'] +
                     (Pax2CG_sq[1][0] + Pax2CG_sq[1][1]) * self.MASS['Pax'][1] * self.MASS['PaxWeight_kgf'] +
                     (Emp2CG_sq[0]    + Emp2CG_sq[1])    * self.MASS['EmptyWeight_kgf'])
       self.MASS['I_kgm'] = np.array([[Ixx,0,0],[0,Iyy,0],[0,0,Izz]])
@@ -242,7 +242,7 @@ class Vahana_VertFlight(gym.Env):
       self.AERO['Fus']  = {}
 
       # MOTOR
-      x1 = 0.0375
+      x1 = 0.04
       x2 = 2*self.MASS['CG_m'][0] - x1
       y1 = 1.3
       y2 = 3.0
@@ -259,7 +259,7 @@ class Vahana_VertFlight(gym.Env):
                                          [x2,+y1,z2],
                                          [x2,+y2,z2]])
 
-      self.MOT['MaxRPM']        = np.ones(self.MOT['n_motor']) * 3000
+      self.MOT['MaxRPM']        = np.ones(self.MOT['n_motor']) * 2600
       self.MOT['MinRPM']        = np.ones(self.MOT['n_motor']) * 0.01
       self.MOT['RPMRange']      = self.MOT['MaxRPM'] - self.MOT['MinRPM'] 
       self.MOT['Diameter_m']    = np.ones(self.MOT['n_motor']) * 1.5
