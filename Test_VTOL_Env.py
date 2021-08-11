@@ -127,25 +127,6 @@ def PID_Roll(PhiRef_rad,Phi_rad,P_radps,KD=0,KP=0):
     u = -(KP*(Phi_rad-PhiRef_rad) + KD*P_radps)
     return u
 
-def PitchControlAllocation(u):    
-    return np.array([+1,+1,+1,+1,-1,-1,-1,-1]) * u
-
-def RollControlAllocation(u):    
-    return np.array([+1,+1,-1,-1,+1,+1,-1,-1]) * u
-
-def YawControlAllocation(u):    
-    return np.array([-1,+1,-1,+1,+1,-1,+1,-1]) * u
-
-def VerticalControlAllocation(u):    
-    return np.array([+1,+1,+1,+1,+1,+1,+1,+1]) * u
-
-def ControlMixer(u_Vert,u_Pitch,u_Roll,u_Yaw):
-    SUM_INP = np.sum(np.array([u_Vert,u_Pitch,u_Roll,u_Yaw]),axis=0)
-    
-    INP_SAT = np.min( np.vstack((SUM_INP,np.ones(8) )) , axis=0)
-    INP_SAT = np.max( np.vstack((INP_SAT,np.zeros(8))) , axis=0)
-    
-    return INP_SAT
 # %% START ENV
 TestEnv = gym.make('gym_VTOL:Vahana_VertFlight-v0')
 
@@ -165,7 +146,7 @@ WRef = np.array([[0 , 10 , 15 , 20 , 1000  ],
                  [0 , 0  , -5  , 0  , 0   ]])
 
 ThetaRef = np.array([[0 , 30 , 35 , 40 , 1000  ],
-                     [0 , 0  , -5  , -1  , -1   ]])
+                     [0 , 0  , -5  , -0.0  , -0.0   ]])
 
 PhiRef = np.array([[0 , 40 , 45 , 50 , 1000  ],
                    [0 , 0  , -5  , 0  , 0   ]])
@@ -181,15 +162,9 @@ u_Roll    = np.zeros(n_steps+1)
 
 for step in range(n_steps):
     
-    
-    if step < 1000/TestEnv.t_step:
-        RPM_p  = ControlMixer(VerticalControlAllocation(u_Vert[step]),
-                              PitchControlAllocation(u_Pitch[step]),
-                              RollControlAllocation(u_Roll[step]),
-                              YawControlAllocation(0))
-        
+            
     Tilt_p = np.ones(2)
-    InputVec = np.hstack((u_Vert[step],Tilt_p))
+    InputVec = np.hstack((u_Vert[step],u_Pitch[step],u_Roll[step],0,Tilt_p))
     
     obs, reward, done, info = TestEnv.step(InputVec)
     SaveVec = SaveSelection(step,SaveVec,info)

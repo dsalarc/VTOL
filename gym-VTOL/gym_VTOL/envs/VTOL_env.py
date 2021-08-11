@@ -164,9 +164,9 @@ class Vahana_VertFlight(gym.Env):
       self.OPT  = {}
       self.OPT['UseAeroMoment'] = 0
       self.OPT['UseAeroForce'] = 0
-      self.OPT['EnableRoll'] = 0
-      self.OPT['EnablePitch'] = 0
-      self.OPT['EnableYaw'] = 0
+      self.OPT['EnableRoll'] = 1
+      self.OPT['EnablePitch'] = 1
+      self.OPT['EnableYaw'] = 1
 
       # INITIALIZE DICTS
       self.EQM  = {}
@@ -721,9 +721,29 @@ class Vahana_VertFlight(gym.Env):
     def CONT_fcn(self,action_vec):
         def VerticalControlAllocation(u):    
           return np.array([+1,+1,+1,+1,+1,+1,+1,+1]) * u
-       
-        RPM_vec = VerticalControlAllocation(action_vec[0])
-        TILT_vec = np.array(action_vec[1:])
+      
+        def PitchControlAllocation(u):    
+            return np.array([+1,+1,+1,+1,-1,-1,-1,-1]) * u
+        
+        def RollControlAllocation(u):    
+            return np.array([+1,+1,-1,-1,+1,+1,-1,-1]) * u
+        
+        def YawControlAllocation(u):    
+            return np.array([-1,+1,-1,+1,+1,-1,+1,-1]) * u
+        
+        def ControlMixer(u_Vert,u_Pitch,u_Roll,u_Yaw):
+            SUM_INP = np.sum(np.array([u_Vert,u_Pitch,u_Roll,u_Yaw]),axis=0)
+            
+            INP_SAT = np.min( np.vstack((SUM_INP,np.ones(8) )) , axis=0)
+            INP_SAT = np.max( np.vstack((INP_SAT,np.zeros(8))) , axis=0)
+            
+            return INP_SAT
+     
+        RPM_vec = ControlMixer(VerticalControlAllocation(action_vec[0]),
+                              PitchControlAllocation(action_vec[1]),
+                              RollControlAllocation(action_vec[2]),
+                              YawControlAllocation(action_vec[3]))
+        TILT_vec = np.array(action_vec[4:])
         
         # RPM_vec = action_vec[0:self.MOT['n_motor']]
         # TILT_vec = action_vec[self.MOT['n_motor']:self.MOT['n_motor'] + self.CONT['n_TiltSurf']]
