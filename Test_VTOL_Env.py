@@ -189,7 +189,7 @@ for step in range(n_steps):
                               YawControlAllocation(0))
         
     Tilt_p = np.ones(2)
-    InputVec = np.hstack((RPM_p,Tilt_p))
+    InputVec = np.hstack((u_Vert[step],Tilt_p))
     
     obs, reward, done, info = TestEnv.step(InputVec)
     SaveVec = SaveSelection(step,SaveVec,info)

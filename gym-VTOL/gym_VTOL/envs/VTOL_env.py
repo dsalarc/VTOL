@@ -160,7 +160,14 @@ class Vahana_VertFlight(gym.Env):
 
     # %% SARTUP FUNCTION
     def StartUp (self):
- 
+      # OPTIONS
+      self.OPT  = {}
+      self.OPT['UseAeroMoment'] = 0
+      self.OPT['UseAeroForce'] = 0
+      self.OPT['EnableRoll'] = 0
+      self.OPT['EnablePitch'] = 0
+      self.OPT['EnableYaw'] = 0
+
       # INITIALIZE DICTS
       self.EQM  = {}
       self.GEOM = {}
@@ -387,7 +394,7 @@ class Vahana_VertFlight(gym.Env):
         self.EQM['sta_dot'][6:9]  = VLd_b
         self.EQM['sta_dot'][9:12] = VRd_b
         self.EQM['sta_dot'][0:3]  = XLd_e
-        self.EQM['sta_dot'][3:6]  = XRd_e
+        self.EQM['sta_dot'][3:6]  = np.array([self.OPT['EnableRoll'],self.OPT['EnablePitch'] ,self.OPT['EnableYaw'] ]) * XRd_e
 
     # %% ATMOSPHERE FUNCTION
     def StdAtm_fcn(self):
@@ -695,14 +702,16 @@ class Vahana_VertFlight(gym.Env):
         self.AERO['Fus']['MZB_Nm']  = self.AERO['Fus']['CNBCG'] * self.ATM['DynPres_Pa'] * self.GEOM['Fus']['S_m2'] * self.GEOM['Fus']['b_m']
         
         # Calculate Total Forces and Moments
-        self.AERO['TotalForce_BodyAx_N']  = (np.array([np.sum( self.AERO['Wing']['FXB_N'] ),
+        self.AERO['TotalForce_BodyAx_N']  = self.OPT['UseAeroForce'] * (
+                                            np.array([np.sum( self.AERO['Wing']['FXB_N'] ),
                                                        np.sum( self.AERO['Wing']['FYB_N'] ),
                                                        np.sum( self.AERO['Wing']['FZB_N'] )]) +
                                              np.array([np.sum( self.AERO['Fus']['FXB_N'] ),
                                                        np.sum( self.AERO['Fus']['FYB_N'] ),
                                                        np.sum( self.AERO['Fus']['FZB_N'] )]) )
                                             
-        self.AERO['TotalMoment_BodyAx_Nm'] = (np.array([np.sum( self.AERO['Wing']['MXB_Nm'] ),
+        self.AERO['TotalMoment_BodyAx_Nm'] = self.OPT['UseAeroMoment'] * (
+                                             np.array([np.sum( self.AERO['Wing']['MXB_Nm'] ),
                                                        np.sum( self.AERO['Wing']['MYB_Nm'] ),
                                                        np.sum( self.AERO['Wing']['MZB_Nm'] )]) + 
                                               np.array([np.sum( self.AERO['Fus']['MXB_Nm'] ),
@@ -713,11 +722,11 @@ class Vahana_VertFlight(gym.Env):
         def VerticalControlAllocation(u):    
           return np.array([+1,+1,+1,+1,+1,+1,+1,+1]) * u
        
-        # RPM_vec = VerticalControlAllocation(action_vec[0:self.MOT['n_motor']])
-        # TILT_vec = action_vec[self.MOT['n_motor']:self.MOT['n_motor'] + self.CONT['n_TiltSurf']]
+        RPM_vec = VerticalControlAllocation(action_vec[0])
+        TILT_vec = np.array(action_vec[1:])
         
-        RPM_vec = action_vec[0:self.MOT['n_motor']]
-        TILT_vec = action_vec[self.MOT['n_motor']:self.MOT['n_motor'] + self.CONT['n_TiltSurf']]
+        # RPM_vec = action_vec[0:self.MOT['n_motor']]
+        # TILT_vec = action_vec[self.MOT['n_motor']:self.MOT['n_motor'] + self.CONT['n_TiltSurf']]
 
         self.CONT['RPM_p']  = RPM_vec ** (1/2) 
         self.CONT['Tilt_p'] = TILT_vec
