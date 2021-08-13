@@ -720,7 +720,7 @@ class Vahana_VertFlight(gym.Env):
 
     def CONT_fcn(self,action_vec):
         def VerticalControlAllocation(u):    
-          return np.array([+1,+1,+1,+1,+1,+1,+1,+1]) * u
+          return np.array([+1,+1,+1,+1,+1,+1,+1,+1]) * (u+1)/2
       
         def PitchControlAllocation(u):    
             return np.array([+1,+1,+1,+1,-1,-1,-1,-1]) * u
