@@ -41,19 +41,33 @@ class Vahana_VertFlight(gym.Env):
         
         self.action_space = spaces.Box(low=0, 
                                        high=1,
-                                       shape=(10,),
+                                       shape=(1,),
                                        dtype=np.float16)
         self.observation_space = spaces.Box(low=-self.MaxState,
                                             high=self.MaxState,
                                             dtype=np.float16)  
 
     
-    def reset(self,Z=0):
+    def OutputObs(self,sta,sta_dot,cont):
+        obs = np.hstack((sta,sta_dot,cont))
+        obs = np.array([obs[8],obs[20]])
+        return obs
+    
+    def reset(self,W = 'rand', Z = 'rand'):
       # Initialize Contants  
       self.StartUp()
       
       self.EQM['sta']        = np.zeros(shape=12,dtype = np.float32)
-      self.EQM['sta'][2]     = Z
+      if W == 'rand':
+          self.EQM['sta'][8] = (2*np.random.random()-1)*10
+      else:
+          self.EQM['sta'][8] = W        
+          
+      if Z == 'rand':
+          self.EQM['sta'][2] = (2*np.random.random()-1)*10
+      else:
+          self.EQM['sta'][2]     = Z
+      
       self.EQM['sta_dot']    = np.zeros(shape=np.shape(self.EQM['sta']),dtype = np.float32)
       self.EQM['sta_dotdot'] = np.zeros(shape=np.shape(self.EQM['sta']),dtype = np.float32)
       
@@ -67,8 +81,7 @@ class Vahana_VertFlight(gym.Env):
       
       self.AllStates = self.EQM['sta']
 
-      obs = np.hstack((self.EQM['sta'],self.EQM['sta_dot'],self.CONT['RPM_p']))
-      # obs = np.array([obs[8],obs[20]])
+      obs = self.OutputObs(self.EQM['sta'],self.EQM['sta_dot'],self.CONT['RPM_p'])
       
       return obs
 
@@ -112,9 +125,7 @@ class Vahana_VertFlight(gym.Env):
       info['AERO'] = self.AERO
       info['CONT'] = self.CONT
       
-      # obs = np.take(self.EQM['sta'],np.array([0,5]))
-      obs = np.hstack((self.EQM['sta'],self.EQM['sta_dot'],self.CONT['RPM_p']))
-      # obs = np.array([obs[8],obs[20]])
+      obs = self.OutputObs(self.EQM['sta'],self.EQM['sta_dot'],self.CONT['RPM_p'])
 
       return obs, self.LastReward, done, info
       
@@ -739,11 +750,8 @@ class Vahana_VertFlight(gym.Env):
             
             return INP_SAT
      
-        RPM_vec = ControlMixer(VerticalControlAllocation(action_vec[0]),
-                              PitchControlAllocation(action_vec[1]),
-                              RollControlAllocation(action_vec[2]),
-                              YawControlAllocation(action_vec[3]))
-        TILT_vec = np.array(action_vec[4:])
+        RPM_vec = ControlMixer(VerticalControlAllocation(action_vec[0]),0,0,0)
+        TILT_vec = np.array([1,1])
         
         # RPM_vec = action_vec[0:self.MOT['n_motor']]
         # TILT_vec = action_vec[self.MOT['n_motor']:self.MOT['n_motor'] + self.CONT['n_TiltSurf']]

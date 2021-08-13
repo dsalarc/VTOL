@@ -132,6 +132,7 @@ TestEnv = gym.make('gym_VTOL:Vahana_VertFlight-v0')
 
 # %% RUN SIM
 obs = TestEnv.reset(Z=0)
+
 # TestEnv.render()
 SaveVec = {}
 
@@ -143,7 +144,7 @@ INP_RPM_p = np.array([[0, 5  , 10 , 11  , 12   , 13 , 30 , 35 , 40 , 50 , 1000  
                       [0, 0  , 0  , 0.01, -0.015, 0  , 0  , 0  , 0  , 0  , 0   ]])
 
 WRef = np.array([[0 , 10 , 15 , 20 , 1000  ],
-                 [0 , 0  , -5  , 0  , 0   ]])
+                 [0 , 0  , 0  , 0  , 0   ]])
 
 ThetaRef = np.array([[0 , 30 , 35 , 40 , 1000  ],
                      [0 , 0  , -5  , -0.0  , -0.0   ]])
@@ -153,7 +154,7 @@ PhiRef = np.array([[0 , 40 , 45 , 50 , 1000  ],
 
 # %
 # Hardcoded best agent: always go left!
-n_steps = int(70/TestEnv.t_step)
+n_steps = int(20/TestEnv.t_step)
 W_int = 0
 
 u_Vert    = np.ones(n_steps+1)*0.0
@@ -164,7 +165,8 @@ for step in range(n_steps):
     
             
     Tilt_p = np.ones(2)
-    InputVec = np.hstack((u_Vert[step],u_Pitch[step],u_Roll[step],0,Tilt_p))
+    # InputVec = np.hstack((u_Vert[step],u_Pitch[step],u_Roll[step],0,Tilt_p))
+    InputVec = np.array([u_Vert[step]])
     
     obs, reward, done, info = TestEnv.step(InputVec)
     SaveVec = SaveSelection(step,SaveVec,info)
@@ -176,16 +178,16 @@ for step in range(n_steps):
     #                           obs[8],obs[20],W_int,KD=0,KP=0.5, KI=0.05, gamma=1)
   
     u_Vert[step+1]  = u_Vert[step] + PIDd_Vert(np.interp(step*TestEnv.t_step,WRef[0,:],WRef[1,:]),
-                                                obs[8],obs[20],KP=0.01, KI=0.05)
+                                                obs[0],obs[1],KP=0.01, KI=0.01)
   
-    u_Pitch[step+1] = PID_Pitch(np.interp(step*TestEnv.t_step,ThetaRef[0,:],np.deg2rad(ThetaRef[1,:])),
-                              obs[4],obs[10],KD=0.5,KP=1)
+    # u_Pitch[step+1] = PID_Pitch(np.interp(step*TestEnv.t_step,ThetaRef[0,:],np.deg2rad(ThetaRef[1,:])),
+    #                           obs[4],obs[10],KD=0.5,KP=1)
   
-    u_Roll[step+1]  = PID_Roll(np.interp(step*TestEnv.t_step,PhiRef[0,:],np.deg2rad(PhiRef[1,:])),
-                              obs[3],obs[9],KD=0.5,KP=1)
+    # u_Roll[step+1]  = PID_Roll(np.interp(step*TestEnv.t_step,PhiRef[0,:],np.deg2rad(PhiRef[1,:])),
+    #                           obs[3],obs[9],KD=0.5,KP=1)
 
 
 
-# %% CALL PLOT FILE
+# % CALL PLOT FILE
 
 exec(open("./Test_VTOL_GeneralPlot.py").read())
