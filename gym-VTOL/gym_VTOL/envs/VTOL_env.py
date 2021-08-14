@@ -30,8 +30,9 @@ class Vahana_VertFlight(gym.Env):
         VL_b: vetor velocidades lineares no eixo do corpo (u,v,w)
         VR_b: vetor velocidade rotacional no eixo do corpo (p, q, r)
         '''
-        self.MaxState = np.array([np.inf,np.inf,np.inf,np.pi,np.pi,np.pi,np.inf,np.inf,np.inf,np.pi,np.pi,np.pi,
-                                  np.inf,np.inf,np.inf,np.pi,np.pi,np.pi,np.inf,np.inf,np.inf,np.pi,np.pi,np.pi])
+        # self.MaxState = np.array([np.inf,np.inf,np.inf,np.pi,np.pi,np.pi,np.inf,np.inf,np.inf,np.pi,np.pi,np.pi,
+        #                           np.inf,np.inf,np.inf,np.pi,np.pi,np.pi,np.inf,np.inf,np.inf,np.pi,np.pi,np.pi])
+        self.MaxState = np.array([np.inf,np.inf])
         
         '''
         ACTIONS:

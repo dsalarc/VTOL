@@ -131,7 +131,7 @@ def PID_Roll(PhiRef_rad,Phi_rad,P_radps,KD=0,KP=0):
 TestEnv = gym.make('gym_VTOL:Vahana_VertFlight-v0')
 
 # %% RUN SIM
-obs = TestEnv.reset(Z=0)
+obs = TestEnv.reset(Z=0,W=10)
 
 # TestEnv.render()
 SaveVec = {}
@@ -154,13 +154,14 @@ PhiRef = np.array([[0 , 40 , 45 , 50 , 1000  ],
 
 # %
 # Hardcoded best agent: always go left!
-n_steps = int(20/TestEnv.t_step)
+n_steps = int(10/TestEnv.t_step)
 W_int = 0
 
 u_Vert    = np.ones(n_steps+1)*0.0
 u_Pitch   = np.zeros(n_steps+1)
 u_Roll    = np.zeros(n_steps+1)
 
+Return = 0
 for step in range(n_steps):
     
             
@@ -169,16 +170,17 @@ for step in range(n_steps):
     InputVec = np.array([u_Vert[step]])
     
     obs, reward, done, info = TestEnv.step(InputVec)
+    Return = Return + reward
     SaveVec = SaveSelection(step,SaveVec,info)
     if done:
       print("Goal reached!", "reward=", reward)
       break
   
-    # u_Vert[step+1],W_int  = PID_Vert(np.interp(step*0.05,WRef[0,:],WRef[1,:]),
-    #                           obs[8],obs[20],W_int,KD=0,KP=0.5, KI=0.05, gamma=1)
+    u_Vert[step+1],W_int  = PID_Vert(np.interp(step*0.05,WRef[0,:],WRef[1,:]),
+                              obs[0],obs[1],W_int,KD=0,KP=1.5, KI=0.001, gamma=1)
   
-    u_Vert[step+1]  = u_Vert[step] + PIDd_Vert(np.interp(step*TestEnv.t_step,WRef[0,:],WRef[1,:]),
-                                                obs[0],obs[1],KP=0.01, KI=0.01)
+    # u_Vert[step+1]  = u_Vert[step] + PIDd_Vert(np.interp(step*TestEnv.t_step,WRef[0,:],WRef[1,:]),
+    #                                             obs[0],obs[1],KP=0.01, KI=0.00)
   
     # u_Pitch[step+1] = PID_Pitch(np.interp(step*TestEnv.t_step,ThetaRef[0,:],np.deg2rad(ThetaRef[1,:])),
     #                           obs[4],obs[10],KD=0.5,KP=1)
@@ -190,4 +192,5 @@ for step in range(n_steps):
 
 # % CALL PLOT FILE
 
+print('Return = {:0.1f}'.format(Return))
 exec(open("./Test_VTOL_GeneralPlot.py").read())
