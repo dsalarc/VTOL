@@ -55,12 +55,18 @@ class Vahana_VertFlight(gym.Env):
         return obs
     
     def reset(self,W = 'rand', Z = 'rand'):
+      self.CurrentStep = 0
+
       # Initialize Contants  
       self.StartUp()
       
       self.EQM['sta']        = np.zeros(shape=12,dtype = np.float32)
       if W == 'rand':
-          self.EQM['sta'][8] = (2*np.random.random()-1)*10
+          # self.EQM['sta'][8] = (2*np.random.random()-1)*10
+          if np.random.random() > 0.5:
+              self.EQM['sta'][8] = 10
+          else:
+              self.EQM['sta'][8] = -10
       else:
           self.EQM['sta'][8] = W        
           
@@ -78,7 +84,8 @@ class Vahana_VertFlight(gym.Env):
       self.CONT['RPM_p']  = np.ones(self.MOT['n_motor']) * 0.8**2
       self.CONT['Tilt_p'] = np.ones(self.CONT['n_TiltSurf']) * 1
       
-      self.CurrentStep = 0
+      # Set Initial RPM (necessary due to first order filter)
+      self.MOT['RPM'] = np.multiply(self.CONT['RPM_p'],self.MOT['RPMRange']) + self.MOT['MinRPM']
       
       self.AllStates = self.EQM['sta']
 
@@ -125,6 +132,7 @@ class Vahana_VertFlight(gym.Env):
       info['MOT']  = self.MOT
       info['AERO'] = self.AERO
       info['CONT'] = self.CONT
+      info['MASS'] = self.MASS
       
       obs = self.OutputObs(self.EQM['sta'],self.EQM['sta_dot'],self.CONT['RPM_p'])
 
@@ -293,6 +301,9 @@ class Vahana_VertFlight(gym.Env):
 
       self.MOT['TiltSurf_link']  = np.array([0,0,0,0,1,1,1,1])                 #ID of surface which the motor is linked. Every motor will rotate the same amount
       
+      self.MOT['Bandwidth_radps'] = 40
+      self.MOT['Beta'] = np.exp(-self.MOT['Bandwidth_radps']*self.t_step)
+
       # CONTROL
       self.CONT['n_TiltSurf']    = 2
       self.CONT['MinTilt_deg']   = np.ones(self.CONT['n_TiltSurf']) * 0
@@ -488,7 +499,13 @@ class Vahana_VertFlight(gym.Env):
         # Calcular Torque devido a inercia (conservacao momento angular)
         
         # Calculate RPM and Rotation of each Propeller
-        self.MOT['RPM'] = np.multiply(self.CONT['RPM_p'],self.MOT['RPMRange']) + self.MOT['MinRPM']
+        RPM_tgt = np.multiply(self.CONT['RPM_p'],self.MOT['RPMRange']) + self.MOT['MinRPM']
+        
+        if self.CurrentStep == 0:   
+            self.MOT['RPM'] = RPM_tgt
+        else:
+            old_RPM = self.MOT['RPM']
+            self.MOT['RPM'] = (self.MOT['Beta']) * old_RPM + (1-self.MOT['Beta']) * RPM_tgt
         self.MOT['RPS'] = self.MOT['RPM'] / 60
         
         
