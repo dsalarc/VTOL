@@ -25,76 +25,254 @@ class Vahana_VertFlight(gym.Env):
         # Define action and observation space
         '''
         sta: vetor de estados na ordem:
-        XL_e: vetor posição lineares no eixo da terra (X, Y, Z)
-        XR_e: vetor posição rotacional no eixo da terra (phi, theta psi)  
-        VL_b: vetor velocidades lineares no eixo do corpo (u,v,w)
-        VR_b: vetor velocidade rotacional no eixo do corpo (p, q, r)
+            XL_e: vetor posição lineares no eixo da terra (X, Y, Z)
+            XR_e: vetor posição rotacional no eixo da terra (phi, theta psi)
+            VL_b: vetor velocidades lineares no eixo do corpo (u,v,w)
+            VR_b: vetor velocidade rotacional no eixo do corpo (p, q, r)
         '''
         # self.MaxState = np.array([np.inf,np.inf,np.inf,np.pi,np.pi,np.pi,np.inf,np.inf,np.inf,np.pi,np.pi,np.pi,
         #                           np.inf,np.inf,np.inf,np.pi,np.pi,np.pi,np.inf,np.inf,np.inf,np.pi,np.pi,np.pi])
-        self.MaxState = np.array([np.inf,np.inf])
+        # Observation Space    = [Vx , dVx, Vy , dVy , Vz , dVz , Phi      , p        , Theta    , q        , Psi      , r        ]
+        self.adm_vec  = np.array([20 , 20 , 10 , 10  , 10 , 10  , 3.1415/2 , 3.1415/2 , 3.1415/2 , 3.1415/2 , 3.1415/2 , 3.1415/2 ])
+        self.MaxState = np.array([1  , 1  , 1  , 1   ,  1 , 1   , 1        , 1        , 1        , 1        , 1        ,1         ])
+        # self.MaxState = np.array([np.inf,np.inf])
         
         '''
         ACTIONS:
-            8 motor throttle (in % of RPM)
+            4 hover actions
             2 surface deflection (in % of Max Deflection)
+            Front Wing Elevon
+            Back Wing Elevon
+            Aileron
         '''
+        self.action_names = ['Throttle','PitchThrottle',
+                             'RollThrottle','YawThrottle',
+                             'W1_Tilt','W2_Tilt',
+                             'W1_Elevator','W2_Elevator',
+                             'W1_Aileron','W2_Aileron']
         
-        self.action_space = spaces.Box(low=0, 
+        self.action_space = spaces.Box(low=-1, 
                                        high=1,
-                                       shape=(1,),
+                                       shape=(len(self.action_names),),
                                        dtype=np.float16)
         self.observation_space = spaces.Box(low=-self.MaxState,
                                             high=self.MaxState,
                                             dtype=np.float16)  
 
     
-    def OutputObs(self,sta,sta_dot,cont):
-        obs = np.hstack((sta,sta_dot,cont))
-        obs = np.array([obs[8],obs[20]])
+    def OutputObs(self,sta,sta_dot,sta_int,cont):
+        # obs = np.hstack((sta,sta_dot,cont))
+        # Observation Space    = [Vx , dVx, Vy , dVy , Vz , dVz , Phi      , p        , Theta    , q        , Psi      , r        ]
+        obs_vec       = np.array([self.EQM['VelLin_EarthAx_mps'][0] , self.EQM['AccLin_EarthAx_mps2'][0] , 
+                                  self.EQM['VelLin_EarthAx_mps'][1] , self.EQM['AccLin_EarthAx_mps2'][1] , 
+                                  self.EQM['VelLin_EarthAx_mps'][2] , self.EQM['AccLin_EarthAx_mps2'][2] , 
+                                  self.EQM['EulerAngles_rad'][0]    , self.EQM['VelRot_BodyAx_radps'][0] , 
+                                  self.EQM['EulerAngles_rad'][1]    , self.EQM['VelRot_BodyAx_radps'][1] , 
+                                  self.EQM['EulerAngles_rad'][2]    , self.EQM['VelRot_BodyAx_radps'][2]])
+        obs_adm = obs_vec / self.adm_vec
+        
+        
+        
+        
+        obs_sat = np.min( np.vstack((obs_adm,np.ones(len(obs_vec)) )) , axis=0)
+        obs     = np.max( np.vstack((obs_sat,-np.ones(len(obs_vec)))) , axis=0)
+
+        # obs = np.array([sta[8],sta_dot[8]])
         return obs
     
-    def reset(self,W = 'rand', Z = 'rand'):
+    def reset(self,W = 'rand', Z = 0, THETA = 'rand',  PHI = 'rand',  PSI = 'rand', PaxIn = np.array([1,1]),
+                   VX_mps = 0, VZ_mps = 0, W1_Tilt_p = 1, W2_Tilt_p = 1):
       self.CurrentStep = 0
+      self.trimming = 0
 
       # Initialize Contants  
-      self.StartUp()
+
+      self.StartUp(PaxIn = PaxIn)
       
       self.EQM['sta']        = np.zeros(shape=12,dtype = np.float32)
       if W == 'rand':
-          # self.EQM['sta'][8] = (2*np.random.random()-1)*10
-          if np.random.random() > 0.5:
-              self.EQM['sta'][8] = 10
-          else:
-              self.EQM['sta'][8] = -10
+          self.EQM['sta'][8] = np.random.randint(-1,2)*10
       else:
-          self.EQM['sta'][8] = W        
+          self.EQM['sta'][8] = W    
           
-      if Z == 'rand':
-          self.EQM['sta'][2] = (2*np.random.random()-1)*10
+      if THETA == 'rand':
+          # self.EQM['sta'][4] = (2*np.random.random()-1)*10/57.3
+          self.EQM['sta'][4] = np.random.randint(-1,2)*10/57.3
       else:
-          self.EQM['sta'][2]     = Z
+          self.EQM['sta'][4] = THETA  
+          
+      if PHI == 'rand':
+          # self.EQM['sta'][3] = (2*np.random.random()-1)*10/57.3
+          self.EQM['sta'][3] = np.random.randint(-1,2)*10/57.3
+      else:
+          self.EQM['sta'][3] = PHI  
+          
+      if PSI == 'rand':
+          # self.EQM['sta'][5] = (2*np.random.random()-1)*10/57.3
+          self.EQM['sta'][5] = np.random.randint(-1,2)*10/57.3
+      else:
+          self.EQM['sta'][5] = PSI  
+
+      if Z == 'rand':
+          self.EQM['sta'][2] = -np.random.random()*2000
+      else:
+          self.EQM['sta'][2]     = -Z
+          
       
       self.EQM['sta_dot']    = np.zeros(shape=np.shape(self.EQM['sta']),dtype = np.float32)
       self.EQM['sta_dotdot'] = np.zeros(shape=np.shape(self.EQM['sta']),dtype = np.float32)
+      self.EQM['sta_int']    = np.zeros(shape=np.shape(self.EQM['sta']),dtype = np.float32)
+      
+      print('Goto trim')
+      TrimAction = self.trim(TrimVX_mps = VX_mps, TrimVZ_mps = VZ_mps, TrimW1_Tilt_p = W1_Tilt_p, TrimW2_Tilt_p = W2_Tilt_p)
       
       self.EQM_fcn(np.array([0,0,0]), np.array([0,0,0]), self.MASS['I_kgm'], self.MASS['Weight_kgf'])
       
-      # Set Initial Control
-      self.CONT['RPM_p']  = np.ones(self.MOT['n_motor']) * 0.8**2
-      self.CONT['Tilt_p'] = np.ones(self.CONT['n_TiltSurf']) * 1
+      # # Set Initial Control
+      # self.CONT['RPM_vec'] = np.ones(self.MOT['n_motor']) * 0.8
+      # self.CONT['RPM_p']  = self.CONT['RPM_vec'] ** (1/2) 
+      # self.CONT['Tilt_p'] = np.ones(self.CONT['n_TiltSurf']) * 1
       
-      # Set Initial RPM (necessary due to first order filter)
-      self.MOT['RPM'] = np.multiply(self.CONT['RPM_p'],self.MOT['RPMRange']) + self.MOT['MinRPM']
+      # # Set Initial RPM (necessary due to first order filter)
+      # self.MOT['RPM'] = np.multiply(self.CONT['RPM_p'],self.MOT['RPMRange']) + self.MOT['MinRPM']
       
       self.AllStates = self.EQM['sta']
 
-      obs = self.OutputObs(self.EQM['sta'],self.EQM['sta_dot'],self.CONT['RPM_p'])
+      obs = self.OutputObs(self.EQM['sta'],self.EQM['sta_dot'],self.EQM['sta_int'],self.CONT['RPM_p'])
       
-      return obs
+      self.obs_ini = [max(np.deg2rad(10) , abs(self.EQM['sta'][4])) , 
+                      max(np.deg2rad(10) , abs(self.EQM['sta'][3])) , 
+                      max(np.deg2rad(10) , abs(self.EQM['sta'][5])) , 
+                      max(           10  , abs(self.EQM['sta'][8])) ,
+                      np.deg2rad(10) ,
+                      np.deg2rad(10) ,
+                      np.deg2rad(10) ,
+                      10             ]
+     
+      return obs, TrimAction
+  
+    def trim(self, TrimVX_mps = 0, TrimVZ_mps = 0, TrimW1_Tilt_p = 1, TrimW2_Tilt_p = 1):
+        
+        # Define function to get Outputs of interest
+        def GetOutputFloat(EQM):
+            return np.array([EQM['VelLin_EarthAx_mps'][0] ,
+                             EQM['VelLin_EarthAx_mps'][2]])
+        
+        #Trimming parameters
+        TrimTol  = 1e-6
+        TrimIter = 20
+        TrimPert = 1e-5
+        
+        self.trimming = 1
+        
+        # Call EQM
+        self.EQM_fcn(np.array([0,0,0]), np.array([0,0,0]), self.MASS['I_kgm'], self.MASS['Weight_kgf'])
+        
 
+        
+        #Define Initial Trim Action
+        TrimAction = np.zeros(np.shape(self.action_space))
+        TrimAction[self.action_names.index('W1_Tilt')] = TrimW1_Tilt_p
+        TrimAction[self.action_names.index('W2_Tilt')] = TrimW2_Tilt_p
+        
+        TrimState = np.zeros(np.shape(self.EQM['sta_names']))
+        
+        # Define Freeze and Floats Indexes
+        n_ActionFloat    = np.array([self.action_names.index('Throttle') ,
+                                     self.action_names.index('PitchThrottle')])
+        
+        n_StateFloat     = np.array([self.EQM['sta_names'].index('Theta_rad'),
+                                     self.EQM['sta_names'].index('U_mps'), 
+                                     self.EQM['sta_names'].index('W_mps')])
+        
+        n_StateDotFreeze = np.array([self.EQM['sta_names'].index('U_mps') , 
+                                     self.EQM['sta_names'].index('W_mps') , 
+                                     self.EQM['sta_names'].index('Q_radps')])
+        
+        TrimVars = np.hstack((TrimAction[n_ActionFloat],TrimState[n_StateFloat]))
+
+        # Trim Target Vector
+        TrimTarget = np.hstack((np.zeros(len(n_StateDotFreeze)) , np.array([TrimVX_mps, TrimVZ_mps])))
+       
+        # Perform One Step    
+        self.EQM['sta'] = TrimState
+        self.step(TrimAction)
+        
+        TrimStaDot = self.EQM['sta_dot'][n_StateDotFreeze]
+        TrimOutput = GetOutputFloat(self.EQM)
+        TrimError  = np.hstack((TrimStaDot , TrimOutput)) - TrimTarget
+        TrimErrorNorm = np.linalg.norm(TrimError)
+        
+        iter_n = 1
+        ContinueTrim = True
+        
+        while ContinueTrim:
+            # Initialize Hessian
+            H = np.zeros((len(n_ActionFloat) + len(n_StateFloat) , len(TrimTarget)))
+            
+            # Calulate Hessian
+            for i in range(len(n_ActionFloat) + len(n_StateFloat)):
+                
+                TrimAction_Pert_p = TrimAction.copy()
+                TrimAction_Pert_m = TrimAction.copy()
+                TrimState_Pert_p  = TrimState.copy()
+                TrimState_Pert_m  = TrimState.copy()
+               
+                if i < len(n_ActionFloat):  
+                    
+                    TrimAction_Pert_p[n_ActionFloat[i]] = TrimAction[n_ActionFloat[i]] + TrimPert
+                    TrimAction_Pert_m[n_ActionFloat[i]] = TrimAction[n_ActionFloat[i]] - TrimPert
+                    
+                else:
+                    j = i - len(n_ActionFloat) 
+                    TrimState_Pert_p[n_StateFloat[j]]  = TrimState[n_StateFloat[j]] + TrimPert
+                    TrimState_Pert_m[n_StateFloat[j]]  = TrimState[n_StateFloat[j]] - TrimPert
+              
+                self.EQM['sta'] = TrimState_Pert_p
+                self.step(TrimAction_Pert_p)
+                StateDot_p = self.EQM['sta_dot'][n_StateDotFreeze]
+                Output_p  = GetOutputFloat(self.EQM)
+                
+                self.EQM['sta'] = TrimState_Pert_m
+                self.step(TrimAction_Pert_m)
+                StateDot_m = self.EQM['sta_dot'][n_StateDotFreeze]
+                Output_m  = GetOutputFloat(self.EQM)
+               
+                H[:,i] = (np.hstack((StateDot_p,Output_p)) - np.hstack((StateDot_m,Output_m))) / (2*TrimPert)
+                
+                
+            TrimVars = TrimVars - np.matmul(np.linalg.pinv(H) , TrimError)
+            TrimAction[n_ActionFloat] = TrimVars[0:len(n_ActionFloat)]
+            TrimState[n_StateFloat] = TrimVars[len(n_ActionFloat):]
+            
+            
+            # Perform One Step    
+            self.EQM['sta'] = TrimState
+            self.step(TrimAction)
+            
+            TrimStaDot = self.EQM['sta_dot'][n_StateDotFreeze]
+            TrimOutput = GetOutputFloat(self.EQM)           
+            TrimError     = np.hstack((TrimStaDot , TrimOutput)) - TrimTarget
+            TrimErrorNorm = np.linalg.norm(TrimError)
+        
+            iter_n = iter_n + 1
+            
+            if iter_n >=TrimIter:
+                ContinueTrim = False
+                print('Trim Error - Max number of iterations')
+            elif TrimErrorNorm <= TrimTol:
+                ContinueTrim = False
+                print('Trim successful - error below tolerance')
+                   
+                    
+        self.trimming = 0
+        
+        return TrimAction
+       
+        
     def step(self, action):
-      self.CurrentStep += 1
+      if not(self.trimming):  
+          self.CurrentStep += 1
       
       # Calculate Control, Atmosphere, Motor Forces and Aero Forces
       
@@ -115,16 +293,31 @@ class Vahana_VertFlight(gym.Env):
       self.EQM_fcn(self.EQM['TotalForce'],self.EQM['TotalMoment'],self.MASS['I_kgm'],self.MASS['Weight_kgf'])
       self.EQM['sta_dotdot'] = (self.EQM['sta_dot'] - Last_Xdot)/self.t_step
       
-      self.EQM['sta'] = self.Euler_2nd(self.EQM['sta'],self.EQM['sta_dot'],self.EQM['sta_dotdot'],self.t_step)
-      self.AllStates = np.vstack((self.AllStates,self.EQM['sta']))
+      if not(self.trimming):  
+          self.EQM['sta'] = self.Euler_2nd(self.EQM['sta'],self.EQM['sta_dot'],self.EQM['sta_dotdot'],self.t_step)
+          self.AllStates = np.vstack((self.AllStates,self.EQM['sta']))
 
+          self.EQM['sta_int'] = self.EQM['sta_int'] + self.EQM['sta'] * self.t_step
       
       # Calculate Reward
-      self.LastReward = self.CalcReward()
+      if not(self.trimming):
+          self.LastReward = self.CalcReward()
       
-      # Terminal State = False    
+      # Terminal State = False   
       done = False
-      
+      # if abs(np.rad2deg(self.EQM['sta'][4])) > 45:
+      # if self.sta[4] > 90:
+          # self.LastReward = (300-self.CurrentStep) * self.LastReward
+          # self.LastReward = 0
+          # self.LastReward = -10000
+          # done = True
+          
+          
+      # if abs(np.rad2deg(self.EQM['sta'][4])) < 0.1 and abs(np.rad2deg(self.EQM['sta_dot'][4])) < 0.1 and (
+      #    abs(np.rad2deg(self.EQM['sta'][0])) < 0.1 and abs(np.rad2deg(self.EQM['sta_dot'][0])) < 0.1):
+      #     self.LastReward = 0
+      #     done = True   
+          
       # Export Model Oututs throught info
       info = {}          
       info['ATM']  = self.ATM
@@ -134,13 +327,26 @@ class Vahana_VertFlight(gym.Env):
       info['CONT'] = self.CONT
       info['MASS'] = self.MASS
       
-      obs = self.OutputObs(self.EQM['sta'],self.EQM['sta_dot'],self.CONT['RPM_p'])
+      obs = self.OutputObs(self.EQM['sta'],self.EQM['sta_dot'],self.EQM['sta_int'],self.CONT['RPM_p'])
 
-      return obs, self.LastReward, done, info
+      if not(self.trimming):
+          return obs, self.LastReward, done, info
+      else:
+          return info
+          
       
     def CalcReward(self):
-        # Reward = 1 - np.sqrt(np.sum((self.EQM['sta'] / self.MaxState)**2))
-        Reward =  - ( abs(self.EQM['sta'][8]) )
+        
+        # SECOND REWARD - Sigmoide_Gain3 / Penalty Speed / Euler Dot / Squared Sum
+        Reward = ( 10*(1 - np.sqrt(min(1,abs(self.EQM['sta'][4]) / self.obs_ini[0])**2 +
+                                    min(1,abs(self.EQM['sta'][10]) / self.obs_ini[4])**2) / np.sqrt(2)) +
+                   10*(1 - np.sqrt(min(1,abs(self.EQM['sta'][3]) / self.obs_ini[1])**2 +
+                                    min(1,abs(self.EQM['sta'][9]) / self.obs_ini[5])**2) / np.sqrt(2)) +
+                   10*(1 - np.sqrt(min(1,abs(self.EQM['sta'][5]) / self.obs_ini[2])**2 +
+                                    min(1,abs(self.EQM['sta'][11]) / self.obs_ini[6])**2) / np.sqrt(2)) +
+                   10*(1 - np.sqrt(min(1,abs(self.EQM['sta'][8]) / self.obs_ini[3])**2 +
+                                    min(1,abs(self.EQM['sta_dot'][8]) / self.obs_ini[7])**2) / np.sqrt(2)) )
+  
         return Reward    
     
 
@@ -179,14 +385,14 @@ class Vahana_VertFlight(gym.Env):
         return X
 
     # %% SARTUP FUNCTION
-    def StartUp (self):
+    def StartUp (self,PaxIn):
       # OPTIONS
       self.OPT  = {}
-      self.OPT['UseAeroMoment'] = 0
-      self.OPT['UseAeroForce'] = 0
-      self.OPT['EnableRoll'] = 1
-      self.OPT['EnablePitch'] = 1
-      self.OPT['EnableYaw'] = 1
+      self.OPT['UseAeroMoment'] = 1
+      self.OPT['UseAeroForce']  = 1
+      self.OPT['EnableRoll']    = 1
+      self.OPT['EnablePitch']   = 1
+      self.OPT['EnableYaw']     = 1
 
       # INITIALIZE DICTS
       self.EQM  = {}
@@ -240,7 +446,7 @@ class Vahana_VertFlight(gym.Env):
       self.GEOM['Fus']['Z_m']   = np.array([0])
  
       # MASS
-      self.MASS['Pax']             = np.array([1,1])
+      self.MASS['Pax']             = PaxIn
       self.MASS['PaxWeight_kgf']   = 100
       self.MASS['EmptyWeight_kgf'] = 616
       self.MASS['Weight_kgf'] = self.MASS['EmptyWeight_kgf'] + np.sum(self.MASS['Pax']) * self.MASS['PaxWeight_kgf']
@@ -290,8 +496,8 @@ class Vahana_VertFlight(gym.Env):
       self.MOT['MinRPM']        = np.ones(self.MOT['n_motor']) * 0.01
       self.MOT['RPMRange']      = self.MOT['MaxRPM'] - self.MOT['MinRPM'] 
       self.MOT['Diameter_m']    = np.ones(self.MOT['n_motor']) * 1.5
-      self.MOT['RotationSense'] = np.array([-1,+1,-1,+1,
-                                            +1,-1,+1,-1])  
+      self.MOT['RotationSense'] = np.array([+1,-1,+1,-1,
+                                            -1,+1,-1,+1])  
       
       # CT e CP - Vide planilha
       self.MOT['CT_J']       = np.array([[0.0 , 0.01 , 0.80] , 
@@ -309,7 +515,7 @@ class Vahana_VertFlight(gym.Env):
       self.CONT['MinTilt_deg']   = np.ones(self.CONT['n_TiltSurf']) * 0
       self.CONT['MaxTilt_deg']   = np.ones(self.CONT['n_TiltSurf']) * 90
       self.CONT['TiltRange_deg'] = self.CONT['MaxTilt_deg'] - self.CONT['MinTilt_deg'] 
-     
+           
       # OTHER CONSTANTS
       
     # %% GENERAL FUNCTIONS
@@ -362,24 +568,28 @@ class Vahana_VertFlight(gym.Env):
             I: tensor de inercias
             m: massa do corpo
             sta: vetor de estados na ordem:
-                VL_b: vetor velocidades lineares no eixo do corpo (u,v,w)
-                VR_b: vetor velocidade rotacional no eixo do corpo (p, q, r)
                 XL_e: vetor posição lineares no eixo da terra (X, Y, Z)
                 XR_e: vetor posição rotacional no eixo da terra (phi, theta psi)
+                VL_b: vetor velocidades lineares no eixo do corpo (u,v,w)
+                VR_b: vetor velocidade rotacional no eixo do corpo (p, q, r)
                 
         Outputs:
             sta_dot: vetor de derivadas de estados na ordem:
-                VLd_b: aceleração linear no eixo do corpo (u_dot,v_dot,w_dot)
-                VRd_b: aceleração rotacional no eixo do corpo (p_dot, q_dot, r_dot)
-                XLd_e: vetor velocidades lineares no eixo da terra (X_dot, Y_dot, Z_dot)
-                XRd_e: vetor velocidade rotacional no eixo da terra   (phi_dot, theta_dot psi_dot)      
+                dXL_e: vetor velocidades lineares no eixo da terra (X_dot, Y_dot, Z_dot)
+                dXR_e: vetor velocidade rotacional no eixo da terra   (phi_dot, theta_dot psi_dot)      
+                dVL_b: aceleração linear no eixo do corpo (u_dot,v_dot,w_dot)
+                dVR_b: aceleração rotacional no eixo do corpo (p_dot, q_dot, r_dot)
             
         Descrição
             Função geral das equações de movimento do corpo rígido qualquer.
             Com massas, inercias, forças e momentos, calcula as derivadas doos estados
             É uma função genérica para qualquer corpo rídido no espaço
         """
-
+        self.EQM['sta_names'] = ['X_m'    , 'Y_m'      , 'Z_m'    ,
+                                 'Phi_rad', 'Theta_rad', 'Psi_rad',
+                                 'U_mps'  , 'V_mps'    , 'W_mps'  ,
+                                 'P_radps', 'Q_radps'  , 'R_radps']
+        
         # LEITURA DOS VETORES NOS ESTADOS
         VL_b = self.EQM['sta'][6:9]
         VR_b = self.EQM['sta'][9:12]
@@ -394,14 +604,13 @@ class Vahana_VertFlight(gym.Env):
         W_b = np.dot(self.EQM['LE2B'],np.array([0,0,m*self.EQM['g_mps2']]))
         
         # CALCULO DAS DERIVADAS
-        VLd_b = (F_b+W_b)/m - np.cross(VR_b,VL_b)
+        dVL_b = (F_b+W_b)/m - np.cross(VR_b,VL_b)
         
-        VRd_b = np.dot(np.linalg.inv(I),(M_b - np.cross(VR_b,np.dot(I,VR_b))))
-    
+        dVR_b = np.dot(np.linalg.inv(I),(M_b - np.cross(VR_b,np.dot(I,VR_b))))
         
-        XLd_e = np.dot(self.EQM['LB2E'] , VL_b)
+        dXL_e = np.dot(self.EQM['LB2E'] , VL_b)
         
-        XRd_e = np.dot(self.EQM['LR2E'] , VR_b)    
+        dXR_e = np.dot(self.EQM['LR2E'] , VR_b)    
         
         # OUTPUt
         self.EQM['VelLin_BodyAx_mps']   = VL_b
@@ -409,15 +618,19 @@ class Vahana_VertFlight(gym.Env):
         self.EQM['PosLin_EarthAx_m']    = XL_e 
         self.EQM['EulerAngles_rad']     = XR_e 
         
-        self.EQM['AccLin_BodyAx_mps2']   = VLd_b
-        self.EQM['AccRot_BodyAx_radps2'] = VRd_b
-        self.EQM['VelLin_EarthAx_mps']   = XLd_e   
-       
+        self.EQM['AccLin_BodyAx_mps2']   = dVL_b
+        self.EQM['AccRot_BodyAx_radps2'] = dVR_b
+        self.EQM['VelLin_EarthAx_mps']   = dXL_e   
+        self.EQM['AccLin_EarthAx_mps2']  = np.dot(self.EQM['LB2E'] , dVL_b)
+        self.EQM['EulerAnglesDot_radps'] = dXR_e 
+
+        self.EQM['LoadFactor_g'] = (F_b)/m 
+
         # VETOR SAIDA COM OS ESTADOS
-        self.EQM['sta_dot'][6:9]  = VLd_b
-        self.EQM['sta_dot'][9:12] = VRd_b
-        self.EQM['sta_dot'][0:3]  = XLd_e
-        self.EQM['sta_dot'][3:6]  = np.array([self.OPT['EnableRoll'],self.OPT['EnablePitch'] ,self.OPT['EnableYaw'] ]) * XRd_e
+        self.EQM['sta_dot'][6:9]  = dVL_b
+        self.EQM['sta_dot'][9:12] = dVR_b
+        self.EQM['sta_dot'][0:3]  = dXL_e
+        self.EQM['sta_dot'][3:6]  = np.array([self.OPT['EnableRoll'],self.OPT['EnablePitch'] ,self.OPT['EnableYaw'] ]) * dXR_e
 
     # %% ATMOSPHERE FUNCTION
     def StdAtm_fcn(self):
@@ -437,7 +650,8 @@ class Vahana_VertFlight(gym.Env):
                      Atmosphere model.
         """
         # CONSTANTS
-        Altitude_m     = -self.EQM['sta_dot'][2]
+        Altitude_m     = -self.EQM['sta'][2]
+        self.ATM['PresAlt_ft'] = Altitude_m / 0.3048
         
         # WIND VECTOR
         WindVec_kt = np.array([self.ATM['WindX_kt'],self.ATM['WindY_kt'] ,self.ATM['WindZ_kt'] ])
@@ -767,14 +981,29 @@ class Vahana_VertFlight(gym.Env):
             INP_SAT = np.max( np.vstack((INP_SAT,np.zeros(8))) , axis=0)
             
             return INP_SAT
-     
-        RPM_vec = ControlMixer(VerticalControlAllocation(action_vec[0]),0,0,0)
-        TILT_vec = np.array([1,1])
+                
+        # u_Vert = +(0.1*self.EQM['sta'][8] + 0.0*self.EQM['sta_dot'][8] + 0.05*self.EQM['sta_int'][8])
+        
+        u_Vert = action_vec[self.action_names.index('Throttle')]
+        u_Pitc = action_vec[self.action_names.index('PitchThrottle')]
+        u_Roll = action_vec[self.action_names.index('RollThrottle')]
+        u_Yaw  = action_vec[self.action_names.index('YawThrottle')]
+        
+        if not(self.trimming):
+            self.CONT['LastRPM_vec'] = self.CONT['RPM_vec'].copy()
+        self.CONT['RPM_vec']     = ControlMixer(VerticalControlAllocation(u_Vert),PitchControlAllocation(u_Pitc),RollControlAllocation(u_Roll),YawControlAllocation(u_Yaw))
+        # print(self.CONT['RPM_vec'] )
+        TILT_vec = (np.array([action_vec[self.action_names.index('W1_Tilt')],
+                              action_vec[self.action_names.index('W2_Tilt')]])+1)/2
         
         # RPM_vec = action_vec[0:self.MOT['n_motor']]
         # TILT_vec = action_vec[self.MOT['n_motor']:self.MOT['n_motor'] + self.CONT['n_TiltSurf']]
 
-        self.CONT['RPM_p']  = RPM_vec ** (1/2) 
-        self.CONT['Tilt_p'] = TILT_vec
+        self.CONT['RPM_p']  = self.CONT['RPM_vec'] ** (1/2) 
+        self.CONT['Tilt_p']   = TILT_vec
         
+        self.CONT['Elev1_p'] = action_vec[self.action_names.index('W1_Elevator')] - 0.5*action_vec[self.action_names.index('W1_Aileron')]
+        self.CONT['Elev2_p'] = action_vec[self.action_names.index('W1_Elevator')] + 0.5*action_vec[self.action_names.index('W1_Aileron')]
+        self.CONT['Elev3_p'] = action_vec[self.action_names.index('W2_Elevator')] - 0.5*action_vec[self.action_names.index('W2_Aileron')]
+        self.CONT['Elev4_p'] = action_vec[self.action_names.index('W2_Elevator')] + 0.5*action_vec[self.action_names.index('W2_Aileron')]
 
