@@ -482,8 +482,11 @@ class Vahana_VertFlight(gym.Env):
                     (Pax2CG_sq[1][0] + Pax2CG_sq[1][1]) * self.MASS['Pax'][1] * self.MASS['PaxWeight_kgf'] +
                     (Emp2CG_sq[0]    + Emp2CG_sq[1])    * self.MASS['EmptyWeight_kgf'])
       self.MASS['I_kgm'] = np.array([[Ixx,0,0],[0,Iyy,0],[0,0,Izz]])
+
+      self.init_AERO()
                                    
-      
+    def init_AERO (self):
+ 
       # AERO
       self.AERO['Wing1'] = {}
       self.AERO['Wing2'] = {}
@@ -501,6 +504,10 @@ class Vahana_VertFlight(gym.Env):
       self.AERO['Elevon']['dCRSde_MRC']  = np.array([+0.002925 , -0.002925 , +0.004620 , -0.004620])
       self.AERO['Elevon']['dCMSde_MRC']  = np.array([+0.042829 , +0.042829 , -0.055021 , -0.055021])
       self.AERO['Elevon']['dCNSde_MRC']  = np.array([+0.000000 , +0.000000 , +0.000000 , +0.000000])
+
+      self.AERO['Elevon']['AOAeff']  = {}
+      self.AERO['Elevon']['AOAeff']['Alpha_deg']  = np.array([-180 , -45 , -20 ,  20 ,  45 , 180])
+      self.AERO['Elevon']['AOAeff']['Gain']       = np.array([ 0.0 , 0.0 , 1.0 , 1.0 , 0.0 , 0.0])
 
       # MOTOR
       x1 = 0.04
@@ -520,7 +527,7 @@ class Vahana_VertFlight(gym.Env):
                                          [x2,+y1,z2],
                                          [x2,+y2,z2]])
 
-      self.MOT['MaxRPM']        = np.ones(self.MOT['n_motor']) * 2600
+      self.MOT['MaxRPM']        = np.ones(self.MOT['n_motor']) * 4000
       self.MOT['MinRPM']        = np.ones(self.MOT['n_motor']) * 0.01
       self.MOT['RPMRange']      = self.MOT['MaxRPM'] - self.MOT['MinRPM'] 
       self.MOT['Diameter_m']    = np.ones(self.MOT['n_motor']) * 1.5
@@ -840,6 +847,7 @@ class Vahana_VertFlight(gym.Env):
                                             (Xw_m - XCG_m) * q_radps,
                                             TAS_mps)))                   
             
+            SurfaceAoA = np.mod(SurfaceAoA+180,360)-180
             return SurfaceAoA
 
         def CalcInducedBETA(Xw_m,XCG_m,r_radps,TAS_mps,Inc_deg,BETA_Acft_deg,Sidewash_deg):
@@ -863,6 +871,7 @@ class Vahana_VertFlight(gym.Env):
                                             (Xw_m - XCG_m) * r_radps,
                                             TAS_mps)))
             
+            SurfaceBETA = np.mod(SurfaceBETA+180,360)-180
             return SurfaceBETA
 
         def STAB2BODY (Alpha_rad,CDS,CYS,CLS,CRS,CMS,CNS):
@@ -950,7 +959,7 @@ class Vahana_VertFlight(gym.Env):
         self.AERO['Wing2']['CRS_25Local'] = 0
         self.AERO['Wing2']['CMS_25Local'] = 0
         self.AERO['Wing2']['CNS_25Local'] = 0
-        
+
         self.AERO['Fus']['CDS_25Local'] = 0.1
         self.AERO['Fus']['CYS_25Local'] = - 0.4 * self.sind(self.AERO['Fus']['Beta_deg'])
         self.AERO['Fus']['CLS_25Local'] = 0
@@ -958,12 +967,20 @@ class Vahana_VertFlight(gym.Env):
         self.AERO['Fus']['CMS_25Local'] = 0
         self.AERO['Fus']['CNS_25Local'] = 0
 
-        self.AERO['Elevon']['CDS_MRC']  = self.AERO['Elevon']['dCDSde_MRC'] * self.AERO['Elevon']['Deflection_deg'] 
-        self.AERO['Elevon']['CYS_MRC']  = self.AERO['Elevon']['dCYSde_MRC'] * self.AERO['Elevon']['Deflection_deg'] 
-        self.AERO['Elevon']['CLS_MRC']  = self.AERO['Elevon']['dCLSde_MRC'] * self.AERO['Elevon']['Deflection_deg'] 
-        self.AERO['Elevon']['CRS_MRC']  = self.AERO['Elevon']['dCRSde_MRC'] * self.AERO['Elevon']['Deflection_deg'] 
-        self.AERO['Elevon']['CMS_MRC']  = self.AERO['Elevon']['dCMSde_MRC'] * self.AERO['Elevon']['Deflection_deg'] 
-        self.AERO['Elevon']['CNS_MRC']  = self.AERO['Elevon']['dCNSde_MRC'] * self.AERO['Elevon']['Deflection_deg'] 
+        ElevonGain_1 = np.interp(self.AERO['Wing1']['Alpha_deg'],
+                                 self.AERO['Elevon']['AOAeff']['Alpha_deg'],
+                                 self.AERO['Elevon']['AOAeff']['Gain'])
+        ElevonGain_2 = np.interp(self.AERO['Wing2']['Alpha_deg'],
+                                 self.AERO['Elevon']['AOAeff']['Alpha_deg'],
+                                 self.AERO['Elevon']['AOAeff']['Gain'])
+        ElevonGain = np.array([ElevonGain_1 , ElevonGain_1 , ElevonGain_2 , ElevonGain_2])
+
+        self.AERO['Elevon']['CDS_MRC']  = self.AERO['Elevon']['dCDSde_MRC'] * self.AERO['Elevon']['Deflection_deg'] * ElevonGain
+        self.AERO['Elevon']['CYS_MRC']  = self.AERO['Elevon']['dCYSde_MRC'] * self.AERO['Elevon']['Deflection_deg'] * ElevonGain
+        self.AERO['Elevon']['CLS_MRC']  = self.AERO['Elevon']['dCLSde_MRC'] * self.AERO['Elevon']['Deflection_deg'] * ElevonGain
+        self.AERO['Elevon']['CRS_MRC']  = self.AERO['Elevon']['dCRSde_MRC'] * self.AERO['Elevon']['Deflection_deg'] * ElevonGain
+        self.AERO['Elevon']['CMS_MRC']  = self.AERO['Elevon']['dCMSde_MRC'] * self.AERO['Elevon']['Deflection_deg'] * ElevonGain
+        self.AERO['Elevon']['CNS_MRC']  = self.AERO['Elevon']['dCNSde_MRC'] * self.AERO['Elevon']['Deflection_deg'] * ElevonGain
         
         # Calculate Coefficcient in Body Local Axis
         (CDB, CYB, CLB, CRB, CMB, CNB) = STAB2BODY (self.ATM['Alpha_rad'],
