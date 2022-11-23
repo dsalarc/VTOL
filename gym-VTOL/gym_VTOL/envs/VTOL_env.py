@@ -124,7 +124,7 @@ class Vahana_VertFlight(gym.Env):
       self.EQM['sta_dotdot'] = np.zeros(shape=np.shape(self.EQM['sta']),dtype = np.float32)
       self.EQM['sta_int']    = np.zeros(shape=np.shape(self.EQM['sta']),dtype = np.float32)
       
-      TrimAction = self.trim(TrimVX_mps = VX_mps, TrimVZ_mps = VZ_mps, TrimTheta_deg = THETA)
+      TrimData = self.trim(TrimVX_mps = VX_mps, TrimVZ_mps = VZ_mps, TrimTheta_deg = THETA)
       
       # self.EQM_fcn(np.array([0,0,0]), np.array([0,0,0]), self.MASS['I_kgm'], self.MASS['Weight_kgf'])
       
@@ -148,11 +148,13 @@ class Vahana_VertFlight(gym.Env):
                       np.deg2rad(10) ,
                       np.deg2rad(10) ,
                       10             ]
-     
-      return obs, TrimAction
+      self.TrimData = TrimData
+      return obs
   
     def trim(self, TrimVX_mps = 0, TrimVZ_mps = 0, TrimTheta_deg = 0):
-        
+        TrimData = {}
+        TrimData['Trimmed'] = 0
+       
         # Define function to get Outputs of interest
         def GetOutputFloat(EQM, CONT):
             return np.array([EQM['VelLin_EarthAx_mps'][0] ,
@@ -162,9 +164,9 @@ class Vahana_VertFlight(gym.Env):
         
         #Trimming parameters
         TrimTol    = 1e-6
-        TrimIter   = 50
+        TrimIter   = 200
         TrimPert   = 1e-5
-        LambdaStep = 0.5
+        LambdaStep = 0.4
         
         TrimTiltDiff_p = 0
         
@@ -175,8 +177,8 @@ class Vahana_VertFlight(gym.Env):
                 
         #Define Initial Trim Action
         TrimAction = np.zeros(np.shape(self.action_space))
-        TrimAction[self.action_names.index('W1_Tilt')] = 0
-        TrimAction[self.action_names.index('W2_Tilt')] = 0
+        TrimAction[self.action_names.index('W1_Tilt')] = -1
+        TrimAction[self.action_names.index('W2_Tilt')] = -1
         
         TrimState = np.zeros(np.shape(self.EQM['sta_names']))
         
@@ -198,7 +200,10 @@ class Vahana_VertFlight(gym.Env):
         
         TrimVarsLim_p = np.ones(np.shape(TrimVars))
         TrimVarsLim_p[len(n_ActionFloat):] = np.inf
-        TrimVarsLim_m = -TrimVarsLim_p
+        TrimVarsLim_m = -np.ones(np.shape(TrimVars))
+        TrimVarsLim_m[len(n_ActionFloat):] = -np.inf
+       # TrimVarsLim_p[len(n_ActionFloat):] = np.array([np.pi/2 , 100, 100])
+        # TrimVarsLim_m[len(n_ActionFloat):] = np.array([-np.pi/2 , -100, -100])
         
         # Trim Target Vector
         TrimTarget = np.hstack((np.zeros(len(n_StateDotFreeze)) , np.array([TrimVX_mps, TrimVZ_mps, np.deg2rad(TrimTheta_deg), TrimTiltDiff_p])))
@@ -211,7 +216,7 @@ class Vahana_VertFlight(gym.Env):
         TrimOutput = GetOutputFloat(self.EQM, self.CONT)
         TrimError  = np.hstack((TrimStaDot , TrimOutput)) - TrimTarget
         TrimErrorNorm = np.linalg.norm(TrimError)
-        
+
         iter_n = 1
         ContinueTrim = True
         
@@ -261,13 +266,13 @@ class Vahana_VertFlight(gym.Env):
             
             # Perform One Step    
             self.EQM['sta'] = TrimState
-            self.step(TrimAction)
+            info = self.step(TrimAction)
             
             TrimStaDot = self.EQM['sta_dot'][n_StateDotFreeze]
             TrimOutput = GetOutputFloat(self.EQM, self.CONT)           
             TrimError     = np.hstack((TrimStaDot , TrimOutput)) - TrimTarget
             TrimErrorNorm = np.linalg.norm(TrimError)
-        
+            # print('Iter: ' + str(iter_n) + ' / TrimErrorNorm: ' + str(TrimErrorNorm))
             iter_n = iter_n + 1
             
             if iter_n >=TrimIter:
@@ -276,11 +281,15 @@ class Vahana_VertFlight(gym.Env):
             elif TrimErrorNorm <= TrimTol:
                 ContinueTrim = False
                 print('Trim successful - error below tolerance')
+                TrimData['Trimmed'] = 1
                    
                     
         self.trimming = 0
-        
-        return TrimAction
+        TrimData['Action'] = TrimAction
+        TrimData['info'] = info
+        TrimData['iter_n'] = iter_n
+    
+        return TrimData
        
         
     def step(self, action):
@@ -535,9 +544,9 @@ class Vahana_VertFlight(gym.Env):
                                             -1,+1,-1,+1])  
       
       # CT e CP - Vide planilha
-      self.MOT['CT_J']       = np.array([[0.0 , 0.01 , 0.80] , 
+      self.MOT['CT_J']       = np.array([[0.0 , 0.01 , 2.00] , 
                                          [0.14, 0.14 , 0.00]])
-      self.MOT['CP_J']       = np.array([[0.0 , 0.01 , 0.80] , 
+      self.MOT['CP_J']       = np.array([[0.0 , 0.01 , 2.00] , 
                                          [0.06, 0.06 , 0.01]])
 
       self.MOT['TiltSurf_link']  = np.array([0,0,0,0,1,1,1,1])                 #ID of surface which the motor is linked. Every motor will rotate the same amount
@@ -952,7 +961,7 @@ class Vahana_VertFlight(gym.Env):
         self.AERO['Wing1']['CRS_25Local'] = 0
         self.AERO['Wing1']['CMS_25Local'] = 0
         self.AERO['Wing1']['CNS_25Local'] = 0
-        
+
         self.AERO['Wing2']['CDS_25Local'] = 2*self.sind(self.AERO['Wing2']['Alpha_deg'])*self.sind(self.AERO['Wing2']['Alpha_deg'])*abs(self.cosd(self.AERO['Wing2']['Beta_deg']))
         self.AERO['Wing2']['CYS_25Local'] = 0
         self.AERO['Wing2']['CLS_25Local'] = 2*self.sind(self.AERO['Wing2']['Alpha_deg'])*self.cosd(self.AERO['Wing2']['Alpha_deg'])*abs(self.cosd(self.AERO['Wing2']['Beta_deg']))
