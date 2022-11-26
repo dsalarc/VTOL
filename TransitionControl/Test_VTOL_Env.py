@@ -77,14 +77,25 @@ def SaveSelection(step,SaveVec,info):
     SaveVec = AppendValue(SaveVec,'Beta_deg',info['ATM']['Beta_deg'])
     SaveVec = AppendValue(SaveVec,'DynPres_Pa',info['ATM']['DynPres_Pa'])
 
-    SaveVec = AppendValue(SaveVec,'W1_Alpha_deg',info['AERO']['Wing']['Alpha_deg'][0])
-    SaveVec = AppendValue(SaveVec,'W2_Alpha_deg',info['AERO']['Wing']['Alpha_deg'][1])
-    SaveVec = AppendValue(SaveVec,'W1_Incidence_deg',info['AERO']['Wing']['Incidence_deg'][0])
-    SaveVec = AppendValue(SaveVec,'W2_Incidence_deg',info['AERO']['Wing']['Incidence_deg'][1])
-    SaveVec = AppendValue(SaveVec,'W1_CLS',info['AERO']['Wing']['CLS'][0])
-    SaveVec = AppendValue(SaveVec,'W2_CLS',info['AERO']['Wing']['CLS'][1])
-    SaveVec = AppendValue(SaveVec,'W1_CDS',info['AERO']['Wing']['CDS'][0])
-    SaveVec = AppendValue(SaveVec,'W2_CDS',info['AERO']['Wing']['CDS'][1])
+    try:
+        SaveVec = AppendValue(SaveVec,'W1_Alpha_deg',info['AERO']['Wing1']['Alpha_deg'])
+        SaveVec = AppendValue(SaveVec,'W2_Alpha_deg',info['AERO']['Wing2']['Alpha_deg'])
+        SaveVec = AppendValue(SaveVec,'W1_Incidence_deg',info['AERO']['Wing1']['Incidence_deg'])
+        SaveVec = AppendValue(SaveVec,'W2_Incidence_deg',info['AERO']['Wing2']['Incidence_deg'])
+        SaveVec = AppendValue(SaveVec,'W1_CLS',info['AERO']['Wing1']['CLS_25Local'])
+        SaveVec = AppendValue(SaveVec,'W2_CLS',info['AERO']['Wing2']['CLS_25Local'])
+        SaveVec = AppendValue(SaveVec,'W1_CDS',info['AERO']['Wing1']['CDS_25Local'])
+        SaveVec = AppendValue(SaveVec,'W2_CDS',info['AERO']['Wing2']['CDS_25Local'])
+    except:
+
+        SaveVec = AppendValue(SaveVec,'W1_Alpha_deg',info['AERO']['Wing']['Alpha_deg'][0])
+        SaveVec = AppendValue(SaveVec,'W2_Alpha_deg',info['AERO']['Wing']['Alpha_deg'][1])
+        SaveVec = AppendValue(SaveVec,'W1_Incidence_deg',info['AERO']['Wing']['Incidence_deg'][0])
+        SaveVec = AppendValue(SaveVec,'W2_Incidence_deg',info['AERO']['Wing']['Incidence_deg'][1])
+        SaveVec = AppendValue(SaveVec,'W1_CLS',info['AERO']['Wing']['CLS_25Local'][0])
+        SaveVec = AppendValue(SaveVec,'W2_CLS',info['AERO']['Wing']['CLS_25Local'][1])
+        SaveVec = AppendValue(SaveVec,'W1_CDS',info['AERO']['Wing']['CDS_25Local'][0])
+        SaveVec = AppendValue(SaveVec,'W2_CDS',info['AERO']['Wing']['CDS_25Local'][1])
 
     SaveVec = AppendValue(SaveVec,'RPM_1',info['MOT']['RPM'][0])
     SaveVec = AppendValue(SaveVec,'RPM_2',info['MOT']['RPM'][1])
@@ -100,6 +111,7 @@ def SaveSelection(step,SaveVec,info):
     SaveVec = AppendValue(SaveVec,'Thrust6_N',info['MOT']['Thrust_N'][5])
     SaveVec = AppendValue(SaveVec,'Thrust7_N',info['MOT']['Thrust_N'][6])
     SaveVec = AppendValue(SaveVec,'Thrust8_N',info['MOT']['Thrust_N'][7])
+    SaveVec = AppendValue(SaveVec,'J1',info['MOT']['J'][0])
 
     SaveVec = AppendValue(SaveVec,'Weight_kgf',info['MASS']['Weight_kgf'])
     SaveVec = AppendValue(SaveVec,'XCG_m',info['MASS']['CG_m'][0])
@@ -163,16 +175,20 @@ TestEnv = gym.make('gym_VTOL:Vahana_VertFlight-v0')
 # %% RUN SIM
 # obs,TrimAction = TestEnv.reset(Z=0,W=0,THETA=np.deg2rad(0), PHI=np.deg2rad(0), PSI=np.deg2rad(0), PaxIn = np.array([1,1]))
 
-Tilt_p = 0.9
 
-obs,TrimAction = TestEnv.reset(VX_mps = 0, VZ_mps = 0, W1_Tilt_p = Tilt_p, W2_Tilt_p = Tilt_p)
+obs = TestEnv.reset(VX_mps = 20, VZ_mps = 0.0, THETA = 0.0)
 
+print(" ")
+print("Trimmed: " + str(TestEnv.TrimData['Trimmed']))
+print("Trimmed Action: " + str(TestEnv.TrimData['Action']))
+
+# if 1==0:
 # TestEnv.render()
 SaveVec = {}
 
 
 VZ_Ref = np.array([[0 , 5 , 100 , 1000  ],
-                   [0 , 0  , 0 ,  0    ]])
+                [0 , 0  , 0 ,  0    ]])
 
 
 The_Ref = np.array([[0 , 1000  ],
@@ -184,8 +200,8 @@ Phi_Ref = np.array([[0 , 1000  ],
 Psi_Ref = np.array([[0 , 1000  ],
                     [0 , 0     ]])
 
-Tilt_Inp = np.array([[0      , 5      , 20 ],
-                     [Tilt_p , Tilt_p , Tilt_p  ]])
+Tilt_Inp = np.array([[0 , 5 , 20 ],
+                     [0 , 0 , 0  ]])
 
 # %
 SimTime = 15
@@ -198,16 +214,16 @@ The_int = 0
 Phi_int = 0
 Psi_int = 0
 
-u_Vert  = np.ones(n_steps+1)*TrimAction[0]
-u_Pitch = np.ones(n_steps+1)*TrimAction[1]
-u_Roll  = np.ones(n_steps+1)*TrimAction[2]
-u_Yaw   = np.ones(n_steps+1)*TrimAction[3]
-u_Tilt1 = np.ones(n_steps+1)*TrimAction[4]
-u_Tilt2 = np.ones(n_steps+1)*TrimAction[5]
-u_Elev1 = np.ones(n_steps+1)*TrimAction[6]
-u_Elev2 = np.ones(n_steps+1)*TrimAction[7]
-u_Ail1  = np.ones(n_steps+1)*TrimAction[8]
-u_Ail2  = np.ones(n_steps+1)*TrimAction[9]
+u_Vert  = np.ones(n_steps+1)*TestEnv.TrimData['Action'][0]
+u_Pitch = np.ones(n_steps+1)*TestEnv.TrimData['Action'][1]
+u_Roll  = np.ones(n_steps+1)*TestEnv.TrimData['Action'][2]
+u_Yaw   = np.ones(n_steps+1)*TestEnv.TrimData['Action'][3]
+u_Tilt1 = np.ones(n_steps+1)*TestEnv.TrimData['Action'][4]
+u_Tilt2 = np.ones(n_steps+1)*TestEnv.TrimData['Action'][5]
+u_Elev1 = np.ones(n_steps+1)*TestEnv.TrimData['Action'][6]
+u_Elev2 = np.ones(n_steps+1)*TestEnv.TrimData['Action'][7]
+u_Ail1  = np.ones(n_steps+1)*TestEnv.TrimData['Action'][8]
+u_Ail2  = np.ones(n_steps+1)*TestEnv.TrimData['Action'][9]
 
 
 Return = 0
@@ -217,15 +233,15 @@ for step in range(n_steps):
     CurrentTime_s = step*TestEnv.t_step
     
     InputVec = np.array([u_Vert[step] ,
-                         u_Pitch[step],
-                         u_Roll[step] ,
-                         u_Yaw[step]  ,
-                         u_Tilt1[step],
-                         u_Tilt2[step],
-                         u_Elev1[step],
-                         u_Elev2[step],
-                         u_Ail1[step] ,
-                         u_Ail2[step] ])
+                        u_Pitch[step],
+                        u_Roll[step] ,
+                        u_Yaw[step]  ,
+                        u_Tilt1[step],
+                        u_Tilt2[step],
+                        u_Elev1[step],
+                        u_Elev2[step],
+                        u_Ail1[step] ,
+                        u_Ail2[step] ])
     
     obs, reward, done, info = TestEnv.step(InputVec)
     
@@ -233,31 +249,23 @@ for step in range(n_steps):
     Return = Return + reward
     SaveVec = SaveSelection(step,SaveVec,info)
     if done:
-      print("Goal reached!", "reward=", reward)
-      break
-  
+        print("Goal reached!", "reward=", reward)
+        break
+
     # u_Vert[step+1],VZ_int = PID_Vert(np.interp(CurrentTime_s,VZ_Ref[0,:] , VZ_Ref[1,:]),
     #                           obs[4],obs[5],VZ_int,
     #                           KD=0.0,KP=1.0, KI=0.1, KFF=0.0, gamma=1)
-  
+
     # u_Pitch[step+1],The_int = PID_Pitch(np.interp(CurrentTime_s,The_Ref[0,:],np.deg2rad(The_Ref[1,:])),
     #                           obs[8],obs[9],The_int,
     #                           KD=0.5,KP=1.0,KI=0, gamma=1)
- 
-    u_Roll[step+1] = 0
-    
-    u_Yaw[step+1] = 0
 
-    u_Tilt1 [step+1] = np.interp(CurrentTime_s , Tilt_Inp[0,:],Tilt_Inp[1,:])       
-    u_Tilt2 [step+1] = np.interp(CurrentTime_s , Tilt_Inp[0,:],Tilt_Inp[1,:])       
-    u_Elev1 [step+1] = 0
-    u_Elev2 [step+1] = 0
-    u_Ail1  [step+1] = 0
-    u_Ail2  [step+1] = 0
+
+    u_Tilt1 [step+1] = u_Tilt1 [step+1] + np.interp(CurrentTime_s , Tilt_Inp[0,:],Tilt_Inp[1,:])       
+    u_Tilt2 [step+1] = u_Tilt2 [step+1] + np.interp(CurrentTime_s , Tilt_Inp[0,:],Tilt_Inp[1,:])       
 
 
 # % CALL PLOT FILE
-
 print('Return = {:0.1f}'.format(Return))
 exec(open("./Test_VTOL_GeneralPlot.py").read())
 

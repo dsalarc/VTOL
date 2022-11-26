@@ -15,8 +15,8 @@ PlotTime1 = 0
 PlotTime2 = SimTime
 fig = plt.figure()
 
-plt_l = 5
-plt_c = 2
+plt_l = 4
+plt_c = 3
 plt_n = 1
 
 plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
@@ -31,7 +31,6 @@ plt.xlabel('Time [s]')
 plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
 plt.grid('on')
 plt.xlim([PlotTime1,PlotTime2])
-plt.ylim([-10,+10])
 plt.plot(TimeVec,SaveVec['VX_mps'],label='VX [mps]')
 plt.plot(TimeVec,SaveVec['VY_mps'],label='VY [mps]')
 plt.plot(TimeVec,-SaveVec['VZ_mps'],label='-VZ [mps]')
@@ -39,7 +38,7 @@ plt.plot(VZ_Ref[0,:],-VZ_Ref[1,:],'k--',label = '-W ref')
 plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
 plt.ylabel('Body Speed [m/s]')
 plt.xlabel('Time [s]')
-plt.ylim([-10,+10])
+plt.ylim([-10,+50])
 
 plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
 plt.grid('on')
@@ -94,7 +93,7 @@ plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
 plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
 plt.grid('on')
 plt.xlim([PlotTime1,PlotTime2])
-plt.ylim([0,2700])
+plt.ylim([0,4000])
 plt.plot(TimeVec,SaveVec['RPM_1'],label='1')
 plt.plot(TimeVec,SaveVec['RPM_4'],label='4')
 plt.plot(TimeVec,SaveVec['RPM_5'],label='5')
@@ -147,12 +146,28 @@ plt.ylabel('Thrust [N]')
 plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
 plt.xlabel('Time [s]')
 
+plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
+plt.grid('on')
+plt.xlim([PlotTime1,PlotTime2])
+plt.plot(TimeVec,SaveVec['J1'],label='1')
+plt.ylabel('Advance Ratio')
+plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+plt.xlabel('Time [s]')
 
-fig.set_size_inches(13, 10)
+plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
+plt.grid('on')
+plt.xlim([PlotTime1,PlotTime2])
+plt.plot(TimeVec,SaveVec['FZaero_N'],label='Z Aero')
+plt.plot(TimeVec,SaveVec['FZ_N'],label='Z Tot')
+plt.ylabel('Forces [N]')
+plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+plt.xlabel('Time [s]')
+
+fig.set_size_inches(20, 10)
 fig.tight_layout() 
 plt.show()
 
 print('Weight = {:0.0f}'.format(SaveVec['Weight_kgf'][0]))
 
-fig.savefig('/home/dsalarc/Documents/DOUTORADO/Environments/VTOL/WTPPcontrol/AircraftModel_WTPP_PID' + '_W' + str('{:0.0f}'.format(SaveVec['W_mps'][0])) +'_T' + str('{:0.0f}'.format(SaveVec['Theta_deg'][0])) +'_P' + str('{:0.0f}'.format(SaveVec['Phi_deg'][0])) +'_P' + str('{:0.0f}'.format(SaveVec['Psi_deg'][0])) + '.pdf', bbox_inches='tight')
+fig.savefig('/home/dsalarc/Documents/DOUTORADO/Environments/VTOL/TransitionControl/AircraftModel_PID' + '_W' + str('{:0.0f}'.format(SaveVec['W_mps'][0])) +'_T' + str('{:0.0f}'.format(SaveVec['Theta_deg'][0])) +'_P' + str('{:0.0f}'.format(SaveVec['Phi_deg'][0])) +'_P' + str('{:0.0f}'.format(SaveVec['Psi_deg'][0])) + '.pdf', bbox_inches='tight')
 print('Fig Saved')
