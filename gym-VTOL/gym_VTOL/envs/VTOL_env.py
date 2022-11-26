@@ -127,12 +127,21 @@ class Vahana_VertFlight(gym.Env):
       TrimData = self.trim(TrimVX_mps = VX_mps, TrimVZ_mps = VZ_mps, TrimTheta_deg = THETA, 
                            PitchController = 'W2_Elevator')
 
+      # If not trimmed with elevator only, or deflection abobe 10deg, trim with Pitch Throttle
       if (TrimData['Trimmed'] == 0) or (any(abs(TrimData['info']['AERO']['Elevon']['Deflection_deg'])>10)):
         Action_W2_Elevator = np.sign(TrimData['Action'][self.action_names.index('W2_Elevator')]) * 10/(self.CONT['ElevRange_deg'][2]/2)
 
         TrimData = self.trim(TrimVX_mps = VX_mps, TrimVZ_mps = VZ_mps, TrimTheta_deg = THETA, 
                              PitchController = 'PitchThrottle' , 
                              FixedAction = np.array(['W2_Elevator',Action_W2_Elevator]))
+
+        # If signs of PitchThrottle and Elevator are different, invert elevator  
+        if np.sign(TrimData['Action'][self.action_names.index('W2_Elevator')]) == np.sign(TrimData['Action'][self.action_names.index('PitchThrottle')]):
+            TrimData = self.trim(TrimVX_mps = VX_mps, TrimVZ_mps = VZ_mps, TrimTheta_deg = THETA, 
+                                PitchController = 'PitchThrottle' , 
+                                FixedAction = np.array(['W2_Elevator',-Action_W2_Elevator]))
+
+
 
       # self.EQM_fcn(np.array([0,0,0]), np.array([0,0,0]), self.MASS['I_kgm'], self.MASS['Weight_kgf'])
       
@@ -183,7 +192,7 @@ class Vahana_VertFlight(gym.Env):
         TrimIter              = 100
         TrimIterNoImprovement = 5
         TrimPert              = 1e-5
-        LambdaStep            = 0.4
+        LambdaStep            = 0.6
         
         TrimTiltDiff_p = 0
         
@@ -277,10 +286,20 @@ class Vahana_VertFlight(gym.Env):
                
                 H[:,i] = (np.hstack((StateDot_p,Output_p)) - np.hstack((StateDot_m,Output_m))) / (2*TrimPert)
                 
-                
-            TrimVars = TrimVars - LambdaStep*np.matmul(np.linalg.pinv(H) , TrimError)
-            TrimVars = np.min( np.vstack(( TrimVars , TrimVarsLim_p )) , axis=0)
-            TrimVars = np.max( np.vstack(( TrimVars , TrimVarsLim_m )) , axis=0)
+            LastTrimVars = TrimVars
+            DeltaTrimVars = np.matmul(np.linalg.pinv(H) , TrimError)
+
+            for i in range(len(LastTrimVars)):
+                if ((LastTrimVars[i] - LambdaStep*DeltaTrimVars[i]) > TrimVarsLim_p[i]):
+                    TrimVars[i] = LastTrimVars[i] - LambdaStep/2*(TrimVarsLim_p[i]-LastTrimVars[i])
+                elif((LastTrimVars[i] - LambdaStep*DeltaTrimVars[i]) < TrimVarsLim_m[i]):
+                    TrimVars[i] = LastTrimVars[i] - LambdaStep/2*(TrimVarsLim_m[i]-LastTrimVars[i])
+                else:
+                    TrimVars[i] = LastTrimVars[i] - LambdaStep*DeltaTrimVars[i]
+
+
+            # TrimVars = np.min( np.vstack(( TrimVars , TrimVarsLim_p )) , axis=0)
+            # TrimVars = np.max( np.vstack(( TrimVars , TrimVarsLim_m )) , axis=0)
 
             TrimAction[n_ActionFloat] = TrimVars[0:len(n_ActionFloat)]
             TrimState[n_StateFloat] = TrimVars[len(n_ActionFloat):]
