@@ -124,8 +124,16 @@ class Vahana_VertFlight(gym.Env):
       self.EQM['sta_dotdot'] = np.zeros(shape=np.shape(self.EQM['sta']),dtype = np.float32)
       self.EQM['sta_int']    = np.zeros(shape=np.shape(self.EQM['sta']),dtype = np.float32)
       
-      TrimData = self.trim(TrimVX_mps = VX_mps, TrimVZ_mps = VZ_mps, TrimTheta_deg = THETA)
-      
+      TrimData = self.trim(TrimVX_mps = VX_mps, TrimVZ_mps = VZ_mps, TrimTheta_deg = THETA, 
+                           PitchController = 'W2_Elevator')
+
+      if (TrimData['Trimmed'] == 0) or (any(abs(TrimData['info']['AERO']['Elevon']['Deflection_deg'])>10)):
+        Action_W2_Elevator = np.sign(TrimData['Action'][self.action_names.index('W2_Elevator')]) * 10/(self.CONT['ElevRange_deg'][2]/2)
+
+        TrimData = self.trim(TrimVX_mps = VX_mps, TrimVZ_mps = VZ_mps, TrimTheta_deg = THETA, 
+                             PitchController = 'PitchThrottle' , 
+                             FixedAction = np.array(['W2_Elevator',Action_W2_Elevator]))
+
       # self.EQM_fcn(np.array([0,0,0]), np.array([0,0,0]), self.MASS['I_kgm'], self.MASS['Weight_kgf'])
       
       # # Set Initial Control
@@ -151,10 +159,18 @@ class Vahana_VertFlight(gym.Env):
       self.TrimData = TrimData
       return obs
   
-    def trim(self, TrimVX_mps = 0, TrimVZ_mps = 0, TrimTheta_deg = 0):
+    def trim(self, TrimVX_mps = 0, TrimVZ_mps = 0, TrimTheta_deg = 0, PitchController = 'PitchThrottle',FixedAction = np.array([])):
         TrimData = {}
         TrimData['Trimmed'] = 0
        
+        ''' Action Names:
+        self.action_names = ['Throttle','PitchThrottle',
+                             'RollThrottle','YawThrottle',
+                             'W1_Tilt','W2_Tilt',
+                             'W1_Elevator','W2_Elevator',
+                             'W1_Aileron','W2_Aileron']
+        '''
+
         # Define function to get Outputs of interest
         def GetOutputFloat(EQM, CONT):
             return np.array([EQM['VelLin_EarthAx_mps'][0] ,
@@ -164,7 +180,7 @@ class Vahana_VertFlight(gym.Env):
         
         #Trimming parameters
         TrimTol    = 1e-6
-        TrimIter   = 200
+        TrimIter   = 100
         TrimPert   = 1e-5
         LambdaStep = 0.4
         
@@ -177,6 +193,9 @@ class Vahana_VertFlight(gym.Env):
                 
         #Define Initial Trim Action
         TrimAction = np.zeros(np.shape(self.action_space))
+        for i in range(int(len(FixedAction)/2)):
+            TrimAction[self.action_names.index(FixedAction[i*2])] = FixedAction[i*2+1]
+
         TrimAction[self.action_names.index('W1_Tilt')] = -1
         TrimAction[self.action_names.index('W2_Tilt')] = -1
         
@@ -184,7 +203,7 @@ class Vahana_VertFlight(gym.Env):
         
         # Define Freeze and Floats Indexes
         n_ActionFloat    = np.array([self.action_names.index('Throttle') ,
-                                     self.action_names.index('PitchThrottle') , 
+                                     self.action_names.index(PitchController) , 
                                      self.action_names.index('W1_Tilt') , 
                                      self.action_names.index('W2_Tilt') ])
         
@@ -562,7 +581,7 @@ class Vahana_VertFlight(gym.Env):
       
       self.CONT['MinElev_deg']   = np.ones(4) * -15
       self.CONT['MaxElev_deg']   = np.ones(4) * +15
-      self.CONT['ElevRange_deg'] = self.CONT['MinElev_deg'] - self.CONT['MaxElev_deg'] 
+      self.CONT['ElevRange_deg'] = self.CONT['MaxElev_deg'] - self.CONT['MinElev_deg'] 
       self.CONT['ElevCenter_deg'] = (self.CONT['MinElev_deg'] + self.CONT['MaxElev_deg']) / 2
 
       # OTHER CONSTANTS
