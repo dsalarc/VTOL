@@ -179,10 +179,11 @@ class Vahana_VertFlight(gym.Env):
                              CONT['TiltDiff_p'] ])
         
         #Trimming parameters
-        TrimTol    = 1e-6
-        TrimIter   = 100
-        TrimPert   = 1e-5
-        LambdaStep = 0.4
+        TrimTol               = 1e-6
+        TrimIter              = 100
+        TrimIterNoImprovement = 5
+        TrimPert              = 1e-5
+        LambdaStep            = 0.4
         
         TrimTiltDiff_p = 0
         
@@ -235,8 +236,10 @@ class Vahana_VertFlight(gym.Env):
         TrimOutput = GetOutputFloat(self.EQM, self.CONT)
         TrimError  = np.hstack((TrimStaDot , TrimOutput)) - TrimTarget
         TrimErrorNorm = np.linalg.norm(TrimError)
+        Min_TrimErrorNorm = TrimErrorNorm
 
         iter_n = 1
+        n_NoImprovement = 0
         ContinueTrim = True
         
         while ContinueTrim:
@@ -291,6 +294,12 @@ class Vahana_VertFlight(gym.Env):
             TrimOutput = GetOutputFloat(self.EQM, self.CONT)           
             TrimError     = np.hstack((TrimStaDot , TrimOutput)) - TrimTarget
             TrimErrorNorm = np.linalg.norm(TrimError)
+            if TrimErrorNorm < Min_TrimErrorNorm:
+                Min_TrimErrorNorm = TrimErrorNorm
+                n_NoImprovement = 0
+            else:
+                n_NoImprovement += 1
+
             # print('Iter: ' + str(iter_n) + ' / TrimErrorNorm: ' + str(TrimErrorNorm))
             iter_n = iter_n + 1
             
@@ -301,6 +310,10 @@ class Vahana_VertFlight(gym.Env):
                 ContinueTrim = False
                 print('Trim successful - error below tolerance')
                 TrimData['Trimmed'] = 1
+            elif n_NoImprovement >= TrimIterNoImprovement:
+                ContinueTrim = False
+                print('Trim Error - No further convergence')
+                TrimData['Trimmed'] = 0
                    
                     
         self.trimming = 0
