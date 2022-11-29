@@ -544,6 +544,7 @@ class Vahana_VertFlight(gym.Env):
       self.MASS['I_kgm'] = np.array([[Ixx,0,0],[0,Iyy,0],[0,0,Izz]])
 
       self.init_AERO()
+      self.init_MOT()
                                    
     def init_AERO (self):
  
@@ -569,14 +570,16 @@ class Vahana_VertFlight(gym.Env):
       self.AERO['Elevon']['AOAeff']['Alpha_deg']  = np.array([-180 , -45 , -20 ,  20 ,  45 , 180])
       self.AERO['Elevon']['AOAeff']['Gain']       = np.array([ 0.0 , 0.0 , 1.0 , 1.0 , 0.0 , 0.0])
 
+    
+    def init_MOT (self):
       # MOTOR
-      x1 = 0.04
-      x2 = 2*self.MASS['CG_m'][0] - x1
+      x1 = 0.05
+      x2 = 3.15
       y1 = 1.3
       y2 = 3.0
       z1  = 0
       z2 = 1.5
-      
+    
       self.MOT['n_motor'] = 8
       self.MOT['Position_m'] = np.array([[x1,-y2,z1],
                                          [x1,-y1,z1],
