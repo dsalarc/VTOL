@@ -394,30 +394,52 @@ class Vahana_VertFlight(gym.Env):
       else:
           return info
           
-      
+    def init_REW(self):
+        self.REW['Target'] = {}
+        self.REW['Target']['Vx']    = 60
+        self.REW['Target']['Vz']    = 0
+        self.REW['Target']['Z']     = 0
+        self.REW['Target']['Theta'] = 0
+
+        self.REW['Adm'] = {}
+        self.REW['Adm']['Vx']    = 60
+        self.REW['Adm']['Vz']    = 5
+        self.REW['Adm']['Z']     = 5
+        self.REW['Adm']['Theta'] = 5
+
+        self.REW['Weight'] = {}
+        self.REW['Weight']['Vx']    = 1
+        self.REW['Weight']['Vz']    = 1
+        self.REW['Weight']['Z']     = 1
+        self.REW['Weight']['Theta'] = 1
+
+        self.REW['DeadZone'] = {}
+        self.REW['DeadZone']['Vx']    = 1
+        self.REW['DeadZone']['Vz']    = 1
+        self.REW['DeadZone']['Z']     = 1
+        self.REW['DeadZone']['Theta'] = 1  
+
+        self.REW['DeadZone']['Slope'] = 0.01
+
     def CalcReward(self):
-        Target = {}
-        Target['Vx']    = 60
-        Target['Vz']    = 0
-        Target['Z']     = 0
-        Target['Theta'] = 0
 
-        Value = {}
-        Value['Vx']    = self.EQM['VelLin_EarthAx_mps'][0]
-        Value['Vz']    = self.EQM['VelLin_EarthAx_mps'][2]
-        Value['Z']     = self.EQM['PosLin_EarthAx_m'][2]
-        Value['Theta'] = np.rad2deg(self.EQM['EulerAngles_rad'][1])
-
-        Adm = {}
-        Adm['Vx']    = 60
-        Adm['Vz']    = 5
-        Adm['Z']     = 5
-        Adm['Theta'] = 5
+        self.REW['Value'] = {}
+        self.REW['Value']['Vx']    = self.EQM['VelLin_EarthAx_mps'][0]
+        self.REW['Value']['Vz']    = self.EQM['VelLin_EarthAx_mps'][2]
+        self.REW['Value']['Z']     = self.EQM['PosLin_EarthAx_m'][2]
+        self.REW['Value']['Theta'] = np.rad2deg(self.EQM['EulerAngles_rad'][1])
 
         Reward = 0
 
-        for kk in Target.keys():
-            Reward += np.max((0 , 1 - np.abs(Target[kk] - Value[kk]) / Adm[kk]))
+        for kk in self.REW['Target'].keys():
+            Delta2Target = np.abs(self.REW['Target'][kk] - self.REW['Value'][kk])
+
+            if Delta2Target < self.REW['DeadZone'][kk]:
+                Reward += 1 - self.REW['DeadZone']['Slope']  / self.REW['DeadZone'][kk] * Delta2Target
+            else:
+                Reward += np.max((0 , (1 - self.REW['DeadZone']['Slope'])
+                                    + (self.REW['DeadZone']['Slope'] - 1) / (self.REW['Adm'][kk]  - self.REW['DeadZone'][kk])
+                                    * (Delta2Target - self.REW['DeadZone'][kk])))
 
         return Reward    
     
@@ -545,7 +567,8 @@ class Vahana_VertFlight(gym.Env):
 
       self.init_AERO()
       self.init_MOT()
-                                   
+      self.init_REW()
+                                
     def init_AERO (self):
  
       # AERO
