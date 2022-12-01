@@ -16,12 +16,11 @@ class Vahana_VertFlight(gym.Env):
     metadata = {'render.modes': ['console']}
 
     def __init__(self):
-        # super(Vahana_VertFlight, self).__init__() 
         
-        #Define Constants
-        
+        #Define Constants     
         self.n_states = 12
         self.t_step = 0.05
+        self.UseLateralActions = False
         
         # Define action and observation space
         '''
@@ -36,7 +35,6 @@ class Vahana_VertFlight(gym.Env):
         # Observation Space    = [Vx , dVx, Vy , dVy , Z  , Vz , dVz , Phi      , p        , Theta    , q        , Psi      , r        ]
         self.adm_vec  = np.array([60 , 20 , 10 , 10  , 100, 10 , 10  , 3.1415/2 , 3.1415/2 , 3.1415/2 , 3.1415/2 , 3.1415/2 , 3.1415/2 ])
         self.MaxState = np.array([1  , 1  , 1  , 1   , 1  ,  1 , 1   , 1        , 1        , 1        , 1        , 1        ,1         ])
-        # self.MaxState = np.array([np.inf,np.inf])
         
         '''
         ACTIONS:
@@ -46,11 +44,16 @@ class Vahana_VertFlight(gym.Env):
             Back Wing Elevon
             Aileron
         '''
-        self.action_names = ['Throttle','PitchThrottle',
-                             'RollThrottle','YawThrottle',
-                             'W1_Tilt','W2_Tilt',
-                             'W1_Elevator','W2_Elevator',
-                             'W1_Aileron','W2_Aileron']
+        if self.UseLateralActions:
+            self.action_names = ['Throttle','PitchThrottle',
+                                 'RollThrottle','YawThrottle',
+                                 'W1_Tilt','W2_Tilt',
+                                 'W1_Elevator','W2_Elevator',
+                                 'W1_Aileron','W2_Aileron']
+        else:
+            self.action_names = ['Throttle','PitchThrottle',
+                                'W1_Tilt','W2_Tilt',
+                                'W2_Elevator']
         
         self.action_space = spaces.Box(low=-1, 
                                        high=1,
@@ -61,6 +64,18 @@ class Vahana_VertFlight(gym.Env):
                                             dtype=np.float16)  
 
     
+    def saveinfo(self):
+      info = {}          
+      info['ATM']  = self.ATM
+      info['EQM']  = self.EQM
+      info['MOT']  = self.MOT
+      info['AERO'] = self.AERO
+      info['CONT'] = self.CONT
+      info['MASS'] = self.MASS
+      self.info = info
+
+      return info
+      
     def OutputObs(self,sta,sta_dot,sta_int,cont):
         # obs = np.hstack((sta,sta_dot,cont))
         # Observation Space    = [Vx , dVx, Vy , dVy , Vz , dVz , Phi      , p        , Theta    , q        , Psi      , r        ]
@@ -83,9 +98,10 @@ class Vahana_VertFlight(gym.Env):
         return obs
     
     def reset(self,W = 0, Z = 0, THETA = 0,  PHI = 0,  PSI = 0, PaxIn = np.array([1,1]),
-                   VX_mps = 0, VZ_mps = 0):
+                   VX_mps = 0, VZ_mps = 0, DispMessages = False):
       self.CurrentStep = 0
       self.trimming = 0
+      self.DispMessages = DispMessages
 
       # Initialize Contants  
 
@@ -149,6 +165,8 @@ class Vahana_VertFlight(gym.Env):
 
       obs = self.OutputObs(self.EQM['sta'],self.EQM['sta_dot'],self.EQM['sta_int'],self.CONT['RPM_p'])
       
+      self.saveinfo()
+
       return obs
   
     def trim(self, TrimVX_mps = 0, TrimVZ_mps = 0, TrimTheta_deg = 0, PitchController = 'PitchThrottle',FixedAction = np.array([])):
@@ -306,14 +324,17 @@ class Vahana_VertFlight(gym.Env):
             
             if iter_n >=TrimIter:
                 ContinueTrim = False
-                print('Trim Error - Max number of iterations')
+                if self.DispMessages:
+                    print('Trim Error - Max number of iterations')
             elif TrimErrorNorm <= TrimTol:
                 ContinueTrim = False
-                print('Trim successful - error below tolerance')
+                if self.DispMessages:
+                    print('Trim successful - error below tolerance')
                 TrimData['Trimmed'] = 1
             elif n_NoImprovement >= TrimIterNoImprovement:
                 ContinueTrim = False
-                print('Trim Error - No further convergence')
+                if self.DispMessages:
+                    print('Trim Error - No further convergence')
                 TrimData['Trimmed'] = 0
                    
                     
@@ -324,7 +345,7 @@ class Vahana_VertFlight(gym.Env):
     
         return TrimData
        
-        
+
     def step(self, action):
       if not(self.trimming):  
           self.CurrentStep += 1
@@ -359,28 +380,13 @@ class Vahana_VertFlight(gym.Env):
       
       # Terminal State = False   
       done = False
-      # if abs(np.rad2deg(self.EQM['sta'][4])) > 45:
-      # if self.sta[4] > 90:
-          # self.LastReward = (300-self.CurrentStep) * self.LastReward
-          # self.LastReward = 0
-          # self.LastReward = -10000
-          # done = True
-          
-          
-      # if abs(np.rad2deg(self.EQM['sta'][4])) < 0.1 and abs(np.rad2deg(self.EQM['sta_dot'][4])) < 0.1 and (
-      #    abs(np.rad2deg(self.EQM['sta'][0])) < 0.1 and abs(np.rad2deg(self.EQM['sta_dot'][0])) < 0.1):
-      #     self.LastReward = 0
-      #     done = True   
+      if abs(np.rad2deg(self.EQM['sta'][4])) > 10:
+          done = True
+
           
       # Export Model Oututs throught info
-      info = {}          
-      info['ATM']  = self.ATM
-      info['EQM']  = self.EQM
-      info['MOT']  = self.MOT
-      info['AERO'] = self.AERO
-      info['CONT'] = self.CONT
-      info['MASS'] = self.MASS
-      
+      info = self.saveinfo()
+
       obs = self.OutputObs(self.EQM['sta'],self.EQM['sta_dot'],self.EQM['sta_int'],self.CONT['RPM_p'])
 
       if not(self.trimming):
@@ -400,10 +406,10 @@ class Vahana_VertFlight(gym.Env):
         Value['Vx']    = self.EQM['VelLin_EarthAx_mps'][0]
         Value['Vz']    = self.EQM['VelLin_EarthAx_mps'][2]
         Value['Z']     = self.EQM['PosLin_EarthAx_m'][2]
-        Value['Theta'] = self.EQM['EulerAngles_rad'][1]
+        Value['Theta'] = np.rad2deg(self.EQM['EulerAngles_rad'][1])
 
         Adm = {}
-        Adm['Vx']    = 10
+        Adm['Vx']    = 60
         Adm['Vz']    = 5
         Adm['Z']     = 5
         Adm['Theta'] = 5
@@ -584,7 +590,7 @@ class Vahana_VertFlight(gym.Env):
                                          [x2,+y1,z2],
                                          [x2,+y2,z2]])
 
-      self.MOT['MaxRPM']        = np.ones(self.MOT['n_motor']) * 4000
+      self.MOT['MaxRPM']        = np.ones(self.MOT['n_motor']) * 3000
       self.MOT['MinRPM']        = np.ones(self.MOT['n_motor']) * 0.01
       self.MOT['RPMRange']      = self.MOT['MaxRPM'] - self.MOT['MinRPM'] 
       self.MOT['Diameter_m']    = np.ones(self.MOT['n_motor']) * 1.5
@@ -1265,11 +1271,16 @@ class Vahana_VertFlight(gym.Env):
         
         u_Vert = action_vec[self.action_names.index('Throttle')]
         u_Pitc = action_vec[self.action_names.index('PitchThrottle')]
-        u_Roll = action_vec[self.action_names.index('RollThrottle')]
-        u_Yaw  = action_vec[self.action_names.index('YawThrottle')]
+        if self.UseLateralActions:
+            u_Roll = action_vec[self.action_names.index('RollThrottle')]
+            u_Yaw  = action_vec[self.action_names.index('YawThrottle')]
+        else:
+            u_Roll = 0
+            u_Yaw  = 0
         
         if not(self.trimming):
             self.CONT['LastRPM_vec'] = self.CONT['RPM_vec'].copy()
+
         self.CONT['RPM_vec']     = ControlMixer(VerticalControlAllocation(u_Vert),PitchControlAllocation(u_Pitc),RollControlAllocation(u_Roll),YawControlAllocation(u_Yaw))
 
         TILT_vec = (np.array([action_vec[self.action_names.index('W1_Tilt')],
@@ -1279,8 +1290,14 @@ class Vahana_VertFlight(gym.Env):
         self.CONT['Tilt_p']   = TILT_vec
         self.CONT['TiltDiff_p']   = TILT_vec[0] - TILT_vec[1]
         
-        self.CONT['Elevon_p'] = np.array([action_vec[self.action_names.index('W1_Elevator')] - 0.5*action_vec[self.action_names.index('W1_Aileron')],
-                                          action_vec[self.action_names.index('W1_Elevator')] + 0.5*action_vec[self.action_names.index('W1_Aileron')],
-                                          action_vec[self.action_names.index('W2_Elevator')] - 0.5*action_vec[self.action_names.index('W2_Aileron')],
-                                          action_vec[self.action_names.index('W2_Elevator')] + 0.5*action_vec[self.action_names.index('W2_Aileron')]])
+        if self.UseLateralActions:
+            self.CONT['Elevon_p'] = np.array([action_vec[self.action_names.index('W1_Elevator')] - 0.5*action_vec[self.action_names.index('W1_Aileron')],
+                                            action_vec[self.action_names.index('W1_Elevator')] + 0.5*action_vec[self.action_names.index('W1_Aileron')],
+                                            action_vec[self.action_names.index('W2_Elevator')] - 0.5*action_vec[self.action_names.index('W2_Aileron')],
+                                            action_vec[self.action_names.index('W2_Elevator')] + 0.5*action_vec[self.action_names.index('W2_Aileron')]])
+        else:
+            self.CONT['Elevon_p'] = np.array([0                                                  - 0.5*0,
+                                            0                                                  + 0.5*0,
+                                            action_vec[self.action_names.index('W2_Elevator')] - 0.5*0,
+                                            action_vec[self.action_names.index('W2_Elevator')] + 0.5*0])
 
