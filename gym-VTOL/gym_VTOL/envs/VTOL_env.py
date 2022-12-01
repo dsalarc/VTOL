@@ -395,6 +395,8 @@ class Vahana_VertFlight(gym.Env):
           return info
           
     def init_REW(self):
+        self.REW = {}
+        
         self.REW['Target'] = {}
         self.REW['Target']['Vx']    = 60
         self.REW['Target']['Vz']    = 0
