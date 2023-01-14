@@ -98,12 +98,14 @@ class Vahana_VertFlight(gym.Env):
         return obs
     
     def reset(self,W = 0, Z = 0, THETA = 0,  PHI = 0,  PSI = 0, PaxIn = np.array([1,1]),
-                   VX_mps = 0, VZ_mps = 0, DispMessages = False):
+                   VX_mps = 0, VZ_mps = 0, DispMessages = False, TermTheta_deg = 10):
       self.CurrentStep = 0
       self.trimming = 0
       self.DispMessages = DispMessages
 
       # Initialize Contants  
+      self.Term = {}
+      self.Term['Theta_deg'] = TermTheta_deg
 
       self.StartUp(PaxIn = PaxIn)
       
@@ -193,7 +195,7 @@ class Vahana_VertFlight(gym.Env):
         TrimIter              = 100
         TrimIterNoImprovement = 5
         TrimPert              = 1e-5
-        LambdaStep            = 0.6
+        LambdaStep            = 0.3
         
         TrimTiltDiff_p = 0
         
@@ -380,7 +382,7 @@ class Vahana_VertFlight(gym.Env):
       
       # Terminal State = False   
       done = False
-      if abs(np.rad2deg(self.EQM['sta'][4])) > 10:
+      if abs(np.rad2deg(self.EQM['sta'][4])) > self.Term['Theta_deg']:
           done = True
 
           
@@ -396,30 +398,34 @@ class Vahana_VertFlight(gym.Env):
           
     def init_REW(self):
         self.REW = {}
-        
+
         self.REW['Target'] = {}
         self.REW['Target']['Vx']    = 60
         self.REW['Target']['Vz']    = 0
         self.REW['Target']['Z']     = 0
         self.REW['Target']['Theta'] = 0
+        self.REW['Target']['Q']     = 0
 
         self.REW['Adm'] = {}
         self.REW['Adm']['Vx']    = 60
         self.REW['Adm']['Vz']    = 5
         self.REW['Adm']['Z']     = 5
         self.REW['Adm']['Theta'] = 5
+        self.REW['Adm']['Q']     = 5
 
         self.REW['Weight'] = {}
         self.REW['Weight']['Vx']    = 1
         self.REW['Weight']['Vz']    = 1
         self.REW['Weight']['Z']     = 1
         self.REW['Weight']['Theta'] = 1
+        self.REW['Weight']['Q']     = 1
 
         self.REW['DeadZone'] = {}
         self.REW['DeadZone']['Vx']    = 1
         self.REW['DeadZone']['Vz']    = 1
         self.REW['DeadZone']['Z']     = 1
         self.REW['DeadZone']['Theta'] = 1  
+        self.REW['DeadZone']['Q']     = 1  
 
         self.REW['DeadZone']['Slope'] = 0.01
 
@@ -430,6 +436,7 @@ class Vahana_VertFlight(gym.Env):
         self.REW['Value']['Vz']    = self.EQM['VelLin_EarthAx_mps'][2]
         self.REW['Value']['Z']     = self.EQM['PosLin_EarthAx_m'][2]
         self.REW['Value']['Theta'] = np.rad2deg(self.EQM['EulerAngles_rad'][1])
+        self.REW['Value']['Q']     = np.rad2deg(self.EQM['VelRot_BodyAx_radps'][1])
 
         Reward = 0
 
