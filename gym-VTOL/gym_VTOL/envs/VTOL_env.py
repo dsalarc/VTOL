@@ -98,7 +98,7 @@ class Vahana_VertFlight(gym.Env):
         return obs
     
     def reset(self,W = 0, Z = 0, THETA = 0,  PHI = 0,  PSI = 0, PaxIn = np.array([1,1]),
-                   VX_mps = 0, VZ_mps = 0, DispMessages = False, TermTheta_deg = 10):
+                   VX_mps = 0, VZ_mps = 0, DispMessages = False, Linearize = False, TermTheta_deg = 10):
       self.CurrentStep = 0
       self.trimming = 0
       self.DispMessages = DispMessages
@@ -144,7 +144,7 @@ class Vahana_VertFlight(gym.Env):
       self.EQM['sta_int']    = np.zeros(shape=np.shape(self.EQM['sta']),dtype = np.float32)
       
       TrimData = self.trim(TrimVX_mps = VX_mps, TrimVZ_mps = VZ_mps, TrimTheta_deg = THETA, 
-                           PitchController = 'W2_Elevator')
+                           PitchController = 'W2_Elevator', Linearize = Linearize)
 
       # If not trimmed with elevator only, or deflection abobe 10deg, trim with Pitch Throttle
       if (TrimData['Trimmed'] == 0) or (any(abs(TrimData['info']['AERO']['Elevon']['Deflection_deg'])>10)):
@@ -171,7 +171,7 @@ class Vahana_VertFlight(gym.Env):
 
       return obs
   
-    def trim(self, TrimVX_mps = 0, TrimVZ_mps = 0, TrimTheta_deg = 0, PitchController = 'PitchThrottle',FixedAction = np.array([])):
+    def trim(self, TrimVX_mps = 0, TrimVZ_mps = 0, TrimTheta_deg = 0, PitchController = 'PitchThrottle',FixedAction = np.array([]), Linearize = False):
         TrimData = {}
         TrimData['Trimmed'] = 0
        
@@ -215,19 +215,21 @@ class Vahana_VertFlight(gym.Env):
         TrimState = np.zeros(np.shape(self.EQM['sta_names']))
         
         # Define Freeze and Floats Indexes
-        n_ActionFloat    = np.array([self.action_names.index('Throttle') ,
-                                     self.action_names.index(PitchController) , 
-                                     self.action_names.index('W1_Tilt') , 
-                                     self.action_names.index('W2_Tilt') ])
-        
-        n_StateFloat     = np.array([self.EQM['sta_names'].index('Theta_rad'),
-                                     self.EQM['sta_names'].index('U_mps'), 
-                                     self.EQM['sta_names'].index('W_mps')])
-        
-        n_StateDotFreeze = np.array([self.EQM['sta_names'].index('U_mps') , 
-                                     self.EQM['sta_names'].index('W_mps') , 
-                                     self.EQM['sta_names'].index('Q_radps')])
-        
+        name_ActionFloat = ['Throttle', PitchController, 'W1_Tilt', 'W2_Tilt']
+        n_ActionFloat    = np.zeros(len(name_ActionFloat), dtype = int)
+        for i in range(len(n_ActionFloat)):
+            n_ActionFloat[i] = int(self.action_names.index(name_ActionFloat[i]))
+
+        name_StateFloat = ['Theta_rad', 'U_mps', 'W_mps']
+        n_StateFloat    = np.zeros(len(name_StateFloat), dtype = int)
+        for i in range(len(n_StateFloat)):
+            n_StateFloat[i] = self.EQM['sta_names'].index(name_StateFloat[i]) 
+ 
+        name_StateDotFreeze = ['U_mps', 'W_mps', 'Q_radps']
+        n_StateDotFreeze    = np.zeros(len(name_StateFloat), dtype = int)
+        for i in range(len(n_StateDotFreeze)):
+            n_StateDotFreeze[i] = self.EQM['sta_names'].index(name_StateDotFreeze[i]) 
+               
         TrimVars = np.hstack((TrimAction[n_ActionFloat],TrimState[n_StateFloat]))
         
         TrimVarsLim_p = np.ones(np.shape(TrimVars))
@@ -338,9 +340,15 @@ class Vahana_VertFlight(gym.Env):
                 if self.DispMessages:
                     print('Trim Error - No further convergence')
                 TrimData['Trimmed'] = 0
-                   
-                    
+
+
+        # if Linearize:
+
         self.trimming = 0
+        TrimData['Hmat']               = {}
+        TrimData['Hmat']['Value']      = H
+        TrimData['Hmat']['ColumnName'] = name_ActionFloat + name_StateFloat
+        TrimData['Hmat']['LineName']   = name_StateDotFreeze 
         TrimData['Action'] = TrimAction
         TrimData['info'] = info
         TrimData['iter_n'] = iter_n
