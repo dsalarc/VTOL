@@ -210,11 +210,13 @@ class Vahana_VertFlight(gym.Env):
                                     CONT['TiltDiff_p'] ])
             else:
                 if GetNames:
-                    return ['VX_mps' , 'VZ_mps', 'Theta_deg', 'TiltDiff_p', 'Alpha_deg']
+                    return ['VX_mps' , 'VZ_mps', 'Theta_deg', 'Q_degps', 'Nz_g','TiltDiff_p', 'Alpha_deg']
                 else:
                     return np.array([EQM['VelLin_EarthAx_mps'][0] ,
                                     EQM['VelLin_EarthAx_mps'][2] , 
                                     np.rad2deg(EQM['EulerAngles_rad'][1]), 
+                                    np.rad2deg(EQM['VelRot_BodyAx_radps'][1]), 
+                                    EQM['LoadFactor_g'][2],
                                     CONT['TiltDiff_p'] ,
                                     ATM['Alpha_deg'] ])
                 
@@ -891,23 +893,20 @@ class Vahana_VertFlight(gym.Env):
         self.ATM['CAS_mps']    = self.ATM['Const']['Vsound0_mps']*np.sqrt(5*((self.ATM['qc'] /self.ATM['Const']['P0_Pa']+1)**(2/7)-1))
 
         
-        if abs(self.ATM['Vaero'][0]) < 1e-2:
+        if (abs(self.ATM['Vaero'][0]) < 1e-2 and not(self.trimming)):
             u = 0
         else:
             u = self.ATM['Vaero'][0]
-        # u = self.ATM['Vaero'][0]
             
-        if abs(self.ATM['Vaero'][1]) < 1e-2:
+        if (abs(self.ATM['Vaero'][1]) < 1e-2 and not(self.trimming)):
             v = 0
         else:
             v = self.ATM['Vaero'][1]
-        # v = self.ATM['Vaero'][1]
             
-        if abs(self.ATM['Vaero'][2]) < 1e-6:
+        if (abs(self.ATM['Vaero'][2]) < 1e-2 and not(self.trimming)):
             w = 0
         else:
             w = self.ATM['Vaero'][2]
-        # w = self.ATM['Vaero'][2]
             
         self.ATM['Alpha_rad'] = np.arctan2(w,u)
         self.ATM['Alpha_deg'] = np.rad2deg(self.ATM['Alpha_rad'])
