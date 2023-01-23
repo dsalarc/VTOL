@@ -33,8 +33,13 @@ class Vahana_VertFlight(gym.Env):
         # self.MaxState = np.array([np.inf,np.inf,np.inf,np.pi,np.pi,np.pi,np.inf,np.inf,np.inf,np.pi,np.pi,np.pi,
         #                           np.inf,np.inf,np.inf,np.pi,np.pi,np.pi,np.inf,np.inf,np.inf,np.pi,np.pi,np.pi])
         # Observation Space    = [Vx , dVx, Vy , dVy , Z  , Vz , dVz , Phi      , p        , Theta    , q        , Psi      , r        ]
-        self.adm_vec  = np.array([60 , 20 , 10 , 10  , 100, 10 , 10  , 3.1415/2 , 3.1415/2 , 3.1415/2 , 3.1415/2 , 3.1415/2 , 3.1415/2 ])
-        self.MaxState = np.array([1  , 1  , 1  , 1   , 1  ,  1 , 1   , 1        , 1        , 1        , 1        , 1        ,1         ])
+        if self.UseLateralActions:
+            self.adm_vec  = np.array([60 , 20 , 10 , 10  , 100, 10 , 10  , 3.1415/2 , 3.1415/2 , 3.1415/2 , 3.1415/2 , 3.1415/2 , 3.1415/2 ])
+            self.MaxState = np.array([1  , 1  , 1  , 1   , 1  ,  1 , 1   , 1        , 1        , 1        , 1        , 1        ,1         ])
+        else:
+            self.adm_vec  = np.array([60 , 20 , 100, 10 , 10  , 3.1415/2 , 3.1415/2 ])
+            self.MaxState = np.array([1  , 1  , 1  ,  1 , 1   , 1        , 1        ])
+            
         
         '''
         ACTIONS:
@@ -80,13 +85,20 @@ class Vahana_VertFlight(gym.Env):
     def OutputObs(self,sta,sta_dot,sta_int,cont):
         # obs = np.hstack((sta,sta_dot,cont))
         # Observation Space    = [Vx , dVx, Vy , dVy , Vz , dVz , Phi      , p        , Theta    , q        , Psi      , r        ]
-        obs_vec       = np.array([self.EQM['VelLin_EarthAx_mps'][0] , self.EQM['AccLin_EarthAx_mps2'][0] , 
-                                  self.EQM['VelLin_EarthAx_mps'][1] , self.EQM['AccLin_EarthAx_mps2'][1] , 
-                                  self.EQM['PosLin_EarthAx_m'][2],
-                                  self.EQM['VelLin_EarthAx_mps'][2] , self.EQM['AccLin_EarthAx_mps2'][2] , 
-                                  self.EQM['EulerAngles_rad'][0]    , self.EQM['VelRot_BodyAx_radps'][0] , 
-                                  self.EQM['EulerAngles_rad'][1]    , self.EQM['VelRot_BodyAx_radps'][1] , 
-                                  self.EQM['EulerAngles_rad'][2]    , self.EQM['VelRot_BodyAx_radps'][2]])
+        if self.UseLateralActions:
+            obs_vec       = np.array([self.EQM['VelLin_EarthAx_mps'][0] , self.EQM['AccLin_EarthAx_mps2'][0] , 
+                                      self.EQM['VelLin_EarthAx_mps'][1] , self.EQM['AccLin_EarthAx_mps2'][1] , 
+                                      self.EQM['PosLin_EarthAx_m'][2],
+                                      self.EQM['VelLin_EarthAx_mps'][2] , self.EQM['AccLin_EarthAx_mps2'][2] , 
+                                      self.EQM['EulerAngles_rad'][0]    , self.EQM['VelRot_BodyAx_radps'][0] , 
+                                      self.EQM['EulerAngles_rad'][1]    , self.EQM['VelRot_BodyAx_radps'][1] , 
+                                      self.EQM['EulerAngles_rad'][2]    , self.EQM['VelRot_BodyAx_radps'][2]])
+        else:
+            obs_vec       = np.array([self.EQM['VelLin_EarthAx_mps'][0] , self.EQM['AccLin_EarthAx_mps2'][0] , 
+                                      self.EQM['PosLin_EarthAx_m'][2],
+                                      self.EQM['VelLin_EarthAx_mps'][2] , self.EQM['AccLin_EarthAx_mps2'][2] , 
+                                      self.EQM['EulerAngles_rad'][1]    , self.EQM['VelRot_BodyAx_radps'][1]])
+            
         obs_adm = obs_vec / self.adm_vec
         
         
@@ -197,7 +209,13 @@ class Vahana_VertFlight(gym.Env):
                              'W1_Elevator','W2_Elevator',
                              'W1_Aileron','W2_Aileron']
         '''
-
+        IniAction = np.array([[0     , 5     , 10    , 20    , 30    , 35    , 40    , 50    , 60    ],
+                              [-0.078, -0.079, -0.079, -0.095, -0.194, -0.247, -0.284, -0.321, -0.307],
+                              [-0.063, -0.062, -0.059, -0.044, -0.012,  0.   ,  0.   ,  0.   ,  0.   ],
+                              [ 1.   ,  0.962,  0.848,  0.431, -0.053, -0.242, -0.386, -0.583, -0.702],
+                              [ 1.   ,  0.962,  0.848,  0.431, -0.053, -0.242, -0.386, -0.583, -0.702],
+                              [ 0.667,  0.667,  0.667,  0.667,  0.667,  0.079, -0.032, -0.059, -0.065]])
+        
         # Define function to get Outputs of interest
         def GetOutputFreeze(EQM, CONT, ATM, GetNames = False, DefaultOutputs = True):
             if DefaultOutputs:
@@ -260,7 +278,7 @@ class Vahana_VertFlight(gym.Env):
         TrimIter              = 100
         TrimIterNoImprovement = 5
         TrimPert              = 1e-5
-        LambdaStep            = 0.3
+        LambdaStep            = 1.0
         
         TrimTiltDiff_p = 0
         
@@ -270,14 +288,18 @@ class Vahana_VertFlight(gym.Env):
         self.EQM_fcn(np.array([0,0,0]), np.array([0,0,0]), self.MASS['I_kgm'], self.MASS['Weight_kgf'])
                 
         #Define Initial Trim Action
-        TrimAction = np.zeros(np.shape(self.action_space))
+        
+        TrimAction = np.zeros(np.shape(self.action_space))     
+        for i in range(len(TrimAction)):
+            TrimAction[i] = np.interp(TrimVX_mps,IniAction[0,:],IniAction[i+1,:])
         for i in range(int(len(FixedAction)/2)):
             TrimAction[self.action_names.index(FixedAction[i*2])] = FixedAction[i*2+1]
 
-        TrimAction[self.action_names.index('W1_Tilt')] = -1
-        TrimAction[self.action_names.index('W2_Tilt')] = -1
+        # TrimAction[self.action_names.index('W1_Tilt')] = -1
+        # TrimAction[self.action_names.index('W2_Tilt')] = -1
         
         TrimState = np.zeros(np.shape(self.EQM['sta_names']))
+        TrimState[self.EQM['sta_names'].index('U_mps')] = TrimVX_mps
         
         # Define Freeze and Floats Indexes
         name_ActionFloat = ['Throttle', PitchController, 'W1_Tilt', 'W2_Tilt']
