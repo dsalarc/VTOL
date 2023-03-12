@@ -11,6 +11,150 @@ from gym import spaces
 import numpy as np
 import matplotlib.pyplot as plt
 
+class LowPassDiscreteFilter:
+# https://x-engineer.org/discretizing-transfer-function/
+
+    def __init__(self, wc, time_sample_filter, time_sample_sim = -1, order = 1, DiscType = 'euler_back'):
+        self.Tc = 1/wc
+        self.Ts = time_sample_filter
+        self.y   = 0
+        self.ym1 = 0
+        self.ym2 = 0
+        self.u   = 0
+        self.um1 = 0
+        self.um2 = 0
+        self.order = order
+        self.DiscType = DiscType
+        if time_sample_sim == -1:
+            time_sample_sim = time_sample_filter
+            
+        if np.mod(time_sample_sim, time_sample_filter) > time_sample_filter/1000:
+            raise('Simulation time sample shall me a multiple of filter time sample')
+        else:
+            self.Tscale = int(np.round(time_sample_sim / time_sample_filter))
+
+    
+    def set_zero(self,zero):
+        self.y   = zero
+        self.ym1 = zero
+        self.ym2 = zero
+        self.u   = zero
+        self.um1 = zero
+        self.um2 = zero
+        
+    def step(self,u):
+        
+        self.um1 = self.u
+        self.um2 = self.um1
+        self.u   = u
+        
+        for i in range(self.Tscale):
+            if self.Tscale == 1:
+                u_step = self.u
+            else:
+                u_step = self.um1 * i/(self.Tscale-1) + self.u*(self.Tscale-i-1)/(self.Tscale-1)
+                       
+            self.ym1 = self.y
+            self.ym2 = self.ym1
+            
+            self.u = u
+                
+            if self.DiscType == 'tustin':
+                self.y = 1 / (2 * self.Tc + self.Ts) * (self.Ts * (u_step + self.um1) - (self.Ts-2*self.Tc) * self.ym1)
+            
+            elif self.DiscType == 'euler_fwd':
+                self.y = 1 / (self.Tc + self.Ts) * (self.Ts * self.um1 + self.Tc * self.ym1)
+    
+            elif self.DiscType == 'euler_back':
+                self.y = 1 / (self.Tc + self.Ts) * (self.Ts * u_step + self.Tc * self.ym1)
+           
+            else:
+                self.y = 0
+            
+        return self.y
+    
+class Actuator:
+    def __init__(self, CutFreq_radps = 40, MaxRate = 20, time_sample_actuator = 0.001, time_sample_sim = -1):
+        
+        self.MaxStepChange = MaxRate*time_sample_sim
+        
+        if time_sample_sim == -1:
+            time_sample_sim = time_sample_actuator
+        # self.tsa = time_sample_actuator
+        self.tss = time_sample_sim
+        
+        self.y = 0
+        self.v = 0
+        self.a = 0
+        
+        self.ActFilter = LowPassDiscreteFilter(wc = CutFreq_radps,
+                                               time_sample_filter = time_sample_actuator,
+                                               time_sample_sim = time_sample_sim,
+                                               order = 1,
+                                               DiscType = 'euler_back')
+        
+    def set_zero(self,zero):
+        self.y    = zero
+        self.ActFilter.set_zero(zero)
+        
+    def step(self,u):
+        
+        ym1 = self.y
+        vm1 = self.v
+        
+        yaux = self.ActFilter.step(u)
+        
+        if (yaux - ym1) > self.MaxStepChange:
+            self.y = ym1 + self.MaxStepChange
+        elif (yaux - ym1) < -self.MaxStepChange:
+            self.y = ym1 - self.MaxStepChange
+        else:
+            self.y = yaux
+        
+        self.v = (self.y - ym1)/self.tss
+        self.a = (self.v - vm1)/self.tss
+        
+        return self.y, self.v, self.a
+    
+class Sensor:
+    def __init__(self, CutFreq_radps = 40, Delay_s = 0, time_sample_sensor = 0.001, time_sample_sim = -1):
+        
+        self.DelaySteps = int(Delay_s / time_sample_sensor)
+        if self.DelaySteps == 0:
+            self.BufferDelay = np.array([])
+        else:
+            self.BufferDelay = np.zeros(self.DelaySteps)
+            
+        if time_sample_sim == -1:
+            time_sample_sim = time_sample_sensor
+        # self.tsa = time_sample_actuator
+        self.tss = time_sample_sim
+        
+        self.y = 0
+        
+        self.SensFilter = LowPassDiscreteFilter(wc = CutFreq_radps,
+                                               time_sample_filter = time_sample_sensor,
+                                               time_sample_sim = time_sample_sim,
+                                               order = 1,
+                                               DiscType = 'euler_back')
+        
+    def set_zero(self,zero):
+        self.y    = zero
+        self.BufferDelay[:]  = zero
+        self.SensFilter.set_zero(zero)
+        
+    def step(self,u):
+        
+        yaux = self.SensFilter.step(u)
+        
+        if self.DelaySteps == 0:
+            self.y = yaux
+        else:
+            self.y = self.BufferDelay[0]
+            self.BufferDelay[0:-1] = self.BufferDelay[1:]
+            self.BufferDelay[-1] = yaux
+        
+        return self.y
 
 class Vahana_VertFlight(gym.Env):
     metadata = {'render.modes': ['console']}
@@ -19,7 +163,7 @@ class Vahana_VertFlight(gym.Env):
         
         #Define Constants     
         self.n_states = 12
-        self.t_step = 0.05
+        self.t_step = 0.01
         self.UseLateralActions = False
         
         # Define action and observation space
@@ -76,6 +220,7 @@ class Vahana_VertFlight(gym.Env):
       info['MOT']  = self.MOT
       info['AERO'] = self.AERO
       info['CONT'] = self.CONT
+      info['SENS'] = self.SENS
       info['MASS'] = self.MASS
       info['REW']  = self.LastReward
       self.info = info
@@ -100,9 +245,6 @@ class Vahana_VertFlight(gym.Env):
                                       self.EQM['EulerAngles_rad'][1]    , self.EQM['VelRot_BodyAx_radps'][1]])
             
         obs_adm = obs_vec / self.adm_vec
-        
-        
-        
         
         obs_sat = np.min( np.vstack((obs_adm,np.ones(len(obs_vec)) )) , axis=0)
         obs     = np.max( np.vstack((obs_sat,-np.ones(len(obs_vec)))) , axis=0)
@@ -172,7 +314,7 @@ class Vahana_VertFlight(gym.Env):
                            PitchController = 'W2_Elevator', Linearize = Linearize)
 
       # If not trimmed with elevator only, or deflection abobe 10deg, trim with Pitch Throttle
-      if (TrimData['Trimmed'] == 0) or (any(abs(TrimData['info']['AERO']['Elevon']['Deflection_deg'])>10)):
+      if (TrimData['Trimmed'] == 0) or (any(abs(TrimData['info']['CONT']['Elevon_deg'])>10)):
         Action_W2_Elevator = np.sign(TrimData['Action'][self.action_names.index('W2_Elevator')]) * 10/(self.CONT['ElevRange_deg'][2]/2)
 
         TrimData = self.trim(TrimVX_mps = VX_mps, TrimVZ_mps = VZ_mps, TrimTheta_deg = THETA, 
@@ -275,7 +417,7 @@ class Vahana_VertFlight(gym.Env):
 
         #Trimming parameters
         TrimTol               = 1e-6
-        TrimIter              = 100
+        TrimIter              = 50
         TrimIterNoImprovement = 5
         TrimPert              = 1e-5
         LambdaStep            = 1.0
@@ -294,9 +436,6 @@ class Vahana_VertFlight(gym.Env):
             TrimAction[i] = np.interp(TrimVX_mps,IniAction[0,:],IniAction[i+1,:])
         for i in range(int(len(FixedAction)/2)):
             TrimAction[self.action_names.index(FixedAction[i*2])] = FixedAction[i*2+1]
-
-        # TrimAction[self.action_names.index('W1_Tilt')] = -1
-        # TrimAction[self.action_names.index('W2_Tilt')] = -1
         
         TrimState = np.zeros(np.shape(self.EQM['sta_names']))
         TrimState[self.EQM['sta_names'].index('U_mps')] = TrimVX_mps
@@ -325,8 +464,6 @@ class Vahana_VertFlight(gym.Env):
         TrimVarsLim_p[len(n_ActionFloat):] = np.inf
         TrimVarsLim_m = -np.ones(np.shape(TrimVars))
         TrimVarsLim_m[len(n_ActionFloat):] = -np.inf
-       # TrimVarsLim_p[len(n_ActionFloat):] = np.array([np.pi/2 , 100, 100])
-        # TrimVarsLim_m[len(n_ActionFloat):] = np.array([-np.pi/2 , -100, -100])
         
         # Trim Target Vector
         TrimTarget = np.hstack((np.zeros(len(n_StateDotFreeze)) , np.array([TrimVX_mps, TrimVZ_mps, np.deg2rad(TrimTheta_deg), TrimTiltDiff_p])))
@@ -359,10 +496,6 @@ class Vahana_VertFlight(gym.Env):
                     TrimVars[i] = LastTrimVars[i] - LambdaStep/2*(TrimVarsLim_m[i]-LastTrimVars[i])
                 else:
                     TrimVars[i] = LastTrimVars[i] - LambdaStep*DeltaTrimVars[i]
-
-
-            # TrimVars = np.min( np.vstack(( TrimVars , TrimVarsLim_p )) , axis=0)
-            # TrimVars = np.max( np.vstack(( TrimVars , TrimVarsLim_m )) , axis=0)
 
             TrimAction[n_ActionFloat] = TrimVars[0:len(n_ActionFloat)]
             TrimState[n_StateFloat] = TrimVars[len(n_ActionFloat):]
@@ -439,6 +572,9 @@ class Vahana_VertFlight(gym.Env):
        
 
     def step(self, action):
+      action = np.max((action,-np.ones(np.shape(action))),0)
+      action = np.min((action,+np.ones(np.shape(action))),0)
+      
       if not(self.trimming):  
           self.CurrentStep += 1
       
@@ -470,6 +606,10 @@ class Vahana_VertFlight(gym.Env):
 
           self.EQM['sta_int'] = self.EQM['sta_int'] + self.EQM['sta'] * self.t_step
       
+              
+      # Read all sensor data
+      self.SENS_fcn()
+
       # Calculate Reward
       if not(self.trimming):
           self.LastReward = self.CalcReward()
@@ -502,22 +642,29 @@ class Vahana_VertFlight(gym.Env):
         self.REW['Target']['Theta'] = 0
         self.REW['Target']['Q']     = 0
 
-        self.REW['Adm'] = {}
-        self.REW['Adm']['Vx']    = 60
-        self.REW['Adm']['Vz']    = 5
-        self.REW['Adm']['Z']     = 5
-        self.REW['Adm']['Theta'] = 5
-        self.REW['Adm']['Q']     = 5
+        self.REW['Adm_n'] = {}
+        self.REW['Adm_n']['Vx']    = 60
+        self.REW['Adm_n']['Vz']    = 5
+        self.REW['Adm_n']['Z']     = 5
+        self.REW['Adm_n']['Theta'] = 5
+        self.REW['Adm_n']['Q']     = 5
+
+        self.REW['Adm_p'] = {}
+        self.REW['Adm_p']['Vx']    = 10
+        self.REW['Adm_p']['Vz']    = 5
+        self.REW['Adm_p']['Z']     = 5
+        self.REW['Adm_p']['Theta'] = 5
+        self.REW['Adm_p']['Q']     = 5
 
         self.REW['Weight'] = {}
-        self.REW['Weight']['Vx']    = 1
-        self.REW['Weight']['Vz']    = 1
-        self.REW['Weight']['Z']     = 1
-        self.REW['Weight']['Theta'] = 1
-        self.REW['Weight']['Q']     = 1
+        self.REW['Weight']['Vz']    = 0.15
+        self.REW['Weight']['Vx']    = 0.40
+        self.REW['Weight']['Z']     = 0.15
+        self.REW['Weight']['Theta'] = 0.15
+        self.REW['Weight']['Q']     = 0.15
 
         self.REW['DeadZone'] = {}
-        self.REW['DeadZone']['Vx']    = 1
+        self.REW['DeadZone']['Vx']    = 2
         self.REW['DeadZone']['Vz']    = 1
         self.REW['DeadZone']['Z']     = 1
         self.REW['DeadZone']['Theta'] = 1  
@@ -540,11 +687,17 @@ class Vahana_VertFlight(gym.Env):
             Delta2Target = np.abs(self.REW['Target'][kk] - self.REW['Value'][kk])
 
             if Delta2Target < self.REW['DeadZone'][kk]:
-                Reward += 1 - self.REW['DeadZone']['Slope']  / self.REW['DeadZone'][kk] * Delta2Target
-            else:
-                Reward += np.max((0 , (1 - self.REW['DeadZone']['Slope'])
-                                    + (self.REW['DeadZone']['Slope'] - 1) / (self.REW['Adm'][kk]  - self.REW['DeadZone'][kk])
+                AuxReward = 1 - self.REW['DeadZone']['Slope']  / self.REW['DeadZone'][kk] * Delta2Target
+            elif self.REW['Value'][kk] < np.abs(self.REW['Target'][kk]):
+                AuxReward = np.max((0 , (1 - self.REW['DeadZone']['Slope'])
+                                    + (self.REW['DeadZone']['Slope'] - 1) / (self.REW['Adm_n'][kk]  - self.REW['DeadZone'][kk])
                                     * (Delta2Target - self.REW['DeadZone'][kk])))
+            else:
+                 AuxReward = np.max((0 , (1 - self.REW['DeadZone']['Slope'])
+                                    + (self.REW['DeadZone']['Slope'] - 1) / (self.REW['Adm_p'][kk]  - self.REW['DeadZone'][kk])
+                                    * (Delta2Target - self.REW['DeadZone'][kk])))
+
+            Reward += AuxReward * self.REW['Weight'][kk]
 
         return Reward    
     
@@ -557,8 +710,7 @@ class Vahana_VertFlight(gym.Env):
         plt.figure(1)
         plt.clf()
         plt.grid('on')
-        # plt.xlim((self.observation_space.low[0],self.observation_space.high[0]))
-        # plt.ylim((self.observation_space.low[1],self.observation_space.high[1]))
+
         if self.CurrentStep > 0:
             plt.plot(self.AllStates[:,2],self.AllStates[:,8],'tab:gray')
             plt.plot(self.AllStates[-1,2],self.AllStates[-1,8],'or')
@@ -600,11 +752,23 @@ class Vahana_VertFlight(gym.Env):
       self.AERO = {}
       self.CONS = {}
       self.CONT = {}
+      self.SENS = {}
       
       # DEFINE CONSTANTS
       self.CONS['kt2mps'] = 0.514444
       self.CONS['mps2kt'] = 1 / self.CONS['kt2mps']     
+      self.CONS['g_mps2'] = 9.806
+       
+      self.init_ATM()  
+      self.init_GEOM()  
+      self.init_MASS(PaxIn = PaxIn)  
+      self.init_AERO()
+      self.init_MOT()
+      self.init_REW()
+      self.init_CONT()
+      self.init_SENS()
       
+    def init_ATM (self):
       # ATM
       self.ATM['dISA_C'] = 0
       
@@ -622,9 +786,7 @@ class Vahana_VertFlight(gym.Env):
       self.ATM['Const']['rho0_kgm3']   = 1.225
       self.ATM['Const']['Vsound0_mps'] = np.sqrt(1.4*self.ATM['Const']['R']*(self.ATM['Const']['T0_K']))
         
-      # EQM  
-      self.EQM['g_mps2'] = 9.806
-      
+    def init_GEOM (self):
       # GEOM
       self.GEOM['Wing1']          = {}
       self.GEOM['Wing1']['cma_m'] = 0.65
@@ -643,7 +805,8 @@ class Vahana_VertFlight(gym.Env):
       self.GEOM['Fus']['b_m']   = 0.90
       self.GEOM['Fus']['S_m2']  = np.pi * 0.45**2
       self.GEOM['Fus']['XYZ_m'] = np.array([2.05, 0.00, 0.00])
- 
+                                
+    def init_MASS (self , PaxIn = 0):
       # MASS
       self.MASS['Pax']             = PaxIn
       self.MASS['PaxWeight_kgf']   = 100
@@ -667,11 +830,7 @@ class Vahana_VertFlight(gym.Env):
                     (Pax2CG_sq[1][0] + Pax2CG_sq[1][1]) * self.MASS['Pax'][1] * self.MASS['PaxWeight_kgf'] +
                     (Emp2CG_sq[0]    + Emp2CG_sq[1])    * self.MASS['EmptyWeight_kgf'])
       self.MASS['I_kgm'] = np.array([[Ixx,0,0],[0,Iyy,0],[0,0,Izz]])
-
-      self.init_AERO()
-      self.init_MOT()
-      self.init_REW()
-                                
+        
     def init_AERO (self):
  
       # AERO
@@ -733,20 +892,108 @@ class Vahana_VertFlight(gym.Env):
       
       self.MOT['Bandwidth_radps'] = 40
       self.MOT['Beta'] = np.exp(-self.MOT['Bandwidth_radps']*self.t_step)
-
-      # CONTROL
+      
+    def init_CONT (self):
+      
+      self.CONT['Actuators'] = {}
+      
+      # Wing Tilt
       self.CONT['n_TiltSurf']    = 2
       self.CONT['MinTilt_deg']   = np.ones(self.CONT['n_TiltSurf']) * 0
       self.CONT['MaxTilt_deg']   = np.ones(self.CONT['n_TiltSurf']) * 90
       self.CONT['TiltRange_deg'] = self.CONT['MaxTilt_deg'] - self.CONT['MinTilt_deg'] 
       
-      self.CONT['MinElev_deg']   = np.ones(4) * -15
-      self.CONT['MaxElev_deg']   = np.ones(4) * +15
+      self.CONT['Actuators']['WingTilt'] = {}
+      self.CONT['Actuators']['WingTilt']['CutFreq_radps'] = np.ones(self.CONT['n_TiltSurf']) * 20
+      self.CONT['Actuators']['WingTilt']['MaxRate']       = np.ones(self.CONT['n_TiltSurf']) * 10
+      self.CONT['Actuators']['WingTilt']['t_act']         = np.ones(self.CONT['n_TiltSurf']) * 0.001
+      self.CONT['Actuators']['WingTilt']['Actuators'] = []
+     
+      for i in range(self.CONT['n_TiltSurf']):
+          self.CONT['Actuators']['WingTilt']['Actuators'].append(Actuator(CutFreq_radps = self.CONT['Actuators']['WingTilt']['CutFreq_radps'][i],
+                                                                 MaxRate = self.CONT['Actuators']['WingTilt']['MaxRate'][i], 
+                                                                 time_sample_actuator = self.CONT['Actuators']['WingTilt']['t_act'][i], 
+                                                                 time_sample_sim = self.t_step))
+      
+      # Elevons
+      self.CONT['n_elev'] = 4
+      self.CONT['MinElev_deg']   = np.ones(self.CONT['n_elev']) * -15
+      self.CONT['MaxElev_deg']   = np.ones(self.CONT['n_elev']) * +15
       self.CONT['ElevRange_deg'] = self.CONT['MaxElev_deg'] - self.CONT['MinElev_deg'] 
       self.CONT['ElevCenter_deg'] = (self.CONT['MinElev_deg'] + self.CONT['MaxElev_deg']) / 2
 
-      # OTHER CONSTANTS
+      self.CONT['Actuators']['Elevon'] = {}
+      self.CONT['Actuators']['Elevon']['CutFreq_radps'] = np.ones(self.CONT['n_elev']) * 40
+      self.CONT['Actuators']['Elevon']['MaxRate']       = np.ones(self.CONT['n_elev']) * 20
+      self.CONT['Actuators']['Elevon']['t_act']         = np.ones(self.CONT['n_elev']) * 0.001
+      self.CONT['Actuators']['Elevon']['Actuators'] = []
+     
+      for i in range(self.CONT['n_elev']):
+          self.CONT['Actuators']['Elevon']['Actuators'].append(Actuator(CutFreq_radps = self.CONT['Actuators']['Elevon']['CutFreq_radps'][i],
+                                                                      MaxRate = self.CONT['Actuators']['Elevon']['MaxRate'][i], 
+                                                                      time_sample_actuator = self.CONT['Actuators']['Elevon']['t_act'][i], 
+                                                                      time_sample_sim = self.t_step))
       
+    def init_SENS (self):
+        
+        self.SENS['Data'] = {}
+        
+        self.SENS['Data']['IMU'] = {}      
+        self.SENS['Data']['IMU']['Delay_s'] = 0.005
+        self.SENS['Data']['IMU']['CutFreq_radps'] = 40
+        
+        self.SENS['Data']['ADS'] = {}      
+        self.SENS['Data']['ADS']['Delay_s'] = 0.100
+        self.SENS['Data']['ADS']['CutFreq_radps'] = 20
+        
+        
+        self.SENS['Sensors'] = {}
+        self.SENS['Sensors']['IMU'] = {}
+        self.SENS['Sensors']['ADS'] = {}
+        
+        self.SENS['Sensors']['IMU']['P_radps'] = Sensor(CutFreq_radps = self.SENS['Data']['IMU']['CutFreq_radps'],
+                                                  Delay_s = self.SENS['Data']['IMU']['Delay_s'],
+                                                  time_sample_sensor = 0.001,
+                                                  time_sample_sim = self.t_step)
+        self.SENS['Sensors']['IMU']['Q_radps'] = Sensor(CutFreq_radps = self.SENS['Data']['IMU']['CutFreq_radps'],
+                                                  Delay_s = self.SENS['Data']['IMU']['Delay_s'],
+                                                  time_sample_sensor = 0.001,
+                                                  time_sample_sim = self.t_step)
+        self.SENS['Sensors']['IMU']['R_radps'] = Sensor(CutFreq_radps = self.SENS['Data']['IMU']['CutFreq_radps'],
+                                                  Delay_s = self.SENS['Data']['IMU']['Delay_s'],
+                                                  time_sample_sensor = 0.001,
+                                                  time_sample_sim = self.t_step)
+        
+        self.SENS['Sensors']['IMU']['Phi_rad'] = Sensor(CutFreq_radps = self.SENS['Data']['IMU']['CutFreq_radps'],
+                                                    Delay_s = self.SENS['Data']['IMU']['Delay_s'],
+                                                    time_sample_sensor = 0.001,
+                                                    time_sample_sim = self.t_step)
+        self.SENS['Sensors']['IMU']['Theta_rad'] = Sensor(CutFreq_radps = self.SENS['Data']['IMU']['CutFreq_radps'],
+                                                      Delay_s = self.SENS['Data']['IMU']['Delay_s'],
+                                                      time_sample_sensor = 0.001,
+                                                      time_sample_sim = self.t_step)
+        self.SENS['Sensors']['IMU']['Psi_rad'] = Sensor(CutFreq_radps = self.SENS['Data']['IMU']['CutFreq_radps'],
+                                                    Delay_s = self.SENS['Data']['IMU']['Delay_s'],
+                                                    time_sample_sensor = 0.001,
+                                                    time_sample_sim = self.t_step)
+        
+        self.SENS['Sensors']['IMU']['VX_mps'] = Sensor(CutFreq_radps = self.SENS['Data']['IMU']['CutFreq_radps'],
+                                                   Delay_s = self.SENS['Data']['IMU']['Delay_s'],
+                                                   time_sample_sensor = 0.001,
+                                                   time_sample_sim = self.t_step)
+        self.SENS['Sensors']['IMU']['VY_mps'] = Sensor(CutFreq_radps = self.SENS['Data']['IMU']['CutFreq_radps'],
+                                                   Delay_s = self.SENS['Data']['IMU']['Delay_s'],
+                                                   time_sample_sensor = 0.001,
+                                                   time_sample_sim = self.t_step)
+        self.SENS['Sensors']['IMU']['VZ_mps'] = Sensor(CutFreq_radps = self.SENS['Data']['IMU']['CutFreq_radps'],
+                                                   Delay_s = self.SENS['Data']['IMU']['Delay_s'],
+                                                   time_sample_sensor = 0.001,
+                                                   time_sample_sim = self.t_step)
+        
+        self.SENS['Sensors']['ADS']['CAS_mps'] = Sensor(CutFreq_radps = self.SENS['Data']['ADS']['CutFreq_radps'],
+                                                    Delay_s = self.SENS['Data']['ADS']['Delay_s'],
+                                                    time_sample_sensor = 0.001,
+                                                    time_sample_sim = self.t_step)
     # %% GENERAL FUNCTIONS
     def RotationMatrix(self,Phi_rad,Theta_rad,Psi_rad):
         
@@ -838,7 +1085,7 @@ class Vahana_VertFlight(gym.Env):
         
         if CalcStaDot:
             # Vetor Peso no Eixo Corpo
-            W_b = np.dot(self.EQM['LE2B'],np.array([0,0,m*self.EQM['g_mps2']]))
+            W_b = np.dot(self.EQM['LE2B'],np.array([0,0,m*self.CONS['g_mps2']]))
             
             # CALCULO DAS DERIVADAS
             dVL_b = (F_b+W_b)/m - np.cross(VR_b,VL_b)
@@ -897,7 +1144,7 @@ class Vahana_VertFlight(gym.Env):
         else:
             self.ATM['TStd_C'] = -56.5
             self.ATM['T_C']    = self.ATM['TStd_C'] + self.ATM['dISA_C']
-            self.ATM['P_Pa']   = 22632 * np.exp(-self.EQM['g_mps2']/(self.ATM['Const']['R']*216.65)*(Altitude_m-11000))
+            self.ATM['P_Pa']   = 22632 * np.exp(-self.CONS['g_mps2']/(self.ATM['Const']['R']*216.65)*(Altitude_m-11000))
         
         self.ATM['rho_kgm3']   = self.ATM['P_Pa'] / (self.ATM['Const']['R']*(self.ATM['T_C'] + self.ATM['Const']['C2K']))
         self.ATM['Vsound_mps'] = np.sqrt(1.4*self.ATM['Const']['R']*(self.ATM['T_C']+self.ATM['Const']['C2K']))
@@ -955,11 +1202,7 @@ class Vahana_VertFlight(gym.Env):
         self.MOT['RPS'] = self.MOT['RPM'] / 60
         
         
-
-        self.MOT['Tilt_p']   = self.CONT['Tilt_p'][self.MOT['TiltSurf_link']]
-        
-        self.MOT['Tilt_deg'] = (self.CONT['MinTilt_deg'][self.MOT['TiltSurf_link']] 
-                                + self.CONT['TiltRange_deg'][self.MOT['TiltSurf_link']] * self.MOT['Tilt_p'])  
+        self.MOT['Tilt_deg']   = self.CONT['Tilt_deg'][self.MOT['TiltSurf_link']]
         self.MOT['Tilt_rad'] = np.deg2rad(self.MOT['Tilt_deg'])
         
         # Calculate Induced and Total Airflow Velocities (body axis) due to 
@@ -1091,14 +1334,8 @@ class Vahana_VertFlight(gym.Env):
             return CXB_CG, CYB_CG, CZB_CG, CDB_CG, CLB_CG, CRB_CG, CMB_CG, CNB_CG
         
         
-        self.AERO['Wing1']['Incidence_deg'] = (self.CONT['MinTilt_deg'][0] 
-                                             + self.CONT['TiltRange_deg'][0] * self.CONT['Tilt_p'][0])
-
-        self.AERO['Wing2']['Incidence_deg'] = (self.CONT['MinTilt_deg'][1] 
-                                             + self.CONT['TiltRange_deg'][1] * self.CONT['Tilt_p'][1])
-
-        self.AERO['Elevon']['Deflection_deg'] = (self.CONT['ElevCenter_deg']
-                                               + self.CONT['ElevRange_deg']/2 * self.CONT['Elevon_p'])
+        self.AERO['Wing1']['Incidence_deg'] = self.CONT['Tilt_deg'][0]
+        self.AERO['Wing2']['Incidence_deg'] = self.CONT['Tilt_deg'][1]
         
         self.AERO['Wing1']['EPS_deg'] = 0.0
         self.AERO['Wing2']['EPS_deg'] = 0.0
@@ -1168,12 +1405,12 @@ class Vahana_VertFlight(gym.Env):
                                  self.AERO['Elevon']['AOAeff']['Gain'])
         ElevonGain = np.array([ElevonGain_1 , ElevonGain_1 , ElevonGain_2 , ElevonGain_2])
 
-        self.AERO['Elevon']['CDS_MRC']  = self.AERO['Elevon']['dCDSde_MRC'] * self.AERO['Elevon']['Deflection_deg'] * ElevonGain
-        self.AERO['Elevon']['CYS_MRC']  = self.AERO['Elevon']['dCYSde_MRC'] * self.AERO['Elevon']['Deflection_deg'] * ElevonGain
-        self.AERO['Elevon']['CLS_MRC']  = self.AERO['Elevon']['dCLSde_MRC'] * self.AERO['Elevon']['Deflection_deg'] * ElevonGain
-        self.AERO['Elevon']['CRS_MRC']  = self.AERO['Elevon']['dCRSde_MRC'] * self.AERO['Elevon']['Deflection_deg'] * ElevonGain
-        self.AERO['Elevon']['CMS_MRC']  = self.AERO['Elevon']['dCMSde_MRC'] * self.AERO['Elevon']['Deflection_deg'] * ElevonGain
-        self.AERO['Elevon']['CNS_MRC']  = self.AERO['Elevon']['dCNSde_MRC'] * self.AERO['Elevon']['Deflection_deg'] * ElevonGain
+        self.AERO['Elevon']['CDS_MRC']  = self.AERO['Elevon']['dCDSde_MRC'] * self.CONT['Elevon_deg'] * ElevonGain
+        self.AERO['Elevon']['CYS_MRC']  = self.AERO['Elevon']['dCYSde_MRC'] * self.CONT['Elevon_deg'] * ElevonGain
+        self.AERO['Elevon']['CLS_MRC']  = self.AERO['Elevon']['dCLSde_MRC'] * self.CONT['Elevon_deg'] * ElevonGain
+        self.AERO['Elevon']['CRS_MRC']  = self.AERO['Elevon']['dCRSde_MRC'] * self.CONT['Elevon_deg'] * ElevonGain
+        self.AERO['Elevon']['CMS_MRC']  = self.AERO['Elevon']['dCMSde_MRC'] * self.CONT['Elevon_deg'] * ElevonGain
+        self.AERO['Elevon']['CNS_MRC']  = self.AERO['Elevon']['dCNSde_MRC'] * self.CONT['Elevon_deg'] * ElevonGain
         
         # Calculate Coefficcient in Body Local Axis
         (CDB, CYB, CLB, CRB, CMB, CNB) = STAB2BODY (self.ATM['Alpha_rad'],
@@ -1418,6 +1655,20 @@ class Vahana_VertFlight(gym.Env):
         
         self.CONT['RPM_p']  = self.CONT['RPM_vec'] ** (1/2) 
         self.CONT['Tilt_p']   = TILT_vec
+        TiltCmd_deg = (self.CONT['MinTilt_deg'] + self.CONT['TiltRange_deg'] * self.CONT['Tilt_p'])  
+       
+        if self.trimming:
+            self.CONT['Tilt_deg'] = TiltCmd_deg
+            for i in range(self.CONT['n_TiltSurf']):
+                self.CONT['Actuators']['WingTilt']['Actuators'][i].set_zero(TiltCmd_deg[i])
+            
+        else:
+            for i in range(self.CONT['n_TiltSurf']):
+                self.CONT['Tilt_deg'][i],v,a = self.CONT['Actuators']['WingTilt']['Actuators'][i].step(TiltCmd_deg[i])
+
+        self.CONT['Tilt_rad'] = np.deg2rad(self.CONT['Tilt_deg'])
+        
+        
         self.CONT['TiltDiff_p']   = TILT_vec[0] - TILT_vec[1]
         
         if self.UseLateralActions:
@@ -1430,4 +1681,62 @@ class Vahana_VertFlight(gym.Env):
                                             0                                                  + 0.5*0,
                                             action_vec[self.action_names.index('W2_Elevator')] - 0.5*0,
                                             action_vec[self.action_names.index('W2_Elevator')] + 0.5*0])
+        
+        ElevCmd_deg = (self.CONT['ElevCenter_deg'] + self.CONT['ElevRange_deg']/2 * self.CONT['Elevon_p'])
+        if self.trimming:
+            self.CONT['Elevon_deg'] = ElevCmd_deg
+            for i in range(self.CONT['n_elev']):
+                self.CONT['Actuators']['Elevon']['Actuators'][i].set_zero(ElevCmd_deg[i])
+            
+        else:
+            for i in range(self.CONT['n_elev']):
+                self.CONT['Elevon_deg'][i],v,a = self.CONT['Actuators']['Elevon']['Actuators'][i].step(ElevCmd_deg[i])
+                
+    def SENS_fcn(self):
+        if self.trimming:
+            self.SENS['Sensors']['IMU']['P_radps'].set_zero(self.EQM['VelRot_BodyAx_radps'][0])
+            self.SENS['Sensors']['IMU']['Q_radps'].set_zero(self.EQM['VelRot_BodyAx_radps'][1])
+            self.SENS['Sensors']['IMU']['R_radps'].set_zero(self.EQM['VelRot_BodyAx_radps'][2])
+            
+            self.SENS['Sensors']['IMU']['Phi_rad'].set_zero(self.EQM['EulerAngles_rad'][0])
+            self.SENS['Sensors']['IMU']['Theta_rad'].set_zero(self.EQM['EulerAngles_rad'][1])
+            self.SENS['Sensors']['IMU']['Psi_rad'].set_zero(self.EQM['EulerAngles_rad'][2])
+            
+            self.SENS['Sensors']['IMU']['VX_mps'].set_zero(self.EQM['VelLin_EarthAx_mps'][0])
+            self.SENS['Sensors']['IMU']['VY_mps'].set_zero(self.EQM['VelLin_EarthAx_mps'][1])
+            self.SENS['Sensors']['IMU']['VZ_mps'].set_zero(self.EQM['VelLin_EarthAx_mps'][2])
+            
+            self.SENS['Sensors']['ADS']['CAS_mps'].set_zero(self.ATM['CAS_mps'])
+            
+        else:
+            self.SENS['Sensors']['IMU']['P_radps'].step(self.EQM['VelRot_BodyAx_radps'][0])
+            self.SENS['Sensors']['IMU']['Q_radps'].step(self.EQM['VelRot_BodyAx_radps'][1])
+            self.SENS['Sensors']['IMU']['R_radps'].step(self.EQM['VelRot_BodyAx_radps'][2])
+                    
+            self.SENS['Sensors']['IMU']['Phi_rad'].step(self.EQM['EulerAngles_rad'][0])
+            self.SENS['Sensors']['IMU']['Theta_rad'].step(self.EQM['EulerAngles_rad'][1])
+            self.SENS['Sensors']['IMU']['Psi_rad'].step(self.EQM['EulerAngles_rad'][2])
+                    
+            self.SENS['Sensors']['IMU']['VX_mps'].step(self.EQM['VelLin_EarthAx_mps'][0])
+            self.SENS['Sensors']['IMU']['VY_mps'].step(self.EQM['VelLin_EarthAx_mps'][1])
+            self.SENS['Sensors']['IMU']['VZ_mps'].step(self.EQM['VelLin_EarthAx_mps'][2])
+            
+            self.SENS['Sensors']['ADS']['CAS_mps'].step(self.ATM['CAS_mps'])
+                            
+        self.SENS['P_radps']   = self.SENS['Sensors']['IMU']['P_radps'].y
+        self.SENS['Q_radps']   = self.SENS['Sensors']['IMU']['Q_radps'].y
+        self.SENS['R_radps']   = self.SENS['Sensors']['IMU']['R_radps'].y
+        self.SENS['Phi_rad']   = self.SENS['Sensors']['IMU']['Phi_rad'].y
+        self.SENS['Theta_rad'] = self.SENS['Sensors']['IMU']['Theta_rad'].y
+        self.SENS['Psi_rad']   = self.SENS['Sensors']['IMU']['Psi_rad'].y
+        self.SENS['VX_mps']    = self.SENS['Sensors']['IMU']['VX_mps'].y
+        self.SENS['VY_mps']    = self.SENS['Sensors']['IMU']['VY_mps'].y
+        self.SENS['VZ_mps']    = self.SENS['Sensors']['IMU']['VZ_mps'].y
+        self.SENS['CAS_mps']   = self.SENS['Sensors']['ADS']['CAS_mps'].y
 
+
+                
+                
+
+    
+    
