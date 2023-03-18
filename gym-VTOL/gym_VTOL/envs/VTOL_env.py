@@ -156,6 +156,180 @@ class Sensor:
         
         return self.y
 
+class ElectricalMotor:
+    def __init__(self, Kq_A_Nm = 0, Kv_rpm_V = 0, i0_A = 0, R_ohm = 0, imax_A = 200, Sim_dt = 0.001):
+        self.Kq     = Kq_A_Nm
+        self.Kv     = Kv_rpm_V
+        self.i0_A   = i0_A
+        self.R_ohm  = R_ohm
+        self.imax_A = imax_A
+        self.dt     = Sim_dt
+        
+        # self.set_zero(w0_radps = 0, Qtgt_Nm = 0,)
+            
+    def set_zero(self,Vinp_V,RPM):
+        self.RPM     = RPM
+        self.RPS     = self.RPM * 60
+        self.w_radps = self.RPS * (2*np.pi)
+        self.Vm_V    = self.RPM / self.Kv
+        self.i_A     = min(self.imax_A, (Vinp_V - self.Vm_V) / self.R_ohm)
+        self.Q_Nm    = (self.i_A - self.i0_A) / self.Kq      
+        self.Energy_Ah   = 0
+                
+    def step(self,Vinp_V,RPM):
+        self.RPM     = RPM
+        self.RPS     = self.RPM * 60
+        self.w_radps = self.RPS * (2*np.pi)
+        self.Vm_V    = self.RPM / self.Kv
+        last_i_A     = self.i_A
+        self.i_A     = min(self.imax_A, (Vinp_V - self.Vm_V) / self.R_ohm)
+        self.Q_Nm    = (self.i_A - self.i0_A) / self.Kq 
+        self.Energy_Ah += max(0 , (self.i_A + last_i_A)/2 * self.dt / 3600)
+        
+        return self.Q_Nm
+    
+class Propeller:
+    # https://x-engineer.org/discretizing-transfer-function/
+    
+    def __init__(self, Jvec, CTvec, CPvec, I_kgm2, Diam_m, Sim_dt):
+        self.Jvec   = Jvec
+        self.CTvec  = CTvec
+        self.CPvec  = CPvec
+        self.I_kgm2 = I_kgm2
+        self.Diam_m = Diam_m
+        self.dt     = Sim_dt
+        
+    def set_zero(self, RPM0, TAS_mps = 0, rho_kgm3 = 1.225):
+        self.RPM      = RPM0
+        self.RPS      = RPM0/60
+        self.w        = self.RPS * (2*np.pi)
+        self.cQ_Nm    = self.CalcTorque(RPS = self.RPS, TAS_mps = TAS_mps, rho_kgm3 = rho_kgm3)
+        self.Thrust_N = self.CalcThrust(RPS = self.RPS, TAS_mps = TAS_mps, rho_kgm3 = rho_kgm3)
+        self.Power_W  = self.CalcPower(RPS = self.RPS, TAS_mps = TAS_mps, rho_kgm3 = rho_kgm3)
+        
+    def CalcThrust (self,RPS,TAS_mps, rho_kgm3): 
+        J  = TAS_mps / (max(1,RPS) * self.Diam_m)
+        CT = np.interp(J, self.Jvec, self.CTvec)
+        T  =  CT * rho_kgm3 * RPS**2 * self.Diam_m**4
+        return T
+        
+    def CalcPower (self,RPS,TAS_mps, rho_kgm3): 
+        J  = TAS_mps / (max(1,RPS) * self.Diam_m)
+        CP = np.interp(J, self.Jvec, self.CPvec)
+        P =  CP * rho_kgm3 * RPS**3 * self.Diam_m**5
+        return P
+        
+    def CalcTorque (self,RPS,TAS_mps, rho_kgm3): 
+        J  = TAS_mps / (max(1,RPS) * self.Diam_m)
+        CP = np.interp(J, self.Jvec, self.CPvec)
+        CQ = CP / (2*np.pi)
+        Q  =  CQ * rho_kgm3 * RPS**2 * self.Diam_m**5
+        return Q
+            
+    def step(self,Qext,TAS_mps = 0, rho_kgm3 = 1.225):
+        
+        self.cQ_Nm    = self.CalcTorque(RPS = self.RPS, TAS_mps = TAS_mps, rho_kgm3 = rho_kgm3)
+        NetTorque     = Qext - self.cQ_Nm
+        wdot          = NetTorque / self.I_kgm2
+        self.w       += wdot * self.dt
+        self.RPS      = self.w / (2*np.pi)
+        self.RPM      = self.RPS / 60
+        self.Thrust_N = self.CalcThrust(self.RPS ,TAS_mps, rho_kgm3)
+        self.Power_W  = self.CalcPower(RPS = self.RPS, TAS_mps = TAS_mps, rho_kgm3 = rho_kgm3)
+            
+        return self.w, self.cQ_Nm
+    
+class MotorESC:
+    def __init__(self, KP = 0.001, KI = 0, KD = 0, MaxV_V = 1000, ESC_dt = 0.001):
+        self.KP = KP
+        self.KI = KI
+        self.KD = KD
+        self.MaxV_V = MaxV_V
+        self.MinV_V = 0
+        self.ESC_dt = ESC_dt
+        
+    def set_zero(self,Vini_V = 0, RPMtgt = 0):
+        self.V_V    = Vini_V
+        self.RPMint = 0
+        self.RPMtgt = RPMtgt
+        self.RPMerr = 0
+        
+    def step (self,RPMtgt, RPMtrue):
+        lastRPMerr = self.RPMerr
+        self.RPMerr  = (RPMtgt - RPMtrue)
+        
+        
+        auxV_V = self.RPMerr * self.KP + self.RPMint * self.KI + (self.RPMerr - lastRPMerr) * self.KD
+        
+        if auxV_V > self.MaxV_V:
+            self.V_V = self.MaxV_V
+            # self.RPMint += self.RPMerr*self.ESC_dt
+        elif auxV_V < self.MinV_V:
+             self.V_V = self.MinV_V          
+        else:
+            self.V_V = auxV_V
+            self.RPMint += self.RPMerr*self.ESC_dt
+       
+        return self.V_V
+    
+class MotorAssembly:
+    
+    def __init__(self, ESC, MOTOR, PROPELLER, Sim_dt, Asb_dt):
+        self.ESC = ESC
+        self.MOTOR = MOTOR
+        self.PROPELLER = PROPELLER
+        self.Tscale = int(np.round(Sim_dt / Asb_dt))
+        
+        MOTOR.dt     = Asb_dt
+        PROPELLER.dt = Asb_dt
+
+    def set_zero(self,Throttle = 0):
+        self.V_V = self.calc_V(Throttle)
+
+        RPM0 = 0       
+        self.MOTOR.set_zero(self.V_V ,RPM0)
+        self.PROPELLER.set_zero(RPM0)
+        Net0 = self.MOTOR.Q_Nm - self.PROPELLER.cQ_Nm
+        
+ 
+        RPM1 = 5000      
+        self.MOTOR.set_zero(self.V_V ,RPM1)
+        self.PROPELLER.set_zero(RPM1)
+        Net1 = self.MOTOR.Q_Nm - self.PROPELLER.cQ_Nm
+       
+        Net2 = np.inf
+        it=0
+        while abs(Net2) > 0.1:
+            it += 1
+            
+            f = 3
+            RPM2 = ((RPM0**f - RPM1**f) / (Net0 - Net1) * (0 - Net0) + RPM0**f)**(1/f)
+            self.MOTOR.set_zero(self.V_V  , RPM2)
+            self.PROPELLER.set_zero(RPM2)
+            Net2 = self.MOTOR.Q_Nm - self.PROPELLER.cQ_Nm
+            
+            if Net2 > 0:
+                RPM0 = RPM2
+                Net0 = Net2
+            else:
+                RPM1 = RPM2
+                Net1 = Net2
+       
+        self.RPM = RPM0
+        
+    def calc_V(self,Throttle):
+        return Throttle**(1/2) * self.ESC.MaxV_V
+        
+    def step (self,Throttle):
+        
+        for i in range(self.Tscale):
+            self.V_V   = self.calc_V(Throttle)
+            Qmot       = self.MOTOR.step(self.V_V,self.RPM)  
+            w,Qprop    = self.PROPELLER.step(Qext = Qmot)
+            self.RPM   = w * 60 / (2*np.pi)
+        
+        return self.RPM
+    
 class Vahana_VertFlight(gym.Env):
     metadata = {'render.modes': ['console']}
 
@@ -334,7 +508,7 @@ class Vahana_VertFlight(gym.Env):
       
       self.CalcReward()
 
-      obs = self.OutputObs(self.EQM['sta'],self.EQM['sta_dot'],self.EQM['sta_int'],self.CONT['RPM_p'])
+      obs = self.OutputObs(self.EQM['sta'],self.EQM['sta_dot'],self.EQM['sta_int'],self.CONT['Throttle_p'])
       
       self.saveinfo()
 
@@ -625,7 +799,7 @@ class Vahana_VertFlight(gym.Env):
       # Export Model Oututs throught info
       info = self.saveinfo()
 
-      obs = self.OutputObs(self.EQM['sta'],self.EQM['sta_dot'],self.EQM['sta_int'],self.CONT['RPM_p'])
+      obs = self.OutputObs(self.EQM['sta'],self.EQM['sta_dot'],self.EQM['sta_int'],self.CONT['Throttle_p'])
 
       if not(self.trimming):
           return obs, self.LastReward, done, info
@@ -856,7 +1030,7 @@ class Vahana_VertFlight(gym.Env):
       self.AERO['Elevon']['AOAeff']['Gain']       = np.array([ 0.0 , 0.0 , 1.0 , 1.0 , 0.0 , 0.0])
 
     
-    def init_MOT (self):
+    def init_MOT (self): 
       # MOTOR
       x1 = 0.05
       x2 = 3.15
@@ -893,6 +1067,28 @@ class Vahana_VertFlight(gym.Env):
       self.MOT['Bandwidth_radps'] = 40
       self.MOT['Beta'] = np.exp(-self.MOT['Bandwidth_radps']*self.t_step)
       
+PROP1 = 
+MOT1  = 
+ESC1  = 
+
+dt_sim  = 0.001
+t_sim = 10
+Diam_m = 1.5
+Jvec   = np.array([0.0  , 0.01  , 2.00])
+CTvec  = np.array([0.140, 0.140 , 0.000])
+CPvec  = np.array([0.060, 0.060 , 0.003])
+M_kg   = 0.526
+I_kgm2 = M_kg*Diam_m**2 / 12
+
+MaxV_V = 280*.5
+imax_A = 1100
+
+
+      self.MOT['MaxV_V']
+      self.MOT['ESC']         = MotorESC(KP = 0.5, KI = 50, KD = 0, MaxV_V = MaxV_V, ESC_dt = dt_sim)
+      self.MOT['MOTOR']       = ElectricalMotor(Kq_A_Nm = Kq_A_Nm, Kv_rpm_V = Kv_rpm_V, i0_A = i0_A, R_ohm = R_ohm, imax_A = imax_A)
+      self.MOT['PROPELLER']   = Propeller(Jvec=Jvec, CTvec=CTvec, CPvec=CPvec, I_kgm2=I_kgm2, Diam_m = Diam_m, Sim_dt = dt_sim)
+      self.MOT['Assembly'][0] = ElectricalMotor(self.MOT['ESC'], self.MOT['MOTOR'], self.MOT['PROPELLER'], Sim_dt, Asb_dt)
     def init_CONT (self):
       
       self.CONT['Actuators'] = {}
@@ -1646,14 +1842,14 @@ class Vahana_VertFlight(gym.Env):
             u_Yaw  = 0
         
         if not(self.trimming):
-            self.CONT['LastRPM_vec'] = self.CONT['RPM_vec'].copy()
+            self.CONT['LastThrotle_p'] = self.CONT['Throtle_p'].copy()
 
-        self.CONT['RPM_vec']     = ControlMixer(VerticalControlAllocation(u_Vert),PitchControlAllocation(u_Pitc),RollControlAllocation(u_Roll),YawControlAllocation(u_Yaw))
+        self.CONT['Throtle_p']     = ControlMixer(VerticalControlAllocation(u_Vert),PitchControlAllocation(u_Pitc),RollControlAllocation(u_Roll),YawControlAllocation(u_Yaw))
 
         TILT_vec = (np.array([action_vec[self.action_names.index('W1_Tilt')],
                               action_vec[self.action_names.index('W2_Tilt')]])+1)/2
         
-        self.CONT['RPM_p']  = self.CONT['RPM_vec'] ** (1/2) 
+        # self.CONT['RPM_p']  = self.CONT['RPM_vec'] ** (1/2) 
         self.CONT['Tilt_p']   = TILT_vec
         TiltCmd_deg = (self.CONT['MinTilt_deg'] + self.CONT['TiltRange_deg'] * self.CONT['Tilt_p'])  
        
