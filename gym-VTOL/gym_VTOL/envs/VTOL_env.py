@@ -191,8 +191,7 @@ class ElectricalMotor:
 class Propeller:
     # https://x-engineer.org/discretizing-transfer-function/
     
-    def __init__(self, Jvec, CTvec, CPvec, I_kgm2, Diam_m, Sim_dt):
-        self.Jvec   = Jvec
+    def __init__(self, CTvec, CPvec, I_kgm2, Diam_m, Sim_dt):
         self.CTvec  = CTvec
         self.CPvec  = CPvec
         self.I_kgm2 = I_kgm2
@@ -209,19 +208,19 @@ class Propeller:
         
     def CalcThrust (self,RPS,TAS_mps, rho_kgm3): 
         J  = TAS_mps / (max(1,RPS) * self.Diam_m)
-        CT = np.interp(J, self.Jvec, self.CTvec)
+        CT = np.interp(J, self.CTvec[0,:], self.CTvec[1,:])
         T  =  CT * rho_kgm3 * RPS**2 * self.Diam_m**4
         return T
         
     def CalcPower (self,RPS,TAS_mps, rho_kgm3): 
         J  = TAS_mps / (max(1,RPS) * self.Diam_m)
-        CP = np.interp(J, self.Jvec, self.CPvec)
+        CP = np.interp(J, self.CPvec[0,:], self.CPvec[1,:])
         P =  CP * rho_kgm3 * RPS**3 * self.Diam_m**5
         return P
         
     def CalcTorque (self,RPS,TAS_mps, rho_kgm3): 
         J  = TAS_mps / (max(1,RPS) * self.Diam_m)
-        CP = np.interp(J, self.Jvec, self.CPvec)
+        CP = np.interp(J, self.CPvec[0,:], self.CPvec[1,:])
         CQ = CP / (2*np.pi)
         Q  =  CQ * rho_kgm3 * RPS**2 * self.Diam_m**5
         return Q
@@ -1031,6 +1030,10 @@ class Vahana_VertFlight(gym.Env):
 
     
     def init_MOT (self): 
+      self.MOT['ESC'] = {}
+      self.MOT['MOTOR'] = {}
+      self.MOT['ASSEMBLY'] = {}
+      
       # MOTOR
       x1 = 0.05
       x2 = 3.15
@@ -1039,7 +1042,6 @@ class Vahana_VertFlight(gym.Env):
       z1  = 0
       z2 = 1.5
     
-      self.MOT['n_motor'] = 8
       self.MOT['Position_m'] = np.array([[x1,-y2,z1],
                                          [x1,-y1,z1],
                                          [x1,+y1,z1],
@@ -1048,47 +1050,49 @@ class Vahana_VertFlight(gym.Env):
                                          [x2,-y1,z2],
                                          [x2,+y1,z2],
                                          [x2,+y2,z2]])
-
-      self.MOT['MaxRPM']        = np.ones(self.MOT['n_motor']) * 3000
-      self.MOT['MinRPM']        = np.ones(self.MOT['n_motor']) * 0.01
-      self.MOT['RPMRange']      = self.MOT['MaxRPM'] - self.MOT['MinRPM'] 
-      self.MOT['Diameter_m']    = np.ones(self.MOT['n_motor']) * 1.5
+      self.MOT['n_motor'] = np.shape(self.MOT['Position_m'])[0]
+      
+      self.MOT['PROPELLER'] = {}
+      self.MOT['PROPELLER']['MaxRPM']        = np.ones(self.MOT['n_motor']) * 3000
+      self.MOT['PROPELLER']['MinRPM']        = np.ones(self.MOT['n_motor']) * 0.01
+      self.MOT['PROPELLER']['RPMRange']      = self.MOT['PROPELLER']['MaxRPM'] - self.MOT['PROPELLER']['MinRPM'] 
+      self.MOT['PROPELLER']['Diameter_m']    = np.ones(self.MOT['n_motor']) * 1.5
       self.MOT['RotationSense'] = np.array([+1,-1,+1,-1,
-                                            -1,+1,-1,+1])  
+                                                         -1,+1,-1,+1])  
       
       # CT e CP - Vide planilha
-      self.MOT['CT_J']       = np.array([[0.0 , 0.01 , 2.00] , 
-                                         [0.14, 0.14 , 0.00]])
-      self.MOT['CP_J']       = np.array([[0.0 , 0.01 , 2.00] , 
-                                         [0.06, 0.06 , 0.01]])
+      self.MOT['PROPELLER']['CT_J']       = np.array([[0.0 , 0.01 , 2.00] , 
+                                                      [0.14, 0.14 , 0.00]])
+      self.MOT['PROPELLER']['CP_J']       = np.array([[0.0 , 0.01 , 2.00] , 
+                                                      [0.06, 0.06 , 0.01]])
+      self.MOT['PROPELLER']['M_kg']       = np.ones(self.MOT['n_motor']) * 0.526
+      self.MOT['PROPELLER']['I_kgm2']     = self.MOT['PROPELLER']['M_kg']  * self.MOT['PROPELLER']['Diameter_m']**2 / 12
 
       self.MOT['TiltSurf_link']  = np.array([0,0,0,0,1,1,1,1])                 #ID of surface which the motor is linked. Every motor will rotate the same amount
       
       self.MOT['Bandwidth_radps'] = 40
       self.MOT['Beta'] = np.exp(-self.MOT['Bandwidth_radps']*self.t_step)
       
-PROP1 = 
-MOT1  = 
-ESC1  = 
 
-dt_sim  = 0.001
-t_sim = 10
-Diam_m = 1.5
-Jvec   = np.array([0.0  , 0.01  , 2.00])
-CTvec  = np.array([0.140, 0.140 , 0.000])
-CPvec  = np.array([0.060, 0.060 , 0.003])
-M_kg   = 0.526
-I_kgm2 = M_kg*Diam_m**2 / 12
-
-MaxV_V = 280*.5
-imax_A = 1100
-
-
-      self.MOT['MaxV_V']
-      self.MOT['ESC']         = MotorESC(KP = 0.5, KI = 50, KD = 0, MaxV_V = MaxV_V, ESC_dt = dt_sim)
-      self.MOT['MOTOR']       = ElectricalMotor(Kq_A_Nm = Kq_A_Nm, Kv_rpm_V = Kv_rpm_V, i0_A = i0_A, R_ohm = R_ohm, imax_A = imax_A)
-      self.MOT['PROPELLER']   = Propeller(Jvec=Jvec, CTvec=CTvec, CPvec=CPvec, I_kgm2=I_kgm2, Diam_m = Diam_m, Sim_dt = dt_sim)
-      self.MOT['Assembly'][0] = ElectricalMotor(self.MOT['ESC'], self.MOT['MOTOR'], self.MOT['PROPELLER'], Sim_dt, Asb_dt)
+      self.MOT['MaxV_V']      = 400
+      self.MOT['imax_A']      = 500 #maximum constant is 250
+      self.MOT['i0_A']        = 0
+      self.MOT['R_ohm']       = 15*1e-3
+      self.MOT['Kq_A_Nm']     = 1/0.75
+      self.MOT['Kv_rpm_V']    = 6.53  
+      self.MOT['dt']          = 0.001 
+      
+      # Init Objects        
+      self.MOT['ESC']['obj'] = []
+      self.MOT['MOTOR']['obj'] = []
+      self.MOT['PROPELLER']['obj'] = []
+      self.MOT['ASSEMBLY']['obj'] = []
+      for i in range(self.MOT['n_motor']):
+        self.MOT['ESC']['obj'].append(MotorESC(KP = 0.5, KI = 50, KD = 0, MaxV_V = self.MOT['MaxV_V'], ESC_dt = self.MOT['dt']))
+        self.MOT['MOTOR']['obj'].append(ElectricalMotor(Kq_A_Nm = self.MOT['Kq_A_Nm'], Kv_rpm_V = self.MOT['Kv_rpm_V'], i0_A = self.MOT['i0_A'], R_ohm = self.MOT['R_ohm'], imax_A = self.MOT['imax_A']))
+        self.MOT['PROPELLER']['obj'].append(Propeller(CTvec = self.MOT['PROPELLER']['CT_J'], CPvec = self.MOT['PROPELLER']['CP_J'] , I_kgm2 = self.MOT['PROPELLER']['I_kgm2'][i], Diam_m = self.MOT['PROPELLER']['Diameter_m'][i], Sim_dt = self.MOT['dt']))
+        self.MOT['ASSEMBLY']['obj'].append(MotorAssembly(self.MOT['ESC']['obj'][i], self.MOT['MOTOR']['obj'][i], self.MOT['PROPELLER']['obj'][i], self.t_step, self.MOT['dt']))
+      
     def init_CONT (self):
       
       self.CONT['Actuators'] = {}
@@ -1388,14 +1392,17 @@ imax_A = 1100
         # Calcular Torque devido a inercia (conservacao momento angular)
         
         # Calculate RPM and Rotation of each Propeller
-        RPM_tgt = np.multiply(self.CONT['RPM_p'],self.MOT['RPMRange']) + self.MOT['MinRPM']
+        RPM_tgt = np.multiply(self.CONT['Throttle_p'],self.MOT['PROPELLER']['RPMRange']) + self.MOT['PROPELLER']['MinRPM']
         
-        if self.CurrentStep == 0:   
-            self.MOT['RPM'] = RPM_tgt
+        if self.trimming:   
+            self.MOT['PROPELLER']['RPM'] = RPM_tgt
+            for i in range(self.MOT['n_motor']):
+                self.MOT['ASSEMBLY']['obj'][i].set_zero(self.CONT['Throttle_p'][i])
+            
         else:
-            old_RPM = self.MOT['RPM']
-            self.MOT['RPM'] = (self.MOT['Beta']) * old_RPM + (1-self.MOT['Beta']) * RPM_tgt
-        self.MOT['RPS'] = self.MOT['RPM'] / 60
+            old_RPM = self.MOT['PROPELLER']['RPM']
+            self.MOT['PROPELLER']['RPM'] = (self.MOT['Beta']) * old_RPM + (1-self.MOT['Beta']) * RPM_tgt
+        self.MOT['PROPELLER']['RPS'] = self.MOT['PROPELLER']['RPM'] / 60
         
         
         self.MOT['Tilt_deg']   = self.CONT['Tilt_deg'][self.MOT['TiltSurf_link']]
@@ -1430,16 +1437,16 @@ imax_A = 1100
             
         # Calculate Advance Ratio (J) CT (Thrust Coef) and CP (Power Coef)
         # Source: Diss. Mestrado Daud Filho
-        MOT_J = MOT_VTotal_p[:,0] / (self.MOT['RPS'] * self.MOT['Diameter_m'])
-        MOT_CT = np.interp(MOT_J,self.MOT['CT_J'][0,:],self.MOT['CT_J'][1,:])
-        MOT_CP = np.interp(MOT_J,self.MOT['CP_J'][0,:],self.MOT['CP_J'][1,:])
+        MOT_J = MOT_VTotal_p[:,0] / (self.MOT['PROPELLER']['RPS'] * self.MOT['PROPELLER']['Diameter_m'])
+        MOT_CT = np.interp(MOT_J,self.MOT['PROPELLER']['CT_J'][0,:],self.MOT['PROPELLER']['CT_J'][1,:])
+        MOT_CP = np.interp(MOT_J,self.MOT['PROPELLER']['CP_J'][0,:],self.MOT['PROPELLER']['CP_J'][1,:])
         MOT_CQ = MOT_CP / (2*np.pi)
         
-        self.MOT['J'] = MOT_J
+        self.MOT['PROPELLER']['J'] = MOT_J
         
         # Calculate Thrust and Torque
-        self.MOT['Thrust_N']  = self.ATM['rho_kgm3'] * MOT_CT * self.MOT['RPS']**2 * self.MOT['Diameter_m']**4
-        self.MOT['Torque_Nm'] = self.ATM['rho_kgm3'] * MOT_CQ * self.MOT['RPS']**2 * self.MOT['Diameter_m']**5
+        self.MOT['Thrust_N']  = self.ATM['rho_kgm3'] * MOT_CT * self.MOT['PROPELLER']['RPS']**2 * self.MOT['PROPELLER']['Diameter_m']**4
+        self.MOT['Torque_Nm'] = self.ATM['rho_kgm3'] * MOT_CQ * self.MOT['PROPELLER']['RPS']**2 * self.MOT['PROPELLER']['Diameter_m']**5
         
         self.MOT['Force_BodyAx_N'] = np.zeros([self.MOT['n_motor'],3])
         self.MOT['Moment_BodyAx_N'] = np.zeros([self.MOT['n_motor'],3])
@@ -1842,14 +1849,13 @@ imax_A = 1100
             u_Yaw  = 0
         
         if not(self.trimming):
-            self.CONT['LastThrotle_p'] = self.CONT['Throtle_p'].copy()
+            self.CONT['LastThrottle_p'] = self.CONT['Throttle_p'].copy()
 
-        self.CONT['Throtle_p']     = ControlMixer(VerticalControlAllocation(u_Vert),PitchControlAllocation(u_Pitc),RollControlAllocation(u_Roll),YawControlAllocation(u_Yaw))
-
-        TILT_vec = (np.array([action_vec[self.action_names.index('W1_Tilt')],
-                              action_vec[self.action_names.index('W2_Tilt')]])+1)/2
+        self.CONT['Throttle_p'] = ControlMixer(VerticalControlAllocation(u_Vert),PitchControlAllocation(u_Pitc),RollControlAllocation(u_Roll),YawControlAllocation(u_Yaw))
+        self.CONT['Throttle_p'] = self.CONT['Throttle_p']**(1/2)
         
-        # self.CONT['RPM_p']  = self.CONT['RPM_vec'] ** (1/2) 
+        TILT_vec = (np.array([action_vec[self.action_names.index('W1_Tilt')],
+                              action_vec[self.action_names.index('W2_Tilt')]])+1)/2        
         self.CONT['Tilt_p']   = TILT_vec
         TiltCmd_deg = (self.CONT['MinTilt_deg'] + self.CONT['TiltRange_deg'] * self.CONT['Tilt_p'])  
        
