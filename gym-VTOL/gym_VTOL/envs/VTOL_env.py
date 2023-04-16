@@ -1019,6 +1019,13 @@ class Vahana_VertFlight(gym.Env):
       self.AERO['cref_m']  = 0.650
       self.AERO['bref_m']  = 6.000
       
+      self.AERO['Wing2']['EPS0']          = -0.2176
+      self.AERO['Wing2']['dEPS_dCLW1']    = +1.4465
+      self.AERO['Wing2']['dEPS_dAOAacft'] = -0.0026
+
+      self.AERO['Wing1']['Coefs'] = {}
+      self.AERO['Wing1']['Coefs']['Alpha_deg'] = {}
+
       self.AERO['Elevon']['dCDSde_MRC']  = np.array([+0.000000 , +0.000000 , +0.000000 , +0.000000])
       self.AERO['Elevon']['dCYSde_MRC']  = np.array([+0.000000 , +0.000000 , +0.000000 , +0.000000])
       self.AERO['Elevon']['dCLSde_MRC']  = np.array([+0.009907 , +0.009907 , +0.014602 , +0.014602])
@@ -1511,6 +1518,22 @@ class Vahana_VertFlight(gym.Env):
             SurfaceBETA = np.mod(SurfaceBETA+180,360)-180
             return SurfaceBETA
 
+        def AuxAOA(Alpha_deg):
+            if abs(Alpha_deg) < 90:
+                Alpha_deg_aux = abs(Alpha_deg)
+                sign_aux = np.sign(Alpha_deg)
+            else:
+                Alpha_deg_aux = abs(180-abs(Alpha_deg))
+                sign_aux = -np.sign(Alpha_deg)
+            
+            return Alpha_deg_aux , sign_aux
+
+        def FlatPlate_CL(Alpha_deg, Beta_deg):
+            return self.sind(2*Alpha_deg)*abs(self.cosd(Beta_deg))
+
+        def FlatPlate_CD(Alpha_deg, Beta_deg):
+            return 2*(self.sind(Alpha_deg)**2)*abs(self.cosd(Beta_deg))
+
         def STAB2BODY (Alpha_rad,CDS,CYS,CLS,CRS,CMS,CNS):
             CDB = np.cos(Alpha_rad) * CDS - np.sin(Alpha_rad) * CLS
             CYB = CYS
@@ -1534,12 +1557,9 @@ class Vahana_VertFlight(gym.Env):
 
             return CXB_CG, CYB_CG, CZB_CG, CDB_CG, CLB_CG, CRB_CG, CMB_CG, CNB_CG
         
-        
+        # Calculate W1 local stability coefs
         self.AERO['Wing1']['Incidence_deg'] = self.CONT['Tilt_deg'][0]
-        self.AERO['Wing2']['Incidence_deg'] = self.CONT['Tilt_deg'][1]
-        
         self.AERO['Wing1']['EPS_deg'] = 0.0
-        self.AERO['Wing2']['EPS_deg'] = 0.0
 
         self.AERO['Wing1']['Alpha_deg'] = CalcInducedAOA(self.GEOM['Wing1']['XYZ_m'][0],
                                                          self.MASS['CG_m'][0],
@@ -1548,15 +1568,7 @@ class Vahana_VertFlight(gym.Env):
                                                          self.AERO['Wing1']['Incidence_deg'],
                                                          self.ATM['Alpha_deg'],
                                                          self.AERO['Wing1']['EPS_deg'])
-    
-        self.AERO['Wing2']['Alpha_deg'] = CalcInducedAOA(self.GEOM['Wing2']['XYZ_m'][0],
-                                                         self.MASS['CG_m'][0],
-                                                         self.EQM['VelRot_BodyAx_radps'][1],
-                                                         self.ATM['TAS_mps'],
-                                                         self.AERO['Wing2']['Incidence_deg'],
-                                                         self.ATM['Alpha_deg'],
-                                                         self.AERO['Wing2']['EPS_deg'])
-    
+        
         self.AERO['Wing1']['Beta_deg'] = CalcInducedBETA(self.GEOM['Wing1']['XYZ_m'][0],
                                                          self.MASS['CG_m'][0],
                                                          self.EQM['VelRot_BodyAx_radps'][2],
@@ -1565,6 +1577,31 @@ class Vahana_VertFlight(gym.Env):
                                                          self.ATM['Beta_deg'],
                                                          0)
     
+        
+        W1_Alpha_deg_aux, W1_sign_aux = AuxAOA(self.AERO['Wing1']['Alpha_deg'])
+        W1_Beta_deg_aux = self.AERO['Wing1']['Beta_deg']
+
+        self.AERO['Wing1']['CDS_25Local'] = FlatPlate_CD(W1_Alpha_deg_aux, W1_Beta_deg_aux)
+        self.AERO['Wing1']['CYS_25Local'] = 0
+        self.AERO['Wing1']['CLS_25Local'] = W1_sign_aux*FlatPlate_CL(W1_Alpha_deg_aux, W1_Beta_deg_aux)
+        self.AERO['Wing1']['CRS_25Local'] = 0
+        self.AERO['Wing1']['CMS_25Local'] = 0
+        self.AERO['Wing1']['CNS_25Local'] = 0
+
+        # Calculate W2 local stability coefs
+        self.AERO['Wing2']['Incidence_deg'] = self.CONT['Tilt_deg'][1]
+        self.AERO['Wing2']['EPS_deg'] = (self.AERO['Wing2']['EPS0']
+                                      + self.AERO['Wing2']['dEPS_dCLW1'] * self.AERO['Wing1']['CLS_25Local']
+                                      + self.AERO['Wing2']['dEPS_dAOAacft'] * self.ATM['Alpha_deg'])
+
+        self.AERO['Wing2']['Alpha_deg'] = CalcInducedAOA(self.GEOM['Wing2']['XYZ_m'][0],
+                                                         self.MASS['CG_m'][0],
+                                                         self.EQM['VelRot_BodyAx_radps'][1],
+                                                         self.ATM['TAS_mps'],
+                                                         self.AERO['Wing2']['Incidence_deg'],
+                                                         self.ATM['Alpha_deg'],
+                                                         self.AERO['Wing2']['EPS_deg'])
+
         self.AERO['Wing2']['Beta_deg'] = CalcInducedBETA(self.GEOM['Wing2']['XYZ_m'][0],
                                                          self.MASS['CG_m'][0],
                                                          self.EQM['VelRot_BodyAx_radps'][2],
@@ -1572,24 +1609,19 @@ class Vahana_VertFlight(gym.Env):
                                                          0,
                                                          self.ATM['Beta_deg'],
                                                          0)
-        
-        self.AERO['Fus']['Beta_deg'] = self.ATM['Beta_deg']
-        
-        # Calculate Coefficients in Stability Local Axis
-        # CL and CD for the Flat Plate model - Jie Xu - Learning to Fly: Computational Controller Design for Hybrid ...-
-        self.AERO['Wing1']['CDS_25Local'] = 2*self.sind(self.AERO['Wing1']['Alpha_deg'])*self.sind(self.AERO['Wing1']['Alpha_deg'])*abs(self.cosd(self.AERO['Wing1']['Beta_deg']))
-        self.AERO['Wing1']['CYS_25Local'] = 0
-        self.AERO['Wing1']['CLS_25Local'] = 2*self.sind(self.AERO['Wing1']['Alpha_deg'])*self.cosd(self.AERO['Wing1']['Alpha_deg'])*abs(self.cosd(self.AERO['Wing1']['Beta_deg']))
-        self.AERO['Wing1']['CRS_25Local'] = 0
-        self.AERO['Wing1']['CMS_25Local'] = 0
-        self.AERO['Wing1']['CNS_25Local'] = 0
 
-        self.AERO['Wing2']['CDS_25Local'] = 2*self.sind(self.AERO['Wing2']['Alpha_deg'])*self.sind(self.AERO['Wing2']['Alpha_deg'])*abs(self.cosd(self.AERO['Wing2']['Beta_deg']))
+        W2_Alpha_deg_aux, W2_sign_aux = AuxAOA(self.AERO['Wing2']['Alpha_deg'])
+        W2_Beta_deg_aux = self.AERO['Wing2']['Beta_deg']
+
+        self.AERO['Wing2']['CDS_25Local'] = FlatPlate_CD(W2_Alpha_deg_aux, W2_Beta_deg_aux)
         self.AERO['Wing2']['CYS_25Local'] = 0
-        self.AERO['Wing2']['CLS_25Local'] = 2*self.sind(self.AERO['Wing2']['Alpha_deg'])*self.cosd(self.AERO['Wing2']['Alpha_deg'])*abs(self.cosd(self.AERO['Wing2']['Beta_deg']))
+        self.AERO['Wing2']['CLS_25Local'] = W2_sign_aux*FlatPlate_CL(W2_Alpha_deg_aux, W2_Beta_deg_aux)
         self.AERO['Wing2']['CRS_25Local'] = 0
         self.AERO['Wing2']['CMS_25Local'] = 0
         self.AERO['Wing2']['CNS_25Local'] = 0
+
+        # Calculate Fuselage local stability coefs
+        self.AERO['Fus']['Beta_deg'] = self.ATM['Beta_deg']
 
         self.AERO['Fus']['CDS_25Local'] = 0.1
         self.AERO['Fus']['CYS_25Local'] = - 0.4 * self.sind(self.AERO['Fus']['Beta_deg'])
