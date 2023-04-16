@@ -1024,7 +1024,16 @@ class Vahana_VertFlight(gym.Env):
       self.AERO['Wing2']['dEPS_dAOAacft'] = -0.0026
 
       self.AERO['Wing1']['Coefs'] = {}
-      self.AERO['Wing1']['Coefs']['Alpha_deg'] = {}
+      self.AERO['Wing1']['Coefs']['Alpha_deg']   = np.array([0      , 1      , 2      , 3      , 4      , 5      , 6      , 7      , 8      , 9      , 10     , 11     , 12     , 13     , 14     , 15     , 16     , 17     , 18     , 19     , 20     , 21     , 22     , 23     , 24     , 25    ])
+      self.AERO['Wing1']['Coefs']['CLS_25Local'] = np.array([0.0000 , 0.0891 , 0.1775 , 0.2652 , 0.3524 , 0.4390 , 0.5248 , 0.6097 , 0.6930 , 0.7772 , 0.8669 , 0.9616 , 1.0572 , 1.1379 , 1.2040 , 1.2676 , 1.3273 , 1.3838 , 1.4330 , 1.4768 , 1.4705 , 1.3991 , 1.2325 , 1.0344 , 0.8687 , 0.7970])
+      self.AERO['Wing1']['Coefs']['CDS_25Local'] = np.array([0.0057 , 0.0061 , 0.0070 , 0.0086 , 0.0108 , 0.0137 , 0.0172 , 0.0213 , 0.0260 , 0.0313 , 0.0374 , 0.0446 , 0.0526 , 0.0603 , 0.0677 , 0.0753 , 0.0830 , 0.0908 , 0.0992 , 0.1080 , 0.1247 , 0.1542 , 0.2027 , 0.2591 , 0.3128 , 0.3530])
+      self.AERO['Wing1']['Coefs']['CMS_25Local'] = np.array([0.0000 , 0.0001 , 0.0003 , 0.0006 , 0.0010 , 0.0015 , 0.0023 , 0.0032 , 0.0040 , 0.0048 , 0.0055 , 0.0063 , 0.0071 , 0.0078 , 0.0090 , 0.0112 , 0.0147 , 0.0192 , 0.0234 , 0.0269 , 0.0271 , 0.0246 , 0.0184 , 0.0108 , 0.0043 , 0.0011])
+
+      self.AERO['Wing2']['Coefs'] = {}
+      self.AERO['Wing2']['Coefs']['Alpha_deg']   = np.array([0      , 1      , 2      , 3      , 4      , 5      , 6      , 7      , 8      , 9      , 10     , 11     , 12     , 13     , 14     , 15     , 16     , 17     , 18     , 19     , 20     , 21     , 22     , 23     , 24     , 25    ])
+      self.AERO['Wing2']['Coefs']['CLS_25Local'] = np.array([0.0000 , 0.1024 , 0.2039 , 0.3048 , 0.4050 , 0.5045 , 0.6031 , 0.7006 , 0.7963 , 0.8932 , 0.9963 , 1.1050 , 1.2149 , 1.3077 , 1.3836 , 1.4567 , 1.5253 , 1.5903 , 1.6468 , 1.6972 , 1.6858 , 1.5915 , 1.3753 , 1.1185 , 0.9024 , 0.8055])
+      self.AERO['Wing2']['Coefs']['CDS_25Local'] = np.array([0.0084 , 0.0087 , 0.0096 , 0.0110 , 0.0130 , 0.0155 , 0.0187 , 0.0223 , 0.0264 , 0.0311 , 0.0366 , 0.0429 , 0.0500 , 0.0569 , 0.0635 , 0.0702 , 0.0771 , 0.0842 , 0.0918 , 0.0999 , 0.1165 , 0.1467 , 0.1970 , 0.2558 , 0.3114 , 0.3527])
+      self.AERO['Wing2']['Coefs']['CMS_25Local'] = np.array([0.0000 , 0.0001 , 0.0003 , 0.0006 , 0.0010 , 0.0015 , 0.0023 , 0.0032 , 0.0040 , 0.0048 , 0.0055 , 0.0063 , 0.0071 , 0.0078 , 0.0090 , 0.0112 , 0.0147 , 0.0192 , 0.0234 , 0.0269 , 0.0271 , 0.0246 , 0.0184 , 0.0108 , 0.0043 , 0.0011])
 
       self.AERO['Elevon']['dCDSde_MRC']  = np.array([+0.000000 , +0.000000 , +0.000000 , +0.000000])
       self.AERO['Elevon']['dCYSde_MRC']  = np.array([+0.000000 , +0.000000 , +0.000000 , +0.000000])
@@ -1581,11 +1590,17 @@ class Vahana_VertFlight(gym.Env):
         W1_Alpha_deg_aux, W1_sign_aux = AuxAOA(self.AERO['Wing1']['Alpha_deg'])
         W1_Beta_deg_aux = self.AERO['Wing1']['Beta_deg']
 
-        self.AERO['Wing1']['CDS_25Local'] = FlatPlate_CD(W1_Alpha_deg_aux, W1_Beta_deg_aux)
+        if W1_Alpha_deg_aux <= self.AERO['Wing1']['Coefs']['Alpha_deg'][-1] and W1_Alpha_deg_aux >= self.AERO['Wing1']['Coefs']['Alpha_deg'][0]:
+            self.AERO['Wing1']['CDS_25Local'] = np.interp(W1_Alpha_deg_aux, self.AERO['Wing1']['Coefs']['Alpha_deg'], self.AERO['Wing1']['Coefs']['CDS_25Local'])
+            self.AERO['Wing1']['CLS_25Local'] = W1_sign_aux*np.interp(W1_Alpha_deg_aux, self.AERO['Wing1']['Coefs']['Alpha_deg'], self.AERO['Wing1']['Coefs']['CLS_25Local'])
+            self.AERO['Wing1']['CMS_25Local'] = W1_sign_aux*np.interp(W1_Alpha_deg_aux, self.AERO['Wing1']['Coefs']['Alpha_deg'], self.AERO['Wing1']['Coefs']['CMS_25Local'])
+        else:
+            self.AERO['Wing1']['CDS_25Local'] = FlatPlate_CD(W1_Alpha_deg_aux, W1_Beta_deg_aux)
+            self.AERO['Wing1']['CLS_25Local'] = W1_sign_aux*FlatPlate_CL(W1_Alpha_deg_aux, W1_Beta_deg_aux)
+            self.AERO['Wing1']['CMS_25Local'] = 0
+
         self.AERO['Wing1']['CYS_25Local'] = 0
-        self.AERO['Wing1']['CLS_25Local'] = W1_sign_aux*FlatPlate_CL(W1_Alpha_deg_aux, W1_Beta_deg_aux)
         self.AERO['Wing1']['CRS_25Local'] = 0
-        self.AERO['Wing1']['CMS_25Local'] = 0
         self.AERO['Wing1']['CNS_25Local'] = 0
 
         # Calculate W2 local stability coefs
@@ -1613,11 +1628,18 @@ class Vahana_VertFlight(gym.Env):
         W2_Alpha_deg_aux, W2_sign_aux = AuxAOA(self.AERO['Wing2']['Alpha_deg'])
         W2_Beta_deg_aux = self.AERO['Wing2']['Beta_deg']
 
-        self.AERO['Wing2']['CDS_25Local'] = FlatPlate_CD(W2_Alpha_deg_aux, W2_Beta_deg_aux)
+
+        if W2_Alpha_deg_aux <= self.AERO['Wing2']['Coefs']['Alpha_deg'][-1] and W2_Alpha_deg_aux >= self.AERO['Wing2']['Coefs']['Alpha_deg'][0]:
+            self.AERO['Wing2']['CDS_25Local'] = np.interp(W2_Alpha_deg_aux, self.AERO['Wing2']['Coefs']['Alpha_deg'], self.AERO['Wing2']['Coefs']['CDS_25Local'])
+            self.AERO['Wing2']['CLS_25Local'] = W2_sign_aux*np.interp(W2_Alpha_deg_aux, self.AERO['Wing2']['Coefs']['Alpha_deg'], self.AERO['Wing2']['Coefs']['CLS_25Local'])
+            self.AERO['Wing2']['CMS_25Local'] = W2_sign_aux*np.interp(W2_Alpha_deg_aux, self.AERO['Wing2']['Coefs']['Alpha_deg'], self.AERO['Wing2']['Coefs']['CMS_25Local'])
+        else:
+            self.AERO['Wing2']['CDS_25Local'] = FlatPlate_CD(W2_Alpha_deg_aux, W2_Beta_deg_aux)
+            self.AERO['Wing2']['CLS_25Local'] = W2_sign_aux*FlatPlate_CL(W2_Alpha_deg_aux, W2_Beta_deg_aux)
+            self.AERO['Wing2']['CMS_25Local'] = 0
+
         self.AERO['Wing2']['CYS_25Local'] = 0
-        self.AERO['Wing2']['CLS_25Local'] = W2_sign_aux*FlatPlate_CL(W2_Alpha_deg_aux, W2_Beta_deg_aux)
         self.AERO['Wing2']['CRS_25Local'] = 0
-        self.AERO['Wing2']['CMS_25Local'] = 0
         self.AERO['Wing2']['CNS_25Local'] = 0
 
         # Calculate Fuselage local stability coefs
