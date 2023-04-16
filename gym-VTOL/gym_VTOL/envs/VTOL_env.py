@@ -280,6 +280,7 @@ class MotorAssembly:
         PROPELLER.dt = Asb_dt
 
     def set_zero(self,Throttle, TAS_mps, rho_kgm3):
+        self.Throttle = Throttle
         self.V_V = self.calc_V(Throttle)
 
         RPM0 = 0       
@@ -317,7 +318,8 @@ class MotorAssembly:
         return Throttle**(1/2) * self.ESC.MaxV_V
         
     def step (self,Throttle,TAS_mps, rho_kgm3):
-        
+        self.Throttle = Throttle
+       
         for i in range(self.Tscale):
             self.V_V   = self.calc_V(Throttle)
             Qmot       = self.MOTOR.step(self.V_V,self.RPM)  
@@ -393,6 +395,7 @@ class Vahana_VertFlight(gym.Env):
       info['SENS'] = self.SENS
       info['MASS'] = self.MASS
       info['REW']  = self.LastReward
+      info['Action'] = self.action
       self.info = info
 
       return info
@@ -745,7 +748,8 @@ class Vahana_VertFlight(gym.Env):
     def step(self, action):
       action = np.max((action,-np.ones(np.shape(action))),0)
       action = np.min((action,+np.ones(np.shape(action))),0)
-      
+      self.action = action
+
       if not(self.trimming):  
           self.CurrentStep += 1
       
