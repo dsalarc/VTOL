@@ -426,7 +426,8 @@ class Vahana_VertFlight(gym.Env):
         return obs
     
     def reset(self,W = 0, Z = 0, THETA = 0,  PHI = 0,  PSI = 0, PaxIn = np.array([1,1]),
-                   VX_mps = 0, VZ_mps = 0, DispMessages = False, Linearize = False, TermTheta_deg = 10, StaFreezeList = []):
+                   VX_mps = 0, VZ_mps = 0, DispMessages = False, Linearize = False, TermTheta_deg = 10, StaFreezeList = [],
+                   UNC_seed = None , UNC_enable = 0):
       self.CurrentStep = 0
       self.trimming = 0
 
@@ -441,6 +442,8 @@ class Vahana_VertFlight(gym.Env):
       self.OPT['EnableYaw']     = 1
       self.OPT['DispMessages']  = DispMessages
       self.OPT['StaFreezeList'] = StaFreezeList
+      self.OPT['UNC_seed'] = UNC_seed
+      self.OPT['UNC_enable'] = UNC_enable
 
 
       # Initialize Contants  
@@ -811,50 +814,62 @@ class Vahana_VertFlight(gym.Env):
         self.REW = {}
 
         self.REW['Target'] = {}
-        self.REW['Target']['Vx']    = 60
-        self.REW['Target']['Vz']    = 0
-        self.REW['Target']['Z']     = 0
-        self.REW['Target']['Theta'] = 0
-        self.REW['Target']['Q']     = 0
+        self.REW['Target']['Vx']       = 60
+        self.REW['Target']['Vz']       = 0
+        self.REW['Target']['Z']        = 0
+        self.REW['Target']['Theta']    = 0
+        self.REW['Target']['Q']        = 0
+        self.REW['Target']['Alpha_W1'] = 0
+        self.REW['Target']['Alpha_W2'] = 0
 
         self.REW['Adm_n'] = {}
-        self.REW['Adm_n']['Vx']    = 60
-        self.REW['Adm_n']['Vz']    = 5
-        self.REW['Adm_n']['Z']     = 5
-        self.REW['Adm_n']['Theta'] = 5
-        self.REW['Adm_n']['Q']     = 5
+        self.REW['Adm_n']['Vx']       = 60
+        self.REW['Adm_n']['Vz']       = 5
+        self.REW['Adm_n']['Z']        = 5
+        self.REW['Adm_n']['Theta']    = 5
+        self.REW['Adm_n']['Q']        = 5
+        self.REW['Adm_n']['Alpha_W1'] = 90
+        self.REW['Adm_n']['Alpha_W2'] = 90
 
         self.REW['Adm_p'] = {}
-        self.REW['Adm_p']['Vx']    = 10
-        self.REW['Adm_p']['Vz']    = 5
-        self.REW['Adm_p']['Z']     = 5
-        self.REW['Adm_p']['Theta'] = 5
-        self.REW['Adm_p']['Q']     = 5
+        self.REW['Adm_p']['Vx']       = 10
+        self.REW['Adm_p']['Vz']       = 5
+        self.REW['Adm_p']['Z']        = 5
+        self.REW['Adm_p']['Theta']    = 5
+        self.REW['Adm_p']['Q']        = 5
+        self.REW['Adm_p']['Alpha_W1'] = 90
+        self.REW['Adm_p']['Alpha_W2'] = 90
 
         self.REW['Weight'] = {}
-        self.REW['Weight']['Vz']    = 0.15
-        self.REW['Weight']['Vx']    = 0.40
-        self.REW['Weight']['Z']     = 0.15
-        self.REW['Weight']['Theta'] = 0.15
-        self.REW['Weight']['Q']     = 0.15
+        self.REW['Weight']['Vx']       = 0.40
+        self.REW['Weight']['Vz']       = 0.15
+        self.REW['Weight']['Z']        = 0.15
+        self.REW['Weight']['Theta']    = 0.15
+        self.REW['Weight']['Q']        = 0.15
+        self.REW['Weight']['Alpha_W1'] = 0.10*0
+        self.REW['Weight']['Alpha_W2'] = 0.10*0
 
         self.REW['DeadZone'] = {}
-        self.REW['DeadZone']['Vx']    = 2
-        self.REW['DeadZone']['Vz']    = 1
-        self.REW['DeadZone']['Z']     = 1
-        self.REW['DeadZone']['Theta'] = 1  
-        self.REW['DeadZone']['Q']     = 1  
+        self.REW['DeadZone']['Vx']       = 2
+        self.REW['DeadZone']['Vz']       = 1
+        self.REW['DeadZone']['Z']        = 1
+        self.REW['DeadZone']['Theta']    = 1  
+        self.REW['DeadZone']['Q']        = 1  
+        self.REW['DeadZone']['Alpha_W1'] = 10
+        self.REW['DeadZone']['Alpha_W2'] = 10
 
         self.REW['DeadZone']['Slope'] = 0.01
 
     def CalcReward(self):
 
         self.REW['Value'] = {}
-        self.REW['Value']['Vx']    = self.EQM['VelLin_EarthAx_mps'][0]
-        self.REW['Value']['Vz']    = self.EQM['VelLin_EarthAx_mps'][2]
-        self.REW['Value']['Z']     = self.EQM['PosLin_EarthAx_m'][2]
-        self.REW['Value']['Theta'] = np.rad2deg(self.EQM['EulerAngles_rad'][1])
-        self.REW['Value']['Q']     = np.rad2deg(self.EQM['VelRot_BodyAx_radps'][1])
+        self.REW['Value']['Vx']        = self.EQM['VelLin_EarthAx_mps'][0]
+        self.REW['Value']['Vz']        = self.EQM['VelLin_EarthAx_mps'][2]
+        self.REW['Value']['Z']         = self.EQM['PosLin_EarthAx_m'][2]
+        self.REW['Value']['Theta']     = np.rad2deg(self.EQM['EulerAngles_rad'][1])
+        self.REW['Value']['Q']         = np.rad2deg(self.EQM['VelRot_BodyAx_radps'][1])
+        self.REW['Value']['Alpha_W1']  = self.AERO['Wing1']['Alpha_deg']
+        self.REW['Value']['Alpha_W2']  = self.AERO['Wing2']['Alpha_deg']
 
         Reward = 0
 
@@ -873,7 +888,8 @@ class Vahana_VertFlight(gym.Env):
                                     * (Delta2Target - self.REW['DeadZone'][kk])))
 
             Reward += AuxReward * self.REW['Weight'][kk]
-
+            # if kk == 'Alpha_W1':
+            #     print(kk + ": " + str(AuxReward))
         return Reward    
     
 
@@ -919,6 +935,7 @@ class Vahana_VertFlight(gym.Env):
     def StartUp (self,PaxIn):
 
       # INITIALIZE DICTS
+      self.UNC  = {}
       self.EQM  = {}
       self.GEOM = {}
       self.ATM  = {}
@@ -934,6 +951,7 @@ class Vahana_VertFlight(gym.Env):
       self.CONS['mps2kt'] = 1 / self.CONS['kt2mps']     
       self.CONS['g_mps2'] = 9.806
        
+      self.init_UNC()
       self.init_ATM()  
       self.init_GEOM()  
       self.init_MASS(PaxIn = PaxIn)  
@@ -943,13 +961,99 @@ class Vahana_VertFlight(gym.Env):
       self.init_CONT()
       self.init_SENS()
       
+    def init_UNC (self):
+      # 1) define the Std Deviation of the deviations and uncertanties
+      
+       self.UNC['StdDev'] = {}
+       self.UNC['StdDev']['ATM'] = {}
+       self.UNC['StdDev']['ATM']['Bias'] = {}
+       self.UNC['StdDev']['ATM']['Bias']['WindX_kt'] = 10
+       self.UNC['StdDev']['ATM']['Bias']['WindY_kt'] = 10
+       self.UNC['StdDev']['ATM']['Bias']['WindZ_kt'] = 10
+       self.UNC['StdDev']['ATM']['Bias']['dISA_C']   = 10
+            
+      
+       self.UNC['StdDev']['AERO'] = {}
+       self.UNC['StdDev']['AERO']['Gain'] = {}
+       self.UNC['StdDev']['AERO']['Bias'] = {}
+       self.UNC['StdDev']['AERO']['Gain']['CLa'] = 0.05
+       self.UNC['StdDev']['AERO']['Gain']['ElevEff'] = 0.2
+       self.UNC['StdDev']['AERO']['Bias']['CM0'] = 0.2
+      
+       self.UNC['StdDev']['MASS'] = {}
+       self.UNC['StdDev']['MASS']['Gain'] = {}
+       self.UNC['StdDev']['MASS']['Bias'] = {}
+       self.UNC['StdDev']['MASS']['Bias']['CGX_cma'] = 0.01
+       self.UNC['StdDev']['MASS']['Gain']['Weight'] = 0.1
+      
+       self.UNC['StdDev']['MOT'] = {}
+       self.UNC['StdDev']['MOT']['Gain'] = {}
+       self.UNC['StdDev']['MOT']['Bias'] = {}
+       self.UNC['StdDev']['MOT']['Gain']['CT'] = 0.1
+       self.UNC['StdDev']['MOT']['Gain']['CP'] = 0.1
+       self.UNC['StdDev']['MOT']['Gain']['Bandwidth'] = 0.1
+       self.UNC['StdDev']['MOT']['Gain']['Kv'] = 0.1
+       self.UNC['StdDev']['MOT']['Gain']['Kq'] = 0.1
+      
+       self.UNC['StdDev']['CONT'] = {}
+       self.UNC['StdDev']['CONT']['Gain'] = {}
+       self.UNC['StdDev']['CONT']['Bias'] = {}
+       self.UNC['StdDev']['CONT']['Gain']['WingTilt_Bandwidth'] = 0.1
+       self.UNC['StdDev']['CONT']['Gain']['WingTilt_Rate'] = 0.1
+       self.UNC['StdDev']['CONT']['Gain']['Elevon_Bandwidth'] = 0.1
+       self.UNC['StdDev']['CONT']['Gain']['Elevon_Rate'] = 0.1
+    
+       self.UNC['StdDev']['SENS'] = {}
+       self.UNC['StdDev']['SENS']['Gain'] = {}
+       self.UNC['StdDev']['SENS']['Bias'] = {}
+       self.UNC['StdDev']['SENS']['Gain']['IMU_Bandwidth'] = 0.1
+       self.UNC['StdDev']['SENS']['Gain']['ADS_Bandwidth'] = 0.1
+       self.UNC['StdDev']['SENS']['Gain']['IMU_Delay'] = 0.1
+       self.UNC['StdDev']['SENS']['Gain']['ADS_Delay'] = 0.1
+       self.UNC['StdDev']['SENS']['Gain']['IMU_P'] = 0.1
+       self.UNC['StdDev']['SENS']['Gain']['IMU_Q'] = 0.1
+       self.UNC['StdDev']['SENS']['Gain']['IMU_R'] = 0.1
+       self.UNC['StdDev']['SENS']['Bias']['IMU_P'] = 0.1
+       self.UNC['StdDev']['SENS']['Bias']['IMU_Q'] = 0.1
+       self.UNC['StdDev']['SENS']['Bias']['IMU_R'] = 0.1
+       self.UNC['StdDev']['SENS']['Gain']['IMU_NX'] = 0.1
+       self.UNC['StdDev']['SENS']['Gain']['IMU_NY'] = 0.1
+       self.UNC['StdDev']['SENS']['Gain']['IMU_NZ'] = 0.1
+       self.UNC['StdDev']['SENS']['Bias']['IMU_NX'] = 0.1
+       self.UNC['StdDev']['SENS']['Bias']['IMU_NY'] = 0.1
+       self.UNC['StdDev']['SENS']['Bias']['IMU_NZ'] = 0.1
+       self.UNC['StdDev']['SENS']['Gain']['ADS_CAS'] = 0.1
+      
+      # 2) Calculate the real deviation, based on StdDeviation
+       if self.OPT['UNC_seed'] is None:
+           self.UNC['seed'] = np.random.randint(1,100000)
+       else:
+           self.UNC['seed'] = self.OPT['UNC_seed']
+          
+       self.UNC['Res'] = self.UNC['StdDev'].copy()
+        
+       def GetUncVal(InpDict, rdm, Enable):
+           if type(InpDict) is dict:
+               OutDict = {}
+               for k in InpDict.keys():
+                   OutDict[k] = GetUncVal(InpDict[k], rdm, Enable)
+               return OutDict
+           else:
+               if Enable:
+                   return np.max((-3*InpDict, np.min((3*InpDict,rdm.normal() * InpDict)) ))
+               else:
+                   return 0
+        
+       rdm = np.random.default_rng(self.UNC['seed'])
+       self.UNC['Res'] = GetUncVal(self.UNC['Res'], rdm, self.OPT['UNC_enable'])
+     
     def init_ATM (self):
       # ATM
-      self.ATM['dISA_C'] = 0
+      self.ATM['dISA_C'] = self.UNC['Res']['ATM']['Bias']['dISA_C']
       
-      self.ATM['WindX_kt'] = 0
-      self.ATM['WindY_kt'] = 0
-      self.ATM['WindZ_kt'] = 0
+      self.ATM['WindX_kt'] = self.UNC['Res']['ATM']['Bias']['WindX_kt']
+      self.ATM['WindY_kt'] = self.UNC['Res']['ATM']['Bias']['WindY_kt']
+      self.ATM['WindZ_kt'] = self.UNC['Res']['ATM']['Bias']['WindZ_kt']
       
       self.ATM['Const'] = {}
       
@@ -987,12 +1091,15 @@ class Vahana_VertFlight(gym.Env):
       self.MASS['PaxWeight_kgf']   = 100
       self.MASS['EmptyWeight_kgf'] = 616
       self.MASS['Weight_kgf'] = self.MASS['EmptyWeight_kgf'] + np.sum(self.MASS['Pax']) * self.MASS['PaxWeight_kgf']
+      self.MASS['Weight_kgf'] = self.MASS['Weight_kgf'] * (1 + self.UNC['Res']['MASS']['Gain']['Weight'])
       self.MASS['Empty_CG_m'] = np.array([1.85 , 0.0 , 0.53])
       self.MASS['PaxPos_m'] = np.array([[0.9 , 0.0 , 1.0],
                                         [2.5 , 0.0 , 1.0]])
       self.MASS['CG_m'] = np.array(self.MASS['Empty_CG_m']    * self.MASS['EmptyWeight_kgf'] + 
                                    self.MASS['PaxPos_m'][0,:] * self.MASS['Pax'][0] * self.MASS['PaxWeight_kgf'] +
                                    self.MASS['PaxPos_m'][1,:] * self.MASS['Pax'][1] * self.MASS['PaxWeight_kgf']) / self.MASS['Weight_kgf']
+      self.MASS['CG_m'][0] = self.MASS['CG_m'][0] + self.UNC['Res']['MASS']['Bias']['CGX_cma']*self.GEOM['Wing1']['cma_m']
+      
       Pax2CG_sq = (self.MASS['PaxPos_m'] - self.MASS['CG_m'])**2                  
       Emp2CG_sq = (self.MASS['Empty_CG_m'] - self.MASS['CG_m'])**2                  
       Ixx = 1987 + ((Pax2CG_sq[0][1] + Pax2CG_sq[0][2]) * self.MASS['Pax'][0] * self.MASS['PaxWeight_kgf'] +
@@ -1037,9 +1144,9 @@ class Vahana_VertFlight(gym.Env):
 
       self.AERO['Elevon']['dCDSde_MRC']  = np.array([+0.000000 , +0.000000 , +0.000000 , +0.000000])
       self.AERO['Elevon']['dCYSde_MRC']  = np.array([+0.000000 , +0.000000 , +0.000000 , +0.000000])
-      self.AERO['Elevon']['dCLSde_MRC']  = np.array([+0.009907 , +0.009907 , +0.014602 , +0.014602])
-      self.AERO['Elevon']['dCRSde_MRC']  = np.array([+0.002925 , -0.002925 , +0.004620 , -0.004620])
-      self.AERO['Elevon']['dCMSde_MRC']  = np.array([+0.042829 , +0.042829 , -0.055021 , -0.055021])
+      self.AERO['Elevon']['dCLSde_MRC']  = np.array([+0.009907 , +0.009907 , +0.014602 , +0.014602]) * (1 + self.UNC['Res']['AERO']['Gain']['ElevEff'])
+      self.AERO['Elevon']['dCRSde_MRC']  = np.array([+0.002925 , -0.002925 , +0.004620 , -0.004620]) * (1 + self.UNC['Res']['AERO']['Gain']['ElevEff'])
+      self.AERO['Elevon']['dCMSde_MRC']  = np.array([+0.042829 , +0.042829 , -0.055021 , -0.055021]) * (1 + self.UNC['Res']['AERO']['Gain']['ElevEff'])
       self.AERO['Elevon']['dCNSde_MRC']  = np.array([+0.000000 , +0.000000 , +0.000000 , +0.000000])
 
       self.AERO['Elevon']['AOAeff']  = {}
@@ -1081,14 +1188,16 @@ class Vahana_VertFlight(gym.Env):
       # CT e CP - Vide planilha
       self.MOT['PROPELLER']['CT_J']       = np.array([[0.0 , 0.01 , 2.00] , 
                                                       [0.14, 0.14 , 0.00]])
+      self.MOT['PROPELLER']['CT_J'][1,:]  = self.MOT['PROPELLER']['CT_J'][1,:] * (1+self.UNC['Res']['MOT']['Gain']['CT'])
       self.MOT['PROPELLER']['CP_J']       = np.array([[0.0 , 0.01 , 2.00] , 
                                                       [0.06, 0.06 , 0.01]])
+      self.MOT['PROPELLER']['CP_J'][1,:]  = self.MOT['PROPELLER']['CP_J'][1,:] * (1+self.UNC['Res']['MOT']['Gain']['CP'])
       self.MOT['PROPELLER']['M_kg']       = np.ones(self.MOT['n_motor']) * 0.526
       self.MOT['PROPELLER']['I_kgm2']     = self.MOT['PROPELLER']['M_kg']  * self.MOT['PROPELLER']['Diameter_m']**2 / 12
 
       self.MOT['TiltSurf_link']  = np.array([0,0,0,0,1,1,1,1])                 #ID of surface which the motor is linked. Every motor will rotate the same amount
       
-      self.MOT['Bandwidth_radps'] = 40
+      self.MOT['Bandwidth_radps'] = 40 * (1+self.UNC['Res']['MOT']['Gain']['Bandwidth'])
       self.MOT['Beta'] = np.exp(-self.MOT['Bandwidth_radps']*self.t_step)
       
 
@@ -1096,8 +1205,8 @@ class Vahana_VertFlight(gym.Env):
       self.MOT['imax_A']      = 500 #maximum constant is 250
       self.MOT['i0_A']        = 0
       self.MOT['R_ohm']       = 15*1e-3
-      self.MOT['Kq_A_Nm']     = 1/0.75
-      self.MOT['Kv_rpm_V']    = 6.53  
+      self.MOT['Kq_A_Nm']     = 1/0.75  * (1+self.UNC['Res']['MOT']['Gain']['Kq'])
+      self.MOT['Kv_rpm_V']    = 6.53    * (1+self.UNC['Res']['MOT']['Gain']['Kv'])
       self.MOT['dt']          = 0.001 
       
       # Init Objects        
@@ -1122,8 +1231,8 @@ class Vahana_VertFlight(gym.Env):
       self.CONT['TiltRange_deg'] = self.CONT['MaxTilt_deg'] - self.CONT['MinTilt_deg'] 
       
       self.CONT['Actuators']['WingTilt'] = {}
-      self.CONT['Actuators']['WingTilt']['CutFreq_radps'] = np.ones(self.CONT['n_TiltSurf']) * 20
-      self.CONT['Actuators']['WingTilt']['MaxRate']       = np.ones(self.CONT['n_TiltSurf']) * 10
+      self.CONT['Actuators']['WingTilt']['CutFreq_radps'] = np.ones(self.CONT['n_TiltSurf']) * 20 * (1+self.UNC['Res']['CONT']['Gain']['WingTilt_Bandwidth'])
+      self.CONT['Actuators']['WingTilt']['MaxRate']       = np.ones(self.CONT['n_TiltSurf']) * 10 * (1+self.UNC['Res']['CONT']['Gain']['WingTilt_Rate'])
       self.CONT['Actuators']['WingTilt']['t_act']         = np.ones(self.CONT['n_TiltSurf']) * 0.001
       self.CONT['Actuators']['WingTilt']['Actuators'] = []
      
@@ -1141,8 +1250,8 @@ class Vahana_VertFlight(gym.Env):
       self.CONT['ElevCenter_deg'] = (self.CONT['MinElev_deg'] + self.CONT['MaxElev_deg']) / 2
 
       self.CONT['Actuators']['Elevon'] = {}
-      self.CONT['Actuators']['Elevon']['CutFreq_radps'] = np.ones(self.CONT['n_elev']) * 40
-      self.CONT['Actuators']['Elevon']['MaxRate']       = np.ones(self.CONT['n_elev']) * 20
+      self.CONT['Actuators']['Elevon']['CutFreq_radps'] = np.ones(self.CONT['n_elev']) * 40 * (1+self.UNC['Res']['CONT']['Gain']['Elevon_Bandwidth'])
+      self.CONT['Actuators']['Elevon']['MaxRate']       = np.ones(self.CONT['n_elev']) * 20 * (1+self.UNC['Res']['CONT']['Gain']['Elevon_Rate'])
       self.CONT['Actuators']['Elevon']['t_act']         = np.ones(self.CONT['n_elev']) * 0.001
       self.CONT['Actuators']['Elevon']['Actuators'] = []
      
@@ -1157,12 +1266,12 @@ class Vahana_VertFlight(gym.Env):
         self.SENS['Data'] = {}
         
         self.SENS['Data']['IMU'] = {}      
-        self.SENS['Data']['IMU']['Delay_s'] = 0.005
-        self.SENS['Data']['IMU']['CutFreq_radps'] = 40
+        self.SENS['Data']['IMU']['Delay_s'] = 0.005 * (1+self.UNC['Res']['SENS']['Gain']['IMU_Delay'])
+        self.SENS['Data']['IMU']['CutFreq_radps'] = 40 * (1+self.UNC['Res']['SENS']['Gain']['IMU_Bandwidth'])
         
         self.SENS['Data']['ADS'] = {}      
-        self.SENS['Data']['ADS']['Delay_s'] = 0.100
-        self.SENS['Data']['ADS']['CutFreq_radps'] = 20
+        self.SENS['Data']['ADS']['Delay_s'] = 0.100 * (1+self.UNC['Res']['SENS']['Gain']['ADS_Delay'])
+        self.SENS['Data']['ADS']['CutFreq_radps'] = 20 * (1+self.UNC['Res']['SENS']['Gain']['ADS_Bandwidth'])
         
         
         self.SENS['Sensors'] = {}
@@ -1204,6 +1313,19 @@ class Vahana_VertFlight(gym.Env):
                                                    time_sample_sensor = 0.001,
                                                    time_sample_sim = self.t_step)
         self.SENS['Sensors']['IMU']['VZ_mps'] = Sensor(CutFreq_radps = self.SENS['Data']['IMU']['CutFreq_radps'],
+                                                   Delay_s = self.SENS['Data']['IMU']['Delay_s'],
+                                                   time_sample_sensor = 0.001,
+                                                   time_sample_sim = self.t_step)
+        
+        self.SENS['Sensors']['IMU']['NX_g'] = Sensor(CutFreq_radps = self.SENS['Data']['IMU']['CutFreq_radps'],
+                                                   Delay_s = self.SENS['Data']['IMU']['Delay_s'],
+                                                   time_sample_sensor = 0.001,
+                                                   time_sample_sim = self.t_step)
+        self.SENS['Sensors']['IMU']['NY_g'] = Sensor(CutFreq_radps = self.SENS['Data']['IMU']['CutFreq_radps'],
+                                                   Delay_s = self.SENS['Data']['IMU']['Delay_s'],
+                                                   time_sample_sensor = 0.001,
+                                                   time_sample_sim = self.t_step)
+        self.SENS['Sensors']['IMU']['NZ_g'] = Sensor(CutFreq_radps = self.SENS['Data']['IMU']['CutFreq_radps'],
                                                    Delay_s = self.SENS['Data']['IMU']['Delay_s'],
                                                    time_sample_sensor = 0.001,
                                                    time_sample_sim = self.t_step)
@@ -1598,7 +1720,9 @@ class Vahana_VertFlight(gym.Env):
             self.AERO['Wing1']['CDS_25Local'] = FlatPlate_CD(W1_Alpha_deg_aux, W1_Beta_deg_aux)
             self.AERO['Wing1']['CLS_25Local'] = W1_sign_aux*FlatPlate_CL(W1_Alpha_deg_aux, W1_Beta_deg_aux)
             self.AERO['Wing1']['CMS_25Local'] = 0
-
+        
+        self.AERO['Wing1']['CLS_25Local'] = (1+self.UNC['Res']['AERO']['Gain']['CLa']) * self.AERO['Wing1']['CLS_25Local']
+        self.AERO['Wing1']['CMS_25Local'] = self.UNC['Res']['AERO']['Bias']['CM0'] + self.AERO['Wing1']['CMS_25Local']
         self.AERO['Wing1']['CYS_25Local'] = 0
         self.AERO['Wing1']['CRS_25Local'] = 0
         self.AERO['Wing1']['CNS_25Local'] = 0
@@ -1638,6 +1762,8 @@ class Vahana_VertFlight(gym.Env):
             self.AERO['Wing2']['CLS_25Local'] = W2_sign_aux*FlatPlate_CL(W2_Alpha_deg_aux, W2_Beta_deg_aux)
             self.AERO['Wing2']['CMS_25Local'] = 0
 
+        self.AERO['Wing2']['CLS_25Local'] = (1+self.UNC['Res']['AERO']['Gain']['CLa']) * self.AERO['Wing2']['CLS_25Local']
+        self.AERO['Wing2']['CMS_25Local'] = self.UNC['Res']['AERO']['Bias']['CM0'] + self.AERO['Wing2']['CMS_25Local']
         self.AERO['Wing2']['CYS_25Local'] = 0
         self.AERO['Wing2']['CRS_25Local'] = 0
         self.AERO['Wing2']['CNS_25Local'] = 0
@@ -1957,6 +2083,10 @@ class Vahana_VertFlight(gym.Env):
             self.SENS['Sensors']['IMU']['VY_mps'].set_zero(self.EQM['VelLin_EarthAx_mps'][1])
             self.SENS['Sensors']['IMU']['VZ_mps'].set_zero(self.EQM['VelLin_EarthAx_mps'][2])
             
+            self.SENS['Sensors']['IMU']['NX_g'].set_zero(self.EQM['LoadFactor_g'][0])
+            self.SENS['Sensors']['IMU']['NY_g'].set_zero(self.EQM['LoadFactor_g'][1])
+            self.SENS['Sensors']['IMU']['NZ_g'].set_zero(self.EQM['LoadFactor_g'][2])
+
             self.SENS['Sensors']['ADS']['CAS_mps'].set_zero(self.ATM['CAS_mps'])
             
         else:
@@ -1972,18 +2102,25 @@ class Vahana_VertFlight(gym.Env):
             self.SENS['Sensors']['IMU']['VY_mps'].step(self.EQM['VelLin_EarthAx_mps'][1])
             self.SENS['Sensors']['IMU']['VZ_mps'].step(self.EQM['VelLin_EarthAx_mps'][2])
             
+            self.SENS['Sensors']['IMU']['NX_g'].step(self.EQM['LoadFactor_g'][0])
+            self.SENS['Sensors']['IMU']['NY_g'].step(self.EQM['LoadFactor_g'][1])
+            self.SENS['Sensors']['IMU']['NZ_g'].step(self.EQM['LoadFactor_g'][2])
+            
             self.SENS['Sensors']['ADS']['CAS_mps'].step(self.ATM['CAS_mps'])
                             
-        self.SENS['P_radps']   = self.SENS['Sensors']['IMU']['P_radps'].y
-        self.SENS['Q_radps']   = self.SENS['Sensors']['IMU']['Q_radps'].y
-        self.SENS['R_radps']   = self.SENS['Sensors']['IMU']['R_radps'].y
+        self.SENS['P_radps']   = self.SENS['Sensors']['IMU']['P_radps'].y * (1+self.UNC['Res']['SENS']['Gain']['IMU_P']) + (self.UNC['Res']['SENS']['Bias']['IMU_P'])
+        self.SENS['Q_radps']   = self.SENS['Sensors']['IMU']['Q_radps'].y * (1+self.UNC['Res']['SENS']['Gain']['IMU_Q']) + (self.UNC['Res']['SENS']['Bias']['IMU_Q'])
+        self.SENS['R_radps']   = self.SENS['Sensors']['IMU']['R_radps'].y * (1+self.UNC['Res']['SENS']['Gain']['IMU_R']) + (self.UNC['Res']['SENS']['Bias']['IMU_R'])
         self.SENS['Phi_rad']   = self.SENS['Sensors']['IMU']['Phi_rad'].y
-        self.SENS['Theta_rad'] = self.SENS['Sensors']['IMU']['Theta_rad'].y
+        self.SENS['Theta_rad'] = self.SENS['Sensors']['IMU']['Theta_rad'].y 
         self.SENS['Psi_rad']   = self.SENS['Sensors']['IMU']['Psi_rad'].y
-        self.SENS['VX_mps']    = self.SENS['Sensors']['IMU']['VX_mps'].y
-        self.SENS['VY_mps']    = self.SENS['Sensors']['IMU']['VY_mps'].y
-        self.SENS['VZ_mps']    = self.SENS['Sensors']['IMU']['VZ_mps'].y
-        self.SENS['CAS_mps']   = self.SENS['Sensors']['ADS']['CAS_mps'].y
+        self.SENS['VX_mps']    = self.SENS['Sensors']['IMU']['VX_mps'].y 
+        self.SENS['VY_mps']    = self.SENS['Sensors']['IMU']['VY_mps'].y 
+        self.SENS['VZ_mps']    = self.SENS['Sensors']['IMU']['VZ_mps'].y 
+        self.SENS['NX_g']      = self.SENS['Sensors']['IMU']['NX_g'].y * (1+self.UNC['Res']['SENS']['Gain']['IMU_NX']) + (self.UNC['Res']['SENS']['Bias']['IMU_NX'])
+        self.SENS['NY_g']      = self.SENS['Sensors']['IMU']['NY_g'].y * (1+self.UNC['Res']['SENS']['Gain']['IMU_NY']) + (self.UNC['Res']['SENS']['Bias']['IMU_NY'])
+        self.SENS['NZ_g']      = self.SENS['Sensors']['IMU']['NZ_g'].y * (1+self.UNC['Res']['SENS']['Gain']['IMU_NZ']) + (self.UNC['Res']['SENS']['Bias']['IMU_NZ'])
+        self.SENS['CAS_mps']   = self.SENS['Sensors']['ADS']['CAS_mps'].y * (1+self.UNC['Res']['SENS']['Gain']['ADS_CAS'])
 
 
                 
