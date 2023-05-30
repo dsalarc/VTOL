@@ -508,7 +508,7 @@ class Vahana_VertFlight(gym.Env):
       
       self.AllStates = self.EQM['sta']
       
-      self.CalcReward()
+      self.LastReward = self.CalcReward()
 
       obs = self.OutputObs(self.EQM['sta'],self.EQM['sta_dot'],self.EQM['sta_int'],self.CONT['Throttle_p'])
       
@@ -840,6 +840,15 @@ class Vahana_VertFlight(gym.Env):
         self.REW['Adm_p']['Alpha_W1'] = 90
         self.REW['Adm_p']['Alpha_W2'] = 90
 
+        self.REW['Order'] = {}
+        self.REW['Order']['Vx']       = 2
+        self.REW['Order']['Vz']       = 1
+        self.REW['Order']['Z']        = 1
+        self.REW['Order']['Theta']    = 1
+        self.REW['Order']['Q']        = 1
+        self.REW['Order']['Alpha_W1'] = 1
+        self.REW['Order']['Alpha_W2'] = 1
+
         self.REW['Weight'] = {}
         self.REW['Weight']['Vx']       = 0.40
         self.REW['Weight']['Vz']       = 0.15
@@ -874,22 +883,23 @@ class Vahana_VertFlight(gym.Env):
         Reward = 0
 
         for kk in self.REW['Target'].keys():
-            Delta2Target = np.abs(self.REW['Target'][kk] - self.REW['Value'][kk])
-
-            if Delta2Target < self.REW['DeadZone'][kk]:
-                AuxReward = 1 - self.REW['DeadZone']['Slope']  / self.REW['DeadZone'][kk] * Delta2Target
+            Delta2Target = self.REW['Value'][kk] - self.REW['Target'][kk]
+            abs_Delta2Target = np.abs(Delta2Target)
+            
+            if abs_Delta2Target < self.REW['DeadZone'][kk]:
+                AuxReward = 1 - self.REW['DeadZone']['Slope']  / self.REW['DeadZone'][kk] * abs_Delta2Target
+            elif (Delta2Target < -self.REW['Adm_n'][kk]) or (Delta2Target > self.REW['Adm_p'][kk]):
+                AuxReward = 0
             elif self.REW['Value'][kk] < np.abs(self.REW['Target'][kk]):
-                AuxReward = np.max((0 , (1 - self.REW['DeadZone']['Slope'])
-                                    + (self.REW['DeadZone']['Slope'] - 1) / (self.REW['Adm_n'][kk]  - self.REW['DeadZone'][kk])
-                                    * (Delta2Target - self.REW['DeadZone'][kk])))
+                AuxReward = np.max((0 , (1 - self.REW['DeadZone']['Slope']) * 
+                                    ((self.REW['Adm_n'][kk] - abs_Delta2Target) / 
+                                    (self.REW['Adm_n'][kk] - self.REW['DeadZone'][kk]))**self.REW['Order'][kk] ))
             else:
-                 AuxReward = np.max((0 , (1 - self.REW['DeadZone']['Slope'])
-                                    + (self.REW['DeadZone']['Slope'] - 1) / (self.REW['Adm_p'][kk]  - self.REW['DeadZone'][kk])
-                                    * (Delta2Target - self.REW['DeadZone'][kk])))
-
+                AuxReward = np.max((0 , (1 - self.REW['DeadZone']['Slope']) * 
+                                    ((self.REW['Adm_p'][kk] - abs_Delta2Target) / 
+                                    (self.REW['Adm_p'][kk] - self.REW['DeadZone'][kk]))**self.REW['Order'][kk] ))
             Reward += AuxReward * self.REW['Weight'][kk]
-            # if kk == 'Alpha_W1':
-            #     print(kk + ": " + str(AuxReward))
+
         return Reward    
     
 
