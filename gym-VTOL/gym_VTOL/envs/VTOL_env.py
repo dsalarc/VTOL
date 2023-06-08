@@ -9,6 +9,8 @@ Created on Tue Apr 13 21:02:13 2021
 import gym
 from gym import spaces
 import numpy as np
+from scipy.interpolate import RegularGridInterpolator
+from scipy.interpolate import RectBivariateSpline
 import matplotlib.pyplot as plt
 
 class LowPassDiscreteFilter:
@@ -187,53 +189,68 @@ class ElectricalMotor:
 class Propeller:
     # https://x-engineer.org/discretizing-transfer-function/
     
-    def __init__(self, CTvec, CPvec, I_kgm2, Diam_m, Sim_dt):
-        self.CTvec  = CTvec
-        self.CPvec  = CPvec
+    def __init__(self, Tables, I_kgm2, Diam_m, Sim_dt):
+        self.Tables = Tables
         self.I_kgm2 = I_kgm2
         self.Diam_m = Diam_m
         self.dt     = Sim_dt
-        
-    def set_zero(self, RPM0, TAS_mps, rho_kgm3):
+       
+    def set_zero(self, RPM0, TAS_mps, rho_kgm3, Alpha_deg = 0, Pitch_deg = 0):
         self.RPM       = RPM0
         self.RPS       = RPM0/60
+        self.Alpha_deg = Alpha_deg
+        self.Pitch_deg = Pitch_deg
         self.J         = TAS_mps / (max(1,self.RPS) * self.Diam_m)    
+        self.J_lin     = self.J * np.cos(np.deg2rad(self.Alpha_deg))
         self.w         = self.RPS * (2*np.pi)
-        self.cQ_Nm     = self.CalcTorque(RPS = self.RPS, TAS_mps = TAS_mps, rho_kgm3 = rho_kgm3)
-        self.Thrust_N  = self.CalcThrust(RPS = self.RPS, TAS_mps = TAS_mps, rho_kgm3 = rho_kgm3)
+
+        # Limit interpolation inputs
+        self.inp_J         = min((max((self.J         , self.Tables['J'][0]))         ,  self.Tables['J'][-1]))
+        self.inp_Alpha_deg = min((max((self.Alpha_deg , self.Tables['Alpha_deg'][0])) ,  self.Tables['Alpha_deg'][-1]))
+        self.inp_Pitch_deg = min((max((self.Pitch_deg , self.Tables['Pitch_deg'][0])) ,  self.Tables['Pitch_deg'][-1]))
+
+        self.cQ_Nm     = self.CalcTorque(RPS = self.RPS, J = self.inp_J, rho_kgm3 = rho_kgm3, Alpha_deg = self.inp_Alpha_deg, Pitch_deg = self.inp_Pitch_deg)
+        self.Thrust_N  = self.CalcThrust(RPS = self.RPS, J = self.inp_J, rho_kgm3 = rho_kgm3, Alpha_deg = self.inp_Alpha_deg, Pitch_deg = self.inp_Pitch_deg)
         self.Torque_Nm = self.cQ_Nm
-        self.Power_W   = self.CalcPower(RPS = self.RPS, TAS_mps = TAS_mps, rho_kgm3 = rho_kgm3)
+        self.Power_W   = self.CalcPower(RPS = self.RPS, J = self.inp_J, rho_kgm3 = rho_kgm3, Alpha_deg = self.inp_Alpha_deg, Pitch_deg = self.inp_Pitch_deg)
         
-    def CalcThrust (self,RPS,TAS_mps, rho_kgm3): 
-        self.CT = np.interp(self.J, self.CTvec[0,:], self.CTvec[1,:])
+    def CalcThrust (self, RPS, J, rho_kgm3, Alpha_deg = 0, Pitch_deg = 0): 
+        self.CT = self.Tables['CTfcn'](Alpha_deg, J)[0][0]
         T  =  self.CT * rho_kgm3 * RPS**2 * self.Diam_m**4
         return T
         
-    def CalcPower (self,RPS,TAS_mps, rho_kgm3): 
-        self.CP = np.interp(self.J, self.CPvec[0,:], self.CPvec[1,:])
+    def CalcPower (self, RPS, J, rho_kgm3, Alpha_deg = 0, Pitch_deg = 0): 
+        self.CP = self.Tables['CPfcn'](Alpha_deg, J)[0][0]
         P =  self.CP * rho_kgm3 * RPS**3 * self.Diam_m**5
         return P
         
-    def CalcTorque (self,RPS,TAS_mps, rho_kgm3): 
-        
-        self.CP = np.interp(self.J, self.CPvec[0,:], self.CPvec[1,:])
+    def CalcTorque (self, RPS, J, rho_kgm3, Alpha_deg = 0, Pitch_deg = 0): 
+        self.CP = self.Tables['CPfcn'](Alpha_deg, J)[0][0]
         self.CQ = self.CP / (2*np.pi)
         Q  =  self.CQ * rho_kgm3 * RPS**2 * self.Diam_m**5
         return Q
             
-    def step(self,Qext,TAS_mps, rho_kgm3):
+    def step(self,Qext,TAS_mps, rho_kgm3, Alpha_deg = 0, Pitch_deg = 0):
         
-        self.cQ_Nm     = self.CalcTorque(RPS = self.RPS, TAS_mps = TAS_mps, rho_kgm3 = rho_kgm3)
+        self.cQ_Nm     = self.CalcTorque(RPS = self.RPS, J = self.inp_J, rho_kgm3 = rho_kgm3, Alpha_deg = self.inp_Alpha_deg, Pitch_deg = self.inp_Pitch_deg)
         NetTorque      = Qext - self.cQ_Nm
         wdot           = NetTorque / self.I_kgm2
         self.w        += wdot * self.dt
         self.RPS       = self.w / (2*np.pi)
         self.RPM       = self.RPS / 60
+        self.Alpha_deg = Alpha_deg
         self.J         = TAS_mps / (max(1,self.RPS) * self.Diam_m)    
-        self.Thrust_N  = self.CalcThrust(self.RPS ,TAS_mps, rho_kgm3)
+        self.J_lin     = self.J * np.cosd(self.Alpha_deg)   
+
+        # Limit interpolation inputs
+        self.J             = min((max((self.J         , self.Tables['J'][0]))         ,  self.Tables['J'][-1]))
+        self.inp_Alpha_deg = min((max((self.Alpha_deg , self.Tables['Alpha_deg'][0])) ,  self.Tables['Alpha_deg'][-1]))
+        self.inp_Pitch_deg = min((max((self.Pitch_deg , self.Tables['Pitch_deg'][0])) ,  self.Tables['Pitch_deg'][-1]))
+
+        self.Thrust_N  = self.CalcThrust(RPS = self.RPS, J = self.J, rho_kgm3 = rho_kgm3, Alpha_deg = self.inp_Alpha_deg, Pitch_deg = self.inp_Pitch_deg)
         self.Torque_Nm = self.cQ_Nm
-        self.Power_W   = self.CalcPower(RPS = self.RPS, TAS_mps = TAS_mps, rho_kgm3 = rho_kgm3)
-            
+        self.Power_W   = self.CalcPower(RPS = self.RPS, J = self.J, rho_kgm3 = rho_kgm3, Alpha_deg = self.inp_Alpha_deg, Pitch_deg = self.inp_Pitch_deg)
+
         return self.w, self.cQ_Nm
     
 class MotorESC:
@@ -279,19 +296,19 @@ class MotorAssembly:
         MOTOR.dt     = Asb_dt
         PROPELLER.dt = Asb_dt
 
-    def set_zero(self,Throttle, TAS_mps, rho_kgm3):
+    def set_zero(self,Throttle, TAS_mps, rho_kgm3, Alpha_deg = 0, Pitch_deg = 0):
         self.Throttle = Throttle
         self.V_V = self.calc_V(Throttle)
 
         RPM0 = 0       
         self.MOTOR.set_zero(self.V_V ,RPM0)
-        self.PROPELLER.set_zero(RPM0, TAS_mps = TAS_mps, rho_kgm3 = rho_kgm3)
+        self.PROPELLER.set_zero(RPM0, TAS_mps = TAS_mps, rho_kgm3 = rho_kgm3, Alpha_deg = Alpha_deg, Pitch_deg = Pitch_deg)
         Net0 = self.MOTOR.Q_Nm - self.PROPELLER.cQ_Nm
         
  
         RPM1 = 5000      
         self.MOTOR.set_zero(self.V_V ,RPM1)
-        self.PROPELLER.set_zero(RPM1, TAS_mps = TAS_mps, rho_kgm3 = rho_kgm3)
+        self.PROPELLER.set_zero(RPM1, TAS_mps = TAS_mps, rho_kgm3 = rho_kgm3, Alpha_deg = Alpha_deg, Pitch_deg = Pitch_deg)
         Net1 = self.MOTOR.Q_Nm - self.PROPELLER.cQ_Nm
        
         Net2 = np.inf
@@ -302,7 +319,7 @@ class MotorAssembly:
             f = 3
             RPM2 = ((RPM0**f - RPM1**f) / (Net0 - Net1) * (0 - Net0) + RPM0**f)**(1/f)
             self.MOTOR.set_zero(self.V_V  , RPM2)
-            self.PROPELLER.set_zero(RPM2, TAS_mps = TAS_mps, rho_kgm3 = rho_kgm3)
+            self.PROPELLER.set_zero(RPM2, TAS_mps = TAS_mps, rho_kgm3 = rho_kgm3, Alpha_deg = Alpha_deg, Pitch_deg = Pitch_deg)
             Net2 = self.MOTOR.Q_Nm - self.PROPELLER.cQ_Nm
             
             if Net2 > 0:
@@ -317,13 +334,13 @@ class MotorAssembly:
     def calc_V(self,Throttle):
         return Throttle**(1/2) * self.ESC.MaxV_V
         
-    def step (self,Throttle,TAS_mps, rho_kgm3):
+    def step (self,Throttle,TAS_mps, rho_kgm3, Alpha_deg = 0, Pitch_deg = 0):
         self.Throttle = Throttle
        
         for i in range(self.Tscale):
             self.V_V   = self.calc_V(Throttle)
             Qmot       = self.MOTOR.step(self.V_V,self.RPM)  
-            w,Qprop    = self.PROPELLER.step(Qmot , TAS_mps , rho_kgm3)
+            w,Qprop    = self.PROPELLER.step(Qmot , TAS_mps , rho_kgm3, Alpha_deg = Alpha_deg, Pitch_deg = Pitch_deg)
             self.RPM   = w * 60 / (2*np.pi)
         
         return self.RPM
@@ -1196,12 +1213,32 @@ class Vahana_VertFlight(gym.Env):
                                                          -1,+1,-1,+1])  
       
       # CT e CP - Vide planilha
-      self.MOT['PROPELLER']['CT_J']       = np.array([[0.0 , 0.01 , 2.00] , 
-                                                      [0.14, 0.14 , 0.00]])
-      self.MOT['PROPELLER']['CT_J'][1,:]  = self.MOT['PROPELLER']['CT_J'][1,:] * (1+self.UNC['Res']['MOT']['Gain']['CT'])
-      self.MOT['PROPELLER']['CP_J']       = np.array([[0.0 , 0.01 , 2.00] , 
-                                                      [0.06, 0.06 , 0.01]])
-      self.MOT['PROPELLER']['CP_J'][1,:]  = self.MOT['PROPELLER']['CP_J'][1,:] * (1+self.UNC['Res']['MOT']['Gain']['CP'])
+      self.MOT['PROPELLER']['Tables'] = {}
+      self.MOT['PROPELLER']['Tables']['J']         = np.array([0.0 , 0.005, 0.01 , 2.00])
+      self.MOT['PROPELLER']['Tables']['Alpha_deg'] = np.array([0.0 , 45.0 , 60.0 , 90.0])
+      self.MOT['PROPELLER']['Tables']['Pitch_deg'] = np.array([0.0 , 30.0])
+      
+
+      self.MOT['PROPELLER']['Tables']['CT'] = np.array([[0.14, 0.14, 0.14 , 0.00], 
+                                                        [0.14, 0.14, 0.14 , 0.00], 
+                                                        [0.14, 0.14, 0.14 , 0.00], 
+                                                        [0.14, 0.14, 0.14 , 0.00]])
+      self.MOT['PROPELLER']['Tables']['CT'] = self.MOT['PROPELLER']['Tables']['CT'] * (1+self.UNC['Res']['MOT']['Gain']['CT'])
+      self.MOT['PROPELLER']['Tables']['CTfcn'] = RectBivariateSpline(self.MOT['PROPELLER']['Tables']['Alpha_deg'],
+                                                                     self.MOT['PROPELLER']['Tables']['J'],
+                                                                     self.MOT['PROPELLER']['Tables']['CT'],
+                                                                     kx=1, ky=1)
+      
+
+      self.MOT['PROPELLER']['Tables']['CP'] = np.array([[0.06, 0.06, 0.06 , 0.01], 
+                                                        [0.06, 0.06, 0.06 , 0.01], 
+                                                        [0.06, 0.06, 0.06 , 0.01], 
+                                                        [0.06, 0.06, 0.06 , 0.01]])
+      self.MOT['PROPELLER']['Tables']['CP'] = self.MOT['PROPELLER']['Tables']['CP'] * (1+self.UNC['Res']['MOT']['Gain']['CP'])
+      self.MOT['PROPELLER']['Tables']['CPfcn'] = RectBivariateSpline(self.MOT['PROPELLER']['Tables']['Alpha_deg'],
+                                                                     self.MOT['PROPELLER']['Tables']['J'],
+                                                                     self.MOT['PROPELLER']['Tables']['CP'],
+                                                                     kx=1, ky=1)
       self.MOT['PROPELLER']['M_kg']       = np.ones(self.MOT['n_motor']) * 0.526
       self.MOT['PROPELLER']['I_kgm2']     = self.MOT['PROPELLER']['M_kg']  * self.MOT['PROPELLER']['Diameter_m']**2 / 12
 
@@ -1227,8 +1264,14 @@ class Vahana_VertFlight(gym.Env):
       for i in range(self.MOT['n_motor']):
         self.MOT['ESC']['obj'].append(MotorESC(KP = 0.5, KI = 50, KD = 0, MaxV_V = self.MOT['MaxV_V'], ESC_dt = self.MOT['dt']))
         self.MOT['MOTOR']['obj'].append(ElectricalMotor(Kq_A_Nm = self.MOT['Kq_A_Nm'], Kv_rpm_V = self.MOT['Kv_rpm_V'], i0_A = self.MOT['i0_A'], R_ohm = self.MOT['R_ohm'], imax_A = self.MOT['imax_A']))
-        self.MOT['PROPELLER']['obj'].append(Propeller(CTvec = self.MOT['PROPELLER']['CT_J'], CPvec = self.MOT['PROPELLER']['CP_J'] , I_kgm2 = self.MOT['PROPELLER']['I_kgm2'][i], Diam_m = self.MOT['PROPELLER']['Diameter_m'][i], Sim_dt = self.MOT['dt']))
-        self.MOT['ASSEMBLY']['obj'].append(MotorAssembly(self.MOT['ESC']['obj'][i], self.MOT['MOTOR']['obj'][i], self.MOT['PROPELLER']['obj'][i], self.t_step, self.MOT['dt']))
+        self.MOT['PROPELLER']['obj'].append(Propeller(Tables = self.MOT['PROPELLER']['Tables'],
+                                                      I_kgm2 = self.MOT['PROPELLER']['I_kgm2'][i],
+                                                      Diam_m = self.MOT['PROPELLER']['Diameter_m'][i],
+                                                      Sim_dt = self.MOT['dt']))
+        self.MOT['ASSEMBLY']['obj'].append(MotorAssembly(self.MOT['ESC']['obj'][i],
+                                                         self.MOT['MOTOR']['obj'][i], 
+                                                         self.MOT['PROPELLER']['obj'][i],
+                                                         self.t_step, self.MOT['dt']))
       
     def init_CONT (self):
       
