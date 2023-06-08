@@ -206,18 +206,24 @@ class Propeller:
 
         # Limit interpolation inputs
         self.inp_J         = min((max((self.J         , self.Tables['J'][0]))         ,  self.Tables['J'][-1]))
-        self.inp_Alpha_deg = min((max((self.Alpha_deg , self.Tables['Alpha_deg'][0])) ,  self.Tables['Alpha_deg'][-1]))
+        self.inp_Alpha_deg = min((max((self.Alpha_deg , -self.Tables['Alpha_deg'][-1])) ,  self.Tables['Alpha_deg'][-1]))
         self.inp_Pitch_deg = min((max((self.Pitch_deg , self.Tables['Pitch_deg'][0])) ,  self.Tables['Pitch_deg'][-1]))
 
-        self.cQ_Nm     = self.CalcTorque(RPS = self.RPS, J = self.inp_J, rho_kgm3 = rho_kgm3, Alpha_deg = self.inp_Alpha_deg, Pitch_deg = self.inp_Pitch_deg)
-        self.Thrust_N  = self.CalcThrust(RPS = self.RPS, J = self.inp_J, rho_kgm3 = rho_kgm3, Alpha_deg = self.inp_Alpha_deg, Pitch_deg = self.inp_Pitch_deg)
+        self.cQ_Nm     = self.CalcTorque(RPS = self.RPS, J = self.inp_J, rho_kgm3 = rho_kgm3, Alpha_deg = abs(self.inp_Alpha_deg), Pitch_deg = self.inp_Pitch_deg)
+        self.Thrust_N  = self.CalcThrust(RPS = self.RPS, J = self.inp_J, rho_kgm3 = rho_kgm3, Alpha_deg = abs(self.inp_Alpha_deg), Pitch_deg = self.inp_Pitch_deg)
+        self.Normal_N  = self.CalcNormal(RPS = self.RPS, J = self.inp_J, rho_kgm3 = rho_kgm3, Alpha_deg = abs(self.inp_Alpha_deg), Pitch_deg = self.inp_Pitch_deg)
         self.Torque_Nm = self.cQ_Nm
-        self.Power_W   = self.CalcPower(RPS = self.RPS, J = self.inp_J, rho_kgm3 = rho_kgm3, Alpha_deg = self.inp_Alpha_deg, Pitch_deg = self.inp_Pitch_deg)
+        self.Power_W   = self.CalcPower(RPS = self.RPS, J = self.inp_J, rho_kgm3 = rho_kgm3, Alpha_deg = abs(self.inp_Alpha_deg), Pitch_deg = self.inp_Pitch_deg)
         
     def CalcThrust (self, RPS, J, rho_kgm3, Alpha_deg = 0, Pitch_deg = 0): 
         self.CT = self.Tables['CTfcn'](Alpha_deg, J)[0][0]
         T  =  self.CT * rho_kgm3 * RPS**2 * self.Diam_m**4
         return T
+        
+    def CalcNormal (self, RPS, J, rho_kgm3, Alpha_deg = 0, Pitch_deg = 0): 
+        self.CN = self.Tables['CNfcn'](Alpha_deg, J)[0][0]
+        N  =  self.CN * rho_kgm3 * RPS**2 * self.Diam_m**4
+        return N
         
     def CalcPower (self, RPS, J, rho_kgm3, Alpha_deg = 0, Pitch_deg = 0): 
         self.CP = self.Tables['CPfcn'](Alpha_deg, J)[0][0]
@@ -243,13 +249,14 @@ class Propeller:
         self.J_lin     = self.J * np.cosd(self.Alpha_deg)   
 
         # Limit interpolation inputs
-        self.J             = min((max((self.J         , self.Tables['J'][0]))         ,  self.Tables['J'][-1]))
-        self.inp_Alpha_deg = min((max((self.Alpha_deg , self.Tables['Alpha_deg'][0])) ,  self.Tables['Alpha_deg'][-1]))
+        self.inp_J         = min((max((self.J         , self.Tables['J'][0]))         ,  self.Tables['J'][-1]))
+        self.inp_Alpha_deg = min((max((self.Alpha_deg , -self.Tables['Alpha_deg'][-1])) ,  self.Tables['Alpha_deg'][-1]))
         self.inp_Pitch_deg = min((max((self.Pitch_deg , self.Tables['Pitch_deg'][0])) ,  self.Tables['Pitch_deg'][-1]))
 
-        self.Thrust_N  = self.CalcThrust(RPS = self.RPS, J = self.J, rho_kgm3 = rho_kgm3, Alpha_deg = self.inp_Alpha_deg, Pitch_deg = self.inp_Pitch_deg)
+        self.Thrust_N  = self.CalcThrust(RPS = self.RPS, J = self.inp_J, rho_kgm3 = rho_kgm3, Alpha_deg = abs(self.inp_Alpha_deg), Pitch_deg = self.inp_Pitch_deg)
+        self.Normal_N  = self.CalcNormal(RPS = self.RPS, J = self.inp_J, rho_kgm3 = rho_kgm3, Alpha_deg = abs(self.inp_Alpha_deg), Pitch_deg = self.inp_Pitch_deg)
         self.Torque_Nm = self.cQ_Nm
-        self.Power_W   = self.CalcPower(RPS = self.RPS, J = self.J, rho_kgm3 = rho_kgm3, Alpha_deg = self.inp_Alpha_deg, Pitch_deg = self.inp_Pitch_deg)
+        self.Power_W   = self.CalcPower(RPS = self.RPS, J = self.inp_J, rho_kgm3 = rho_kgm3, Alpha_deg = abs(self.inp_Alpha_deg), Pitch_deg = self.inp_Pitch_deg)
 
         return self.w, self.cQ_Nm
     
@@ -1017,6 +1024,7 @@ class Vahana_VertFlight(gym.Env):
        self.UNC['StdDev']['MOT']['Gain'] = {}
        self.UNC['StdDev']['MOT']['Bias'] = {}
        self.UNC['StdDev']['MOT']['Gain']['CT'] = 0.1
+       self.UNC['StdDev']['MOT']['Gain']['CN'] = 0.1
        self.UNC['StdDev']['MOT']['Gain']['CP'] = 0.1
        self.UNC['StdDev']['MOT']['Gain']['Bandwidth'] = 0.1
        self.UNC['StdDev']['MOT']['Gain']['Kv'] = 0.1
@@ -1227,6 +1235,16 @@ class Vahana_VertFlight(gym.Env):
       self.MOT['PROPELLER']['Tables']['CTfcn'] = RectBivariateSpline(self.MOT['PROPELLER']['Tables']['Alpha_deg'],
                                                                      self.MOT['PROPELLER']['Tables']['J'],
                                                                      self.MOT['PROPELLER']['Tables']['CT'],
+                                                                     kx=1, ky=1)
+
+      self.MOT['PROPELLER']['Tables']['CN'] = np.array([[0.00, 0.00, 0.00 , 0.00], 
+                                                        [0.00, 0.00, 0.00 , 0.00], 
+                                                        [0.00, 0.00, 0.00 , 0.00], 
+                                                        [0.00, 0.00, 0.00 , 0.00]])
+      self.MOT['PROPELLER']['Tables']['CN'] = self.MOT['PROPELLER']['Tables']['CN'] * (1+self.UNC['Res']['MOT']['Gain']['CN'])
+      self.MOT['PROPELLER']['Tables']['CNfcn'] = RectBivariateSpline(self.MOT['PROPELLER']['Tables']['Alpha_deg'],
+                                                                     self.MOT['PROPELLER']['Tables']['J'],
+                                                                     self.MOT['PROPELLER']['Tables']['CN'],
                                                                      kx=1, ky=1)
       
 
@@ -1618,6 +1636,7 @@ class Vahana_VertFlight(gym.Env):
             # Initialize arrays
             self.MOT['RPM'] = np.zeros(self.MOT['n_motor'])
             self.MOT['Thrust_N'] = np.zeros(self.MOT['n_motor'])
+            self.MOT['Normal_N'] = np.zeros(self.MOT['n_motor'])
             self.MOT['Torque_Nm'] = np.zeros(self.MOT['n_motor'])
             
             # Calculate RPM
@@ -1635,13 +1654,14 @@ class Vahana_VertFlight(gym.Env):
         # Calculate Thrust and Torque
         for i in range(self.MOT['n_motor']):
             self.MOT['Thrust_N'][i]  = self.MOT['ASSEMBLY']['obj'][i].PROPELLER.Thrust_N
+            self.MOT['Normal_N'][i]  = self.MOT['ASSEMBLY']['obj'][i].PROPELLER.Normal_N
             self.MOT['Torque_Nm'][i] = self.MOT['ASSEMBLY']['obj'][i].PROPELLER.Torque_Nm
         
         self.MOT['Force_BodyAx_N'] = np.zeros([self.MOT['n_motor'],3])
         self.MOT['Moment_BodyAx_N'] = np.zeros([self.MOT['n_motor'],3])
         
         for i in range(self.MOT['n_motor']):
-            self.MOT['Force_BodyAx_N'][i,:]  = np.dot(LM2B[:,:,i],np.array([self.MOT['Thrust_N'][i],0,0]))
+            self.MOT['Force_BodyAx_N'][i,:]  = np.dot(LM2B[:,:,i],np.array([self.MOT['Thrust_N'][i],0,self.MOT['Normal_N'][i]]))
             r    = self.MOT['Position_m'][i,:] - self.MASS['CG_m']
             r[0] = -r[0]
             r[2] = -r[2]
