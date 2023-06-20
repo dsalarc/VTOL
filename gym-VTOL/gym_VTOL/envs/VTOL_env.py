@@ -1170,12 +1170,37 @@ class Vahana_VertFlight(gym.Env):
       self.AERO['Wing1']['Coefs']['CLS_25Local'] = np.array([0.0000 , 0.0891 , 0.1775 , 0.2652 , 0.3524 , 0.4390 , 0.5248 , 0.6097 , 0.6930 , 0.7772 , 0.8669 , 0.9616 , 1.0572 , 1.1379 , 1.2040 , 1.2676 , 1.3273 , 1.3838 , 1.4330 , 1.4768 , 1.4705 , 1.3991 , 1.2325 , 1.0344 , 0.8687 , 0.7970])
       self.AERO['Wing1']['Coefs']['CDS_25Local'] = np.array([0.0057 , 0.0061 , 0.0070 , 0.0086 , 0.0108 , 0.0137 , 0.0172 , 0.0213 , 0.0260 , 0.0313 , 0.0374 , 0.0446 , 0.0526 , 0.0603 , 0.0677 , 0.0753 , 0.0830 , 0.0908 , 0.0992 , 0.1080 , 0.1247 , 0.1542 , 0.2027 , 0.2591 , 0.3128 , 0.3530])
       self.AERO['Wing1']['Coefs']['CMS_25Local'] = np.array([0.0000 , 0.0001 , 0.0003 , 0.0006 , 0.0010 , 0.0015 , 0.0023 , 0.0032 , 0.0040 , 0.0048 , 0.0055 , 0.0063 , 0.0071 , 0.0078 , 0.0090 , 0.0112 , 0.0147 , 0.0192 , 0.0234 , 0.0269 , 0.0271 , 0.0246 , 0.0184 , 0.0108 , 0.0043 , 0.0011])
+      # Dynamic derivatives from AVL, for AOA = 5
+      self.AERO['Wing1']['Coefs']['CRp'] = -0.547338
+      self.AERO['Wing1']['Coefs']['CRr'] = +0.081196
+      self.AERO['Wing1']['Coefs']['CNp'] = -0.004602
+      self.AERO['Wing1']['Coefs']['CNr'] = -0.002512
+      self.AERO['Wing1']['Coefs']['CYr'] = -0.005922
+      self.AERO['Wing1']['Coefs']['CMq'] = -106.2060
+      self.AERO['Wing1']['Coefs']['CLq'] = -29.56319
 
       self.AERO['Wing2']['Coefs'] = {}
       self.AERO['Wing2']['Coefs']['Alpha_deg']   = np.array([0      , 1      , 2      , 3      , 4      , 5      , 6      , 7      , 8      , 9      , 10     , 11     , 12     , 13     , 14     , 15     , 16     , 17     , 18     , 19     , 20     , 21     , 22     , 23     , 24     , 25    ])
       self.AERO['Wing2']['Coefs']['CLS_25Local'] = np.array([0.0000 , 0.1024 , 0.2039 , 0.3048 , 0.4050 , 0.5045 , 0.6031 , 0.7006 , 0.7963 , 0.8932 , 0.9963 , 1.1050 , 1.2149 , 1.3077 , 1.3836 , 1.4567 , 1.5253 , 1.5903 , 1.6468 , 1.6972 , 1.6858 , 1.5915 , 1.3753 , 1.1185 , 0.9024 , 0.8055])
       self.AERO['Wing2']['Coefs']['CDS_25Local'] = np.array([0.0084 , 0.0087 , 0.0096 , 0.0110 , 0.0130 , 0.0155 , 0.0187 , 0.0223 , 0.0264 , 0.0311 , 0.0366 , 0.0429 , 0.0500 , 0.0569 , 0.0635 , 0.0702 , 0.0771 , 0.0842 , 0.0918 , 0.0999 , 0.1165 , 0.1467 , 0.1970 , 0.2558 , 0.3114 , 0.3527])
       self.AERO['Wing2']['Coefs']['CMS_25Local'] = np.array([0.0000 , 0.0001 , 0.0003 , 0.0006 , 0.0010 , 0.0015 , 0.0023 , 0.0032 , 0.0040 , 0.0048 , 0.0055 , 0.0063 , 0.0071 , 0.0078 , 0.0090 , 0.0112 , 0.0147 , 0.0192 , 0.0234 , 0.0269 , 0.0271 , 0.0246 , 0.0184 , 0.0108 , 0.0043 , 0.0011])
+      # Dynamic derivatives from AVL, for AOA = 5
+      self.AERO['Wing2']['Coefs']['CRp'] = -1.021109
+      self.AERO['Wing2']['Coefs']['CRr'] = +0.112894
+      self.AERO['Wing2']['Coefs']['CNp'] = -0.066839
+      self.AERO['Wing2']['Coefs']['CNr'] = -0.358400
+      self.AERO['Wing2']['Coefs']['CYr'] = -0.942011
+      self.AERO['Wing2']['Coefs']['CMq'] = -129.7503
+      self.AERO['Wing2']['Coefs']['CLq'] = -36.30297
+
+      self.AERO['Fus']['Coefs'] = {}
+      self.AERO['Fus']['Coefs']['CD0'] = 0.1
+      self.AERO['Fus']['Coefs']['CYbeta'] = -0.4
+      self.AERO['Fus']['Coefs']['CRp'] = 0
+      self.AERO['Fus']['Coefs']['CRr'] = 0
+      self.AERO['Fus']['Coefs']['CNp'] = 0
+      self.AERO['Fus']['Coefs']['CNr'] = 0
+      self.AERO['Fus']['Coefs']['CMq'] = 0
 
       self.AERO['Elevon']['dCDSde_MRC']  = np.array([+0.000000 , +0.000000 , +0.000000 , +0.000000])
       self.AERO['Elevon']['dCYSde_MRC']  = np.array([+0.000000 , +0.000000 , +0.000000 , +0.000000])
@@ -1773,6 +1798,7 @@ class Vahana_VertFlight(gym.Env):
 
             return CXB_CG, CYB_CG, CZB_CG, CDB_CG, CLB_CG, CRB_CG, CMB_CG, CNB_CG
         
+        LimitedTAS = max(self.ATM['TAS_mps'] , 10)
         # Calculate W1 local stability coefs
         self.AERO['Wing1']['Incidence_deg'] = self.CONT['Tilt_deg'][0]
         self.AERO['Wing1']['EPS_deg'] = 0.0
@@ -1807,10 +1833,14 @@ class Vahana_VertFlight(gym.Env):
             self.AERO['Wing1']['CMS_25Local'] = 0
         
         self.AERO['Wing1']['CLS_25Local'] = (1+self.UNC['Res']['AERO']['Gain']['CLa']) * self.AERO['Wing1']['CLS_25Local']
-        self.AERO['Wing1']['CMS_25Local'] = self.UNC['Res']['AERO']['Bias']['CM0'] + self.AERO['Wing1']['CMS_25Local']
+        self.AERO['Wing1']['CMS_25Local'] = (self.UNC['Res']['AERO']['Bias']['CM0'] + self.AERO['Wing1']['CMS_25Local']
+                                           + self.AERO['Wing1']['Coefs']['CMq'] * self.EQM['VelRot_BodyAx_radps'][1] * self.AERO['cref_m'] / (2* LimitedTAS))
         self.AERO['Wing1']['CYS_25Local'] = 0
-        self.AERO['Wing1']['CRS_25Local'] = 0
-        self.AERO['Wing1']['CNS_25Local'] = 0
+        self.AERO['Wing1']['CRS_25Local'] = (self.AERO['Wing1']['Coefs']['CRp'] * self.EQM['VelRot_BodyAx_radps'][0] * self.AERO['bref_m'] / (2* LimitedTAS)
+                                           + self.AERO['Wing1']['Coefs']['CRr'] * self.EQM['VelRot_BodyAx_radps'][2] * self.AERO['bref_m'] / (2* LimitedTAS))
+        self.AERO['Wing1']['CNS_25Local'] = (self.AERO['Wing1']['Coefs']['CNp'] * self.EQM['VelRot_BodyAx_radps'][0] * self.AERO['bref_m'] / (2* LimitedTAS)
+                                           + self.AERO['Wing1']['Coefs']['CNr'] * self.EQM['VelRot_BodyAx_radps'][2] * self.AERO['bref_m'] / (2* LimitedTAS))
+
 
         # Calculate W2 local stability coefs
         self.AERO['Wing2']['Incidence_deg'] = self.CONT['Tilt_deg'][1]
@@ -1848,20 +1878,27 @@ class Vahana_VertFlight(gym.Env):
             self.AERO['Wing2']['CMS_25Local'] = 0
 
         self.AERO['Wing2']['CLS_25Local'] = (1+self.UNC['Res']['AERO']['Gain']['CLa']) * self.AERO['Wing2']['CLS_25Local']
-        self.AERO['Wing2']['CMS_25Local'] = self.UNC['Res']['AERO']['Bias']['CM0'] + self.AERO['Wing2']['CMS_25Local']
+        self.AERO['Wing2']['CMS_25Local'] = (self.UNC['Res']['AERO']['Bias']['CM0'] + self.AERO['Wing2']['CMS_25Local']
+                                           + self.AERO['Wing2']['Coefs']['CMq'] * self.EQM['VelRot_BodyAx_radps'][1] * self.AERO['cref_m'] / (2* LimitedTAS))
         self.AERO['Wing2']['CYS_25Local'] = 0
-        self.AERO['Wing2']['CRS_25Local'] = 0
-        self.AERO['Wing2']['CNS_25Local'] = 0
+        self.AERO['Wing2']['CRS_25Local'] = (self.AERO['Wing2']['Coefs']['CRp'] * self.EQM['VelRot_BodyAx_radps'][0] * self.AERO['bref_m'] / (2* LimitedTAS)
+                                           + self.AERO['Wing2']['Coefs']['CRr'] * self.EQM['VelRot_BodyAx_radps'][2] * self.AERO['bref_m'] / (2* LimitedTAS))
+        self.AERO['Wing2']['CNS_25Local'] = (self.AERO['Wing2']['Coefs']['CNp'] * self.EQM['VelRot_BodyAx_radps'][0] * self.AERO['bref_m'] / (2* LimitedTAS)
+                                           + self.AERO['Wing2']['Coefs']['CNr'] * self.EQM['VelRot_BodyAx_radps'][2] * self.AERO['bref_m'] / (2* LimitedTAS))
 
         # Calculate Fuselage local stability coefs
         self.AERO['Fus']['Beta_deg'] = self.ATM['Beta_deg']
 
-        self.AERO['Fus']['CDS_25Local'] = 0.1
-        self.AERO['Fus']['CYS_25Local'] = - 0.4 * self.sind(self.AERO['Fus']['Beta_deg'])
+        self.AERO['Fus']['CDS_25Local'] = self.AERO['Fus']['Coefs']['CD0']
         self.AERO['Fus']['CLS_25Local'] = 0
+        self.AERO['Fus']['CMS_25Local'] = self.AERO['Fus']['Coefs']['CMq'] * self.EQM['VelRot_BodyAx_radps'][1] * self.AERO['cref_m'] / (2* LimitedTAS)
+        self.AERO['Fus']['CYS_25Local'] = self.AERO['Fus']['Coefs']['CYbeta'] * self.sind(self.AERO['Fus']['Beta_deg'])
         self.AERO['Fus']['CRS_25Local'] = 0
-        self.AERO['Fus']['CMS_25Local'] = 0
         self.AERO['Fus']['CNS_25Local'] = 0
+        self.AERO['Fus']['CRS_25Local'] = (self.AERO['Fus']['Coefs']['CRp'] * self.EQM['VelRot_BodyAx_radps'][0] * self.AERO['bref_m'] / (2* LimitedTAS)
+                                         + self.AERO['Fus']['Coefs']['CRr'] * self.EQM['VelRot_BodyAx_radps'][2] * self.AERO['bref_m'] / (2* LimitedTAS))
+        self.AERO['Fus']['CNS_25Local'] = (self.AERO['Fus']['Coefs']['CNp'] * self.EQM['VelRot_BodyAx_radps'][0] * self.AERO['bref_m'] / (2* LimitedTAS)
+                                         + self.AERO['Fus']['Coefs']['CNr'] * self.EQM['VelRot_BodyAx_radps'][2] * self.AERO['bref_m'] / (2* LimitedTAS))
 
         ElevonGain_1 = np.interp(self.AERO['Wing1']['Alpha_deg'],
                                  self.AERO['Elevon']['AOAeff']['Alpha_deg'],
