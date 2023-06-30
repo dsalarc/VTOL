@@ -44,7 +44,7 @@ except:
 plt.legend(loc='best')
 plt.ylabel('Body Speed [m/s]')
 plt.xlabel('Time [s]')
-plt.ylim([-5,+100])
+plt.ylim([-10,+70])
 
 
 plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
@@ -156,6 +156,22 @@ plt.ylabel('Thrust [N]')
 plt.legend(loc='best')
 plt.xlabel('Time [s]')
 plt.ylim([0,3000])
+
+# plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
+# plt.grid('on')
+# plt.xlim([PlotTime1,PlotTime2])
+# plt.plot(TimeVec,SaveVec['Voltage1_V'],'k', linewidth = linewidth, label='Front')
+# plt.ylabel('Voltage [V]')
+# plt.legend(loc='best')
+# plt.xlabel('Time [s]')
+
+plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
+plt.grid('on')
+plt.xlim([PlotTime1,PlotTime2])
+plt.plot(TimeVec,SaveVec['act_Throttle'],'k', linewidth = linewidth, label='Front')
+plt.ylabel('act_Throttle [u]')
+plt.legend(loc='best')
+plt.xlabel('Time [s]')
 
 # plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
 # plt.grid('on')
