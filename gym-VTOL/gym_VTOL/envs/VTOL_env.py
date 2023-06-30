@@ -1026,63 +1026,69 @@ class Vahana_VertFlight(gym.Env):
        self.UNC['StdDev'] = {}
        self.UNC['StdDev']['ATM'] = {}
        self.UNC['StdDev']['ATM']['Bias'] = {}
-       self.UNC['StdDev']['ATM']['Bias']['WindX_kt'] = 10
-       self.UNC['StdDev']['ATM']['Bias']['WindY_kt'] = 10
-       self.UNC['StdDev']['ATM']['Bias']['WindZ_kt'] = 10
-       self.UNC['StdDev']['ATM']['Bias']['dISA_C']   = 10
+       self.UNC['StdDev']['ATM']['Bias']['WindX_kt'] = 10*0
+       self.UNC['StdDev']['ATM']['Bias']['WindY_kt'] = 10*0
+       self.UNC['StdDev']['ATM']['Bias']['WindZ_kt'] = 10*0
+       self.UNC['StdDev']['ATM']['Bias']['dISA_C']   = 10*0
             
       
        self.UNC['StdDev']['AERO'] = {}
        self.UNC['StdDev']['AERO']['Gain'] = {}
        self.UNC['StdDev']['AERO']['Bias'] = {}
-       self.UNC['StdDev']['AERO']['Gain']['CLa'] = 0.05
-       self.UNC['StdDev']['AERO']['Gain']['ElevEff'] = 0.2
-       self.UNC['StdDev']['AERO']['Bias']['CM0'] = 0.2
+       self.UNC['StdDev']['AERO']['Gain']['CLa'] = 0.03
+       self.UNC['StdDev']['AERO']['Gain']['ElevEff'] = 0.10
+       self.UNC['StdDev']['AERO']['Bias']['CM0'] = 0.05
       
        self.UNC['StdDev']['MASS'] = {}
        self.UNC['StdDev']['MASS']['Gain'] = {}
        self.UNC['StdDev']['MASS']['Bias'] = {}
        self.UNC['StdDev']['MASS']['Bias']['CGX_cma'] = 0.01
-       self.UNC['StdDev']['MASS']['Gain']['Weight'] = 0.1
+       self.UNC['StdDev']['MASS']['Gain']['Weight'] = 0.05
       
        self.UNC['StdDev']['MOT'] = {}
        self.UNC['StdDev']['MOT']['Gain'] = {}
        self.UNC['StdDev']['MOT']['Bias'] = {}
-       self.UNC['StdDev']['MOT']['Gain']['CT'] = 0.1
-       self.UNC['StdDev']['MOT']['Gain']['CN'] = 0.1
-       self.UNC['StdDev']['MOT']['Gain']['CP'] = 0.1
-       self.UNC['StdDev']['MOT']['Gain']['Bandwidth'] = 0.1
-       self.UNC['StdDev']['MOT']['Gain']['Kv'] = 0.1
-       self.UNC['StdDev']['MOT']['Gain']['Kq'] = 0.1
+       self.UNC['StdDev']['MOT']['Gain']['CT'] = 0.05
+       self.UNC['StdDev']['MOT']['Gain']['CN'] = 0.10
+       self.UNC['StdDev']['MOT']['Gain']['CP'] = 0.05
+       self.UNC['StdDev']['MOT']['Gain']['Bandwidth'] = 0.05
+       self.UNC['StdDev']['MOT']['Gain']['Kv'] = 0.05
+       self.UNC['StdDev']['MOT']['Gain']['Kq'] = 0.05
       
        self.UNC['StdDev']['CONT'] = {}
        self.UNC['StdDev']['CONT']['Gain'] = {}
        self.UNC['StdDev']['CONT']['Bias'] = {}
-       self.UNC['StdDev']['CONT']['Gain']['WingTilt_Bandwidth'] = 0.1
-       self.UNC['StdDev']['CONT']['Gain']['WingTilt_Rate'] = 0.1
-       self.UNC['StdDev']['CONT']['Gain']['Elevon_Bandwidth'] = 0.1
-       self.UNC['StdDev']['CONT']['Gain']['Elevon_Rate'] = 0.1
+       self.UNC['StdDev']['CONT']['Gain']['WingTilt_Bandwidth'] = 0.05
+       self.UNC['StdDev']['CONT']['Gain']['WingTilt_Rate'] = 0.05
+       self.UNC['StdDev']['CONT']['Gain']['Elevon_Bandwidth'] = 0.05
+       self.UNC['StdDev']['CONT']['Gain']['Elevon_Rate'] = 0.05
     
        self.UNC['StdDev']['SENS'] = {}
        self.UNC['StdDev']['SENS']['Gain'] = {}
        self.UNC['StdDev']['SENS']['Bias'] = {}
-       self.UNC['StdDev']['SENS']['Gain']['IMU_Bandwidth'] = 0.1
-       self.UNC['StdDev']['SENS']['Gain']['ADS_Bandwidth'] = 0.1
-       self.UNC['StdDev']['SENS']['Gain']['IMU_Delay'] = 0.1
-       self.UNC['StdDev']['SENS']['Gain']['ADS_Delay'] = 0.1
-       self.UNC['StdDev']['SENS']['Gain']['IMU_P'] = 0.1
-       self.UNC['StdDev']['SENS']['Gain']['IMU_Q'] = 0.1
-       self.UNC['StdDev']['SENS']['Gain']['IMU_R'] = 0.1
-       self.UNC['StdDev']['SENS']['Bias']['IMU_P'] = 0.1
-       self.UNC['StdDev']['SENS']['Bias']['IMU_Q'] = 0.1
-       self.UNC['StdDev']['SENS']['Bias']['IMU_R'] = 0.1
-       self.UNC['StdDev']['SENS']['Gain']['IMU_NX'] = 0.1
-       self.UNC['StdDev']['SENS']['Gain']['IMU_NY'] = 0.1
-       self.UNC['StdDev']['SENS']['Gain']['IMU_NZ'] = 0.1
-       self.UNC['StdDev']['SENS']['Bias']['IMU_NX'] = 0.1
-       self.UNC['StdDev']['SENS']['Bias']['IMU_NY'] = 0.1
-       self.UNC['StdDev']['SENS']['Bias']['IMU_NZ'] = 0.1
-       self.UNC['StdDev']['SENS']['Gain']['ADS_CAS'] = 0.1
+       self.UNC['StdDev']['SENS']['Gain']['IMU_Bandwidth'] = 0.05
+       self.UNC['StdDev']['SENS']['Gain']['ADS_Bandwidth'] = 0.05
+       self.UNC['StdDev']['SENS']['Gain']['IMU_Delay'] = 0
+       self.UNC['StdDev']['SENS']['Gain']['ADS_Delay'] = 0.05
+       self.UNC['StdDev']['SENS']['Gain']['IMU_P']     = 0.03
+       self.UNC['StdDev']['SENS']['Gain']['IMU_Q']     = 0.03
+       self.UNC['StdDev']['SENS']['Gain']['IMU_R']     = 0.03
+       self.UNC['StdDev']['SENS']['Bias']['IMU_P']     = 0.01
+       self.UNC['StdDev']['SENS']['Bias']['IMU_Q']     = 0.01
+       self.UNC['StdDev']['SENS']['Bias']['IMU_R']     = 0.01
+       self.UNC['StdDev']['SENS']['Gain']['IMU_Phi']   = 0.03
+       self.UNC['StdDev']['SENS']['Gain']['IMU_Theta'] = 0.03
+       self.UNC['StdDev']['SENS']['Gain']['IMU_Psi']   = 0.03
+       self.UNC['StdDev']['SENS']['Bias']['IMU_Phi']   = 0.01
+       self.UNC['StdDev']['SENS']['Bias']['IMU_Theta'] = 0.01
+       self.UNC['StdDev']['SENS']['Bias']['IMU_Psi']   = 0.01
+       self.UNC['StdDev']['SENS']['Gain']['IMU_NX']    = 0.05
+       self.UNC['StdDev']['SENS']['Gain']['IMU_NY']    = 0.05
+       self.UNC['StdDev']['SENS']['Gain']['IMU_NZ']    = 0.05
+       self.UNC['StdDev']['SENS']['Bias']['IMU_NX']    = 0.1
+       self.UNC['StdDev']['SENS']['Bias']['IMU_NY']    = 0.1
+       self.UNC['StdDev']['SENS']['Bias']['IMU_NZ']    = 0.1
+       self.UNC['StdDev']['SENS']['Gain']['ADS_CAS']   = 0.05
       
       # 2) Calculate the real deviation, based on StdDeviation
        if self.OPT['UNC_seed'] is None:
@@ -1096,12 +1102,15 @@ class Vahana_VertFlight(gym.Env):
            if type(InpDict) is dict:
                OutDict = {}
                for k in InpDict.keys():
-                   OutDict[k] = GetUncVal(InpDict[k], rdm, Enable)
+                    OutDict[k] = GetUncVal(InpDict[k], rdm, Enable)
+                    # For Debug
+                    # if type(OutDict[k]) is not dict:
+                    #     print(k + ": " + str(OutDict[k]))
                return OutDict
            else:
-               if Enable:
+                if Enable:
                    return np.max((-3*InpDict, np.min((3*InpDict,rdm.normal() * InpDict)) ))
-               else:
+                else:
                    return 0
         
        rdm = np.random.default_rng(self.UNC['seed'])
@@ -2280,9 +2289,9 @@ class Vahana_VertFlight(gym.Env):
         self.SENS['P_radps']   = self.SENS['Sensors']['IMU']['P_radps'].y * (1+self.UNC['Res']['SENS']['Gain']['IMU_P']) + (self.UNC['Res']['SENS']['Bias']['IMU_P'])
         self.SENS['Q_radps']   = self.SENS['Sensors']['IMU']['Q_radps'].y * (1+self.UNC['Res']['SENS']['Gain']['IMU_Q']) + (self.UNC['Res']['SENS']['Bias']['IMU_Q'])
         self.SENS['R_radps']   = self.SENS['Sensors']['IMU']['R_radps'].y * (1+self.UNC['Res']['SENS']['Gain']['IMU_R']) + (self.UNC['Res']['SENS']['Bias']['IMU_R'])
-        self.SENS['Phi_rad']   = self.SENS['Sensors']['IMU']['Phi_rad'].y
-        self.SENS['Theta_rad'] = self.SENS['Sensors']['IMU']['Theta_rad'].y 
-        self.SENS['Psi_rad']   = self.SENS['Sensors']['IMU']['Psi_rad'].y
+        self.SENS['Phi_rad']   = self.SENS['Sensors']['IMU']['Phi_rad'].y * (1+self.UNC['Res']['SENS']['Gain']['IMU_Phi']) + (self.UNC['Res']['SENS']['Bias']['IMU_Phi'])
+        self.SENS['Theta_rad'] = self.SENS['Sensors']['IMU']['Theta_rad'].y  * (1+self.UNC['Res']['SENS']['Gain']['IMU_Theta']) + (self.UNC['Res']['SENS']['Bias']['IMU_Theta'])
+        self.SENS['Psi_rad']   = self.SENS['Sensors']['IMU']['Psi_rad'].y * (1+self.UNC['Res']['SENS']['Gain']['IMU_Psi']) + (self.UNC['Res']['SENS']['Bias']['IMU_Psi'])
         self.SENS['VX_mps']    = self.SENS['Sensors']['IMU']['VX_mps'].y 
         self.SENS['VY_mps']    = self.SENS['Sensors']['IMU']['VY_mps'].y 
         self.SENS['VZ_mps']    = self.SENS['Sensors']['IMU']['VZ_mps'].y 
