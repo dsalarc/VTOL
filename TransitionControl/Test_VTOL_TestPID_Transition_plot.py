@@ -70,6 +70,15 @@ plt.xlabel('Time [s]')
 plt.ylim([-10,+10])
 plt.legend(loc='best')
 
+plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
+plt.grid('on')
+plt.xlim([PlotTime1,PlotTime2])
+plt.plot(TimeVec,SaveVec['Phi_deg'],'k--', linewidth = linewidth, label=r'$\phi$')
+plt.ylabel(r'$\phi$ [deg]')
+plt.xlabel('Time [s]')
+plt.ylim([-10,+10])
+plt.legend(loc='best')
+
 
 # plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
 # plt.grid('on')
@@ -165,13 +174,13 @@ plt.ylim([0,3000])
 # plt.legend(loc='best')
 # plt.xlabel('Time [s]')
 
-plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
-plt.grid('on')
-plt.xlim([PlotTime1,PlotTime2])
-plt.plot(TimeVec,SaveVec['act_Throttle'],'k', linewidth = linewidth, label='Front')
-plt.ylabel('act_Throttle [u]')
-plt.legend(loc='best')
-plt.xlabel('Time [s]')
+# plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
+# plt.grid('on')
+# plt.xlim([PlotTime1,PlotTime2])
+# plt.plot(TimeVec,SaveVec['act_Throttle'],'k', linewidth = linewidth, label='Front')
+# plt.ylabel('act_Throttle [u]')
+# plt.legend(loc='best')
+# plt.xlabel('Time [s]')
 
 # plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
 # plt.grid('on')

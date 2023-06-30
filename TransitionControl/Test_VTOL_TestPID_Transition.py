@@ -19,13 +19,11 @@ for env in env_dict:
         del gym.envs.registration.registry.env_specs[env]
         
 TestEnv = gym.make('gym_VTOL:Vahana_VertFlight-v0')     
-# obs = TestEnv.reset(VX_mps = 0, VZ_mps = 0.0, THETA = 0.0, DispMessages = False, 
-#                     TermTheta_deg = 45, StaFreezeList = ['X_m', 'Z_m', 'U_mps','W_mps'])
 obs = TestEnv.reset(VX_mps = 0, VZ_mps = 0.0, THETA = 0.0, DispMessages = False, 
-                    TermTheta_deg = 45, StaFreezeList = [])
+                    TermTheta_deg = 45, StaFreezeList = [] , UNC_seed = None , UNC_enable = 0)
 
 # %% PARAMS
-SimTime = 64
+SimTime = 40
 
 print(" ")
 print("Trimmed: " + str(TestEnv.TrimData['Trimmed']))
@@ -55,16 +53,10 @@ Gains = {}
 KKK = 1.0
 KK2 = 1.0
 Gains['EAS_mps']     = np.array([0       , 5       , 10      , 20      , 30      , 35      , 40      , 50      , 60     ])
-# Gains['Pitch2ThrP']  = np.array([0.06735 , 0.06642 , 0.06417 , 0.06304 , 0.07338 , 0.04137 , 0.00000 , 0.00000 , 0.00000])
-# Gains['Pitch2W2E']   = np.array([0.00000 , 0.00000 , 0.00000 , 0.00000 , 0.00000 ,-0.51702 ,-0.49712 ,-0.22094 ,-0.15343])
 Gains['Pitch2ThrP']  = np.array([0.06256, 0.06175, 0.06004, 0.05993, 0.06987, 0.0787 , 0.06039,   0.     , 0.     ])
 Gains['Pitch2W2E']   = np.array([0.      , 0.       ,0.      , 0.      ,-0.      ,-0.25851 ,-0.24856 ,-0.22094,-0.15343])
-# Gains['Pitch2ThrP']  = np.array([0.06735 , 0.06642 , 0.06417 , 0.06304 , 0.07338 , 0.08274 , 0.06236 , 0.      , 0.     ])
-# Gains['Pitch2W2E']   = np.array([0.      , 0.       ,0.      , 0.      ,-0.      ,-0.      ,-0.16571 ,-0.22094,-0.15343])
-# Gains['q2Pitch']     = 2*np.array([1       , 1       ,  1      ,  1      ,  1      ,  1      ,  1      ,  1      ,  1     ])
 Gains['q2Pitch']     = np.array([4.00000 , 4.06509 , 4.25284 , 4.38227 , 4.38823 , 4.14081 , 3.97851 , 3.73990 , 3.53331])
 Gains['T2Pitch']     = 0*np.array([1       , 1       ,  1      ,  1      ,  1      ,  1      ,  1      ,  1      ,  1     ])
-# Gains['i2Pitch']     = 2.0*np.array([1       , 1       ,  1      ,  1      ,  1      ,  1      ,  1      ,  1      ,  1     ])
 Gains['i2Pitch']     = 2*np.array([1.00    , 1.05      ,  1.10   ,  1.20    ,  1.20   ,  1.10    ,  1.00   ,  0.90     ,  0.80    ])
 Gains['Theta2q']     = np.array([1       , 1       ,  1      ,  1      ,  1      ,  1      ,  1      ,  1      ,  1     ])
 
@@ -79,9 +71,7 @@ Gains['Az2Thr']     = 0.5*np.array([-0.09398 , -0.09402 , -0.09474 , -0.10837 , 
 Gains['Target_VX_mps'] = Ref['VX_mps'] 
 Gains['Tilt_Trim_deg'] = np.array([[0   ,  5  , 10  , 20    , 30    , 35    , 40    , 42, 45, 50, 55, 58, 60, 62, 65],
                                    [90. , 88.3, 83.2, 64.5  , 43.   , 34.5  , 28.   , 25.3,  9.6,  7.8,  6.4, 5.8,  5.4,  5.1,  4.6]])
-# Gains['Throttle_Trim_deg'] = np.array([[0      , 5      , 10     , 20     , 30     , 35     , 40     , 50     , 60],
-#                                        [-0.027 , -0.027 , -0.027 , -0.044 , -0.150 , -0.206 , -0.245 , -0.284 , -0.269]])
-Gains['Throttle_Trim_deg'] = np.array([[0   ,  5  , 10  , 20, 30, 35, 40, 42, 45, 50, 55, 58, 60, 62, 65],
+Gains['Throttle_Trim_u'] = np.array([[0   ,  5  , 10  , 20, 30, 35, 40, 42, 45, 50, 55, 58, 60, 62, 65],
                                        [-0.148, -0.146, -0.14 , -0.144, -0.243, -0.3  , -0.343, -0.387, -0.749, -0.705, -0.655, -0.622, -0.599, -0.574, -0.536]])
 
 Gains['ThrPit_Trim_u'] = np.array([[0     ,  5    , 10    , 20    , 30    , 35    , 40, 42, 45, 50, 55, 58, 60, 62, 65],
@@ -90,6 +80,8 @@ Gains['ThrPit_Trim_u'] = np.array([[0     ,  5    , 10    , 20    , 30    , 35  
 Gains['Elev2_Trim_u'] = np.array([[0   ,  5  , 10  , 20, 30, 35, 40, 42, 45, 50, 55, 58, 60, 62, 65],
                                   [ 0.667,  0.667,  0.667,  0.667,  0.302,  0.07 , -0.021, -0.205,-0.119, -0.115, -0.106, -0.103, -0.101, -0.099, -0.0965]])
 
+Gains['Throttle_Trim_u'][1,:] = Gains['Throttle_Trim_u'][1,:] - Gains['Throttle_Trim_u'][1,0] +  TestEnv.TrimData['Action'][0]
+Gains['ThrPit_Trim_u'][1,:]   = Gains['ThrPit_Trim_u'][1,:] - Gains['ThrPit_Trim_u'][1,0] +  TestEnv.TrimData['Action'][1]
 # %
 TimeVec = np.arange(0,SimTime,TestEnv.t_step)
 if abs(TimeVec[-1] - SimTime) > (TestEnv.t_step/2): TimeVec = np.append(TimeVec,SimTime)
@@ -120,22 +112,22 @@ class GenThrottleController:
         self.int_VZ  = 0
         self.Last_t  = 0
     
-    def CalcCmd(self,Ref, info,t):
-        Alt2VZ = np.interp(info['SENS']['CAS_mps']  , self.Gains['EAS_mps'] , self.Gains['Alt2VZ'])
-        VZ2NZ  = np.interp(info['SENS']['CAS_mps']  , self.Gains['EAS_mps'] , self.Gains['VZ2NZ'])
-        Alt2NZ = np.interp(info['SENS']['CAS_mps']  , self.Gains['EAS_mps'] , self.Gains['Alt2NZ'])
-        Az2Thr = np.interp(info['SENS']['CAS_mps']  , self.Gains['EAS_mps'] , self.Gains['Az2Thr'])
+    def CalcCmd(self,Ref, obs,t):
+        Alt2VZ = np.interp(obs[7] , self.Gains['EAS_mps'] , self.Gains['Alt2VZ'])
+        VZ2NZ  = np.interp(obs[7] , self.Gains['EAS_mps'] , self.Gains['VZ2NZ'])
+        Alt2NZ = np.interp(obs[7] , self.Gains['EAS_mps'] , self.Gains['Alt2NZ'])
+        Az2Thr = np.interp(obs[7] , self.Gains['EAS_mps'] , self.Gains['Az2Thr'])
        
         VX_tgt_mps = np.interp(t,Gains['Target_VX_mps'][0,:],Gains['Target_VX_mps'][1,:])
-        FF_Cmd_u = np.interp(VX_tgt_mps,Gains['Throttle_Trim_deg'][0,:],Gains['Throttle_Trim_deg'][1,:])
+        FF_Cmd_u = np.interp(VX_tgt_mps,Gains['Throttle_Trim_u'][0,:],Gains['Throttle_Trim_u'][1,:])
         
         Z_ref_m   = 0
-        Z_error_m = Z_ref_m - info['SENS']['Z_m'] 
+        Z_error_m = Z_ref_m - obs[2]
         
         VZ_ref_mps   = np.interp(t,Ref['VZ_mps'][0,:],Ref['VZ_mps'][1,:])
-        VZ_error_mps = VZ_ref_mps + Z_error_m * Alt2VZ - info['SENS']['VZ_mps'] 
+        VZ_error_mps = VZ_ref_mps + Z_error_m * Alt2VZ - obs[3]
         
-        CL_Cmd_u = (VZ_error_mps*VZ2NZ + Z_error_m*Alt2NZ - (info['SENS']['NZ_mps2']+9.806) )*Az2Thr
+        CL_Cmd_u = (VZ_error_mps*VZ2NZ + Z_error_m*Alt2NZ - (obs[4]+9.806) )*Az2Thr
         
         ThrottleCmd_u = FF_Cmd_u + CL_Cmd_u
         return ThrottleCmd_u
@@ -148,21 +140,21 @@ class GenPitchController:
         self.int_T = 0
         self.Last_t = 0
 
-    def CalcCmd (self,Ref,OutPitchCmd_u , info,t):
+    def CalcCmd (self,Ref,OutPitchCmd_u , obs,t):
         # Calculate Gains
-        Pitch2ThrP = np.interp(info['SENS']['CAS_mps']  , self.Gains['EAS_mps'] , self.Gains['Pitch2ThrP'])
-        Pitch2W2E  = np.interp(info['SENS']['CAS_mps']  , self.Gains['EAS_mps'] , self.Gains['Pitch2W2E'])
-        q2Pitch    = np.interp(info['SENS']['CAS_mps']  , self.Gains['EAS_mps'] , self.Gains['q2Pitch'])
-        i2Pitch    = np.interp(info['SENS']['CAS_mps']  , self.Gains['EAS_mps'] , self.Gains['i2Pitch'])
-        T2Pitch    = np.interp(info['SENS']['CAS_mps']  , self.Gains['EAS_mps'] , self.Gains['T2Pitch'])
-        Theta2q    = np.interp(info['SENS']['CAS_mps']  , self.Gains['EAS_mps'] , self.Gains['Theta2q'])
+        Pitch2ThrP = np.interp(obs[7]  , self.Gains['EAS_mps'] , self.Gains['Pitch2ThrP'])
+        Pitch2W2E  = np.interp(obs[7]  , self.Gains['EAS_mps'] , self.Gains['Pitch2W2E'])
+        q2Pitch    = np.interp(obs[7]  , self.Gains['EAS_mps'] , self.Gains['q2Pitch'])
+        i2Pitch    = np.interp(obs[7]  , self.Gains['EAS_mps'] , self.Gains['i2Pitch'])
+        T2Pitch    = np.interp(obs[7]  , self.Gains['EAS_mps'] , self.Gains['T2Pitch'])
+        Theta2q    = np.interp(obs[7]  , self.Gains['EAS_mps'] , self.Gains['Theta2q'])
 
         # Calculate References and Errors
         Theta_ref_deg = np.interp(t,Ref['Theta_deg'][0,:],Ref['Theta_deg'][1,:])
-        Theta_error_rad = np.deg2rad(Theta_ref_deg) - info['SENS']['Theta_rad']
+        Theta_error_rad = np.deg2rad(Theta_ref_deg) - obs[5]
 
         q_ref_radps   = Theta_error_rad*Theta2q
-        q_error_radps   = q_ref_radps - info['SENS']['Q_radps']
+        q_error_radps   = q_ref_radps - obs[6]
 
         self.int_q += q_error_radps * (t-self.Last_t)
         self.int_T += Theta_error_rad * (t-self.Last_t)
@@ -172,8 +164,8 @@ class GenPitchController:
         PitchCmd_u = q_error_radps * q2Pitch + self.int_T*i2Pitch + Theta_error_rad*T2Pitch + OutPitchCmd_u
         
         # Calculate Feef Forward Pitch Cmd
-        FF_PitThr = np.interp(info['SENS']['CAS_mps'] , self.Gains['ThrPit_Trim_u'][0,:] , self.Gains['ThrPit_Trim_u'][1,:])
-        FF_Elev2  = np.interp(info['SENS']['CAS_mps']  , self.Gains['Elev2_Trim_u'][0,:]  , self.Gains['Elev2_Trim_u'][1,:] )
+        FF_PitThr = np.interp(obs[7] , self.Gains['ThrPit_Trim_u'][0,:] , self.Gains['ThrPit_Trim_u'][1,:])
+        FF_Elev2  = np.interp(obs[7]  , self.Gains['Elev2_Trim_u'][0,:]  , self.Gains['Elev2_Trim_u'][1,:] )
        
         
         
@@ -212,9 +204,9 @@ for step in range(n_steps):
     OutPitchCmd_u =  np.interp(CurrentTime_s,Inp['Pitch_u'][0,:],Inp['Pitch_u'][1,:])
 
     W1_TiltCmd_deg , W2_TiltCmd_deg  = TiltController(Gains,CurrentTime_s)
-    PitchThrottle_u , W2_ElevCmd_u = PitchController.CalcCmd(Ref, OutPitchCmd_u, info, CurrentTime_s)
+    PitchThrottle_u , W2_ElevCmd_u = PitchController.CalcCmd(Ref, OutPitchCmd_u, obs, CurrentTime_s)
     
-    u_Vert [step+1]  = ThrottleController.CalcCmd(Ref, info, CurrentTime_s)
+    u_Vert [step+1]  = ThrottleController.CalcCmd(Ref, obs, CurrentTime_s)
     
     u_Tilt1 [step+1] = 2 * (W1_TiltCmd_deg - TestEnv.CONT['MinTilt_deg'][0]) / TestEnv.CONT['TiltRange_deg'][0] - 1
     u_Tilt2 [step+1] = 2 * (W2_TiltCmd_deg - TestEnv.CONT['MinTilt_deg'][1]) / TestEnv.CONT['TiltRange_deg'][1] - 1
@@ -222,21 +214,13 @@ for step in range(n_steps):
     u_Pitch [step+1] = PitchThrottle_u
     u_Elev2 [step+1] = W2_ElevCmd_u
 
-    # u_Tilt1 [step+1] = u_Tilt1 [step+1] + np.interp(CurrentTime_s , Tilt_Inp[0,:],Tilt_Inp[1,:])       
-    # u_Tilt2 [step+1] = u_Tilt2 [step+1] + np.interp(CurrentTime_s , Tilt_Inp[0,:],Tilt_Inp[1,:])       
-
-        # self.AERO['Wing2']['Incidence_deg'] = (TestEnv.CONT['MinTilt_deg'][1] 
-        # #                                      + TestEnv.CONT['TiltRange_deg'][1] * self.CONT['Tilt_p'][1])
-        # self.AERO['Elevon']['Deflection_deg'] = (self.CONT['ElevCenter_deg']
-        #                                        + self.CONT['ElevRange_deg']/2 * self.CONT['Elevon_p'])
 
 # % CALL PLOT FILE
 print('Return = {:0.1f}'.format(Return))
-# exec(open("./Test_VTOL_PIDPlot2.py").read())
 exec(open("./Test_VTOL_TestPID_Transition_plot.py").read())
 fig.savefig('/home/dsalarc/Documents/DOUTORADO/Environments/VTOL/TransitionControl/PID_transition.pdf', bbox_inches='tight')
 
-# exec(open("./Test_VTOL_TestPID_Transition_CheckSensors.py").read())
+exec(open("./Test_VTOL_TestPID_Transition_CheckSensors.py").read())
 exec(open("./Test_VTOL_TestPID_Transition_CheckAero.py").read())
 
 print('Max Alt  : {:0.1f}'.format(np.max(SaveVec['H_m'])))
