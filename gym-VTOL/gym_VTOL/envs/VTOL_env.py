@@ -120,14 +120,15 @@ class Actuator:
 class Sensor:
     def __init__(self, CutFreq_radps = 40, Delay_s = 0, time_sample_sensor = 0.001, time_sample_sim = -1):
         
-        self.DelaySteps = int(Delay_s / time_sample_sensor)
+        if time_sample_sim == -1:
+            time_sample_sim = time_sample_sensor
+
+        self.DelaySteps = int(Delay_s / time_sample_sim)
         if self.DelaySteps == 0:
             self.BufferDelay = np.array([])
         else:
             self.BufferDelay = np.zeros(self.DelaySteps)
             
-        if time_sample_sim == -1:
-            time_sample_sim = time_sample_sensor
         self.tss = time_sample_sim
         
         self.y = 0
@@ -149,6 +150,9 @@ class Sensor:
         
         if self.DelaySteps == 0:
             self.y = yaux
+        elif self.DelaySteps == 1:
+            self.y = self.BufferDelay[0]
+            self.BufferDelay[0] = yaux
         else:
             self.y = self.BufferDelay[0]
             self.BufferDelay[0:-1] = self.BufferDelay[1:]
@@ -238,7 +242,7 @@ class Propeller:
             
     def step(self,Qext,TAS_mps, rho_kgm3, Alpha_deg = 0, Pitch_deg = 0):
         
-        self.cQ_Nm     = self.CalcTorque(RPS = self.RPS, J = self.inp_J, rho_kgm3 = rho_kgm3, Alpha_deg = self.inp_Alpha_deg, Pitch_deg = self.inp_Pitch_deg)
+        self.cQ_Nm     = self.CalcTorque(RPS = self.RPS, J = self.inp_J, rho_kgm3 = rho_kgm3, Alpha_deg = abs(self.inp_Alpha_deg), Pitch_deg = self.inp_Pitch_deg)
         NetTorque      = Qext - self.cQ_Nm
         wdot           = NetTorque / self.I_kgm2
         self.w        += wdot * self.dt
@@ -246,7 +250,7 @@ class Propeller:
         self.RPM       = self.RPS / 60
         self.Alpha_deg = Alpha_deg
         self.J         = TAS_mps / (max(1,self.RPS) * self.Diam_m)    
-        self.J_lin     = self.J * np.cosd(self.Alpha_deg)   
+        self.J_lin     = self.J * np.cos(np.deg2rad(self.Alpha_deg))
 
         # Limit interpolation inputs
         self.inp_J         = min((max((self.J         , self.Tables['J'][0]))         ,  self.Tables['J'][-1]))
@@ -428,19 +432,35 @@ class Vahana_VertFlight(gym.Env):
         # obs = np.hstack((sta,sta_dot,cont))
         # Observation Space    = [Vx , dVx, Vy , dVy , Vz , dVz , Phi      , p        , Theta    , q        , Psi      , r        ]
         if self.UseLateralActions:
-            obs_vec       = np.array([self.EQM['VelLin_EarthAx_mps'][0] , self.EQM['AccLin_EarthAx_mps2'][0] , 
-                                      self.EQM['VelLin_EarthAx_mps'][1] , self.EQM['AccLin_EarthAx_mps2'][1] , 
-                                      self.EQM['PosLin_EarthAx_m'][2],
-                                      self.EQM['VelLin_EarthAx_mps'][2] , self.EQM['AccLin_EarthAx_mps2'][2] , 
-                                      self.EQM['EulerAngles_rad'][0]    , self.EQM['VelRot_BodyAx_radps'][0] , 
-                                      self.EQM['EulerAngles_rad'][1]    , self.EQM['VelRot_BodyAx_radps'][1] , 
-                                      self.EQM['EulerAngles_rad'][2]    , self.EQM['VelRot_BodyAx_radps'][2]])
+            if self.OPT['UseSensors']:
+                obs_vec       = np.array([self.SENS['Sensors']['IMU']['VX_mps']   , self.SENS['Sensors']['IMU']['NX_mps2']  , 
+                                          self.SENS['Sensors']['IMU']['VY_mps']   , self.SENS['Sensors']['IMU']['NY_mps2']  , 
+                                          self.SENS['Sensors']['IMU']['Z_m']      ,
+                                          self.SENS['Sensors']['IMU']['VZ_mps']   , self.SENS['Sensors']['IMU']['NZ_mps2']  , 
+                                          self.SENS['Sensors']['IMU']['Phi_rad']  , self.SENS['Sensors']['IMU']['P_radps']  , 
+                                          self.SENS['Sensors']['IMU']['Theta_rad'], self.SENS['Sensors']['IMU']['Q_radps']  , 
+                                          self.SENS['Sensors']['IMU']['Psi_rad']  , self.SENS['Sensors']['IMU']['R_radps'] ])
+            else:
+                obs_vec       = np.array([self.EQM['VelLin_EarthAx_mps'][0] , self.EQM['LoadFactor_mps2'][0] , 
+                                          self.EQM['VelLin_EarthAx_mps'][1] , self.EQM['LoadFactor_mps2'][1] , 
+                                          self.EQM['PosLin_EarthAx_m'][2]   ,
+                                          self.EQM['VelLin_EarthAx_mps'][2] , self.EQM['LoadFactor_mps2'][2] , 
+                                          self.EQM['EulerAngles_rad'][0]    , self.EQM['VelRot_BodyAx_radps'][0] , 
+                                          self.EQM['EulerAngles_rad'][1]    , self.EQM['VelRot_BodyAx_radps'][1] , 
+                                          self.EQM['EulerAngles_rad'][2]    , self.EQM['VelRot_BodyAx_radps'][2]])
+
         else:
-            obs_vec       = np.array([self.EQM['VelLin_EarthAx_mps'][0] , self.EQM['AccLin_EarthAx_mps2'][0] , 
-                                      self.EQM['PosLin_EarthAx_m'][2],
-                                      self.EQM['VelLin_EarthAx_mps'][2] , self.EQM['AccLin_EarthAx_mps2'][2] , 
-                                      self.EQM['EulerAngles_rad'][1]    , self.EQM['VelRot_BodyAx_radps'][1]])
-            
+            if self.OPT['UseSensors']:
+                obs_vec       = np.array([self.SENS['Sensors']['IMU']['VX_mps']    , self.SENS['Sensors']['IMU']['NX_mps2'], 
+                                          self.SENS['Sensors']['IMU']['Z_m']       ,
+                                          self.SENS['Sensors']['IMU']['VZ_mps']    , self.SENS['Sensors']['IMU']['NZ_mps2'], 
+                                          self.SENS['Sensors']['IMU']['Theta_rad'] , self.SENS['Sensors']['IMU']['Q_radps'] ])
+            else:
+                obs_vec       = np.array([self.EQM['VelLin_EarthAx_mps'][0] , self.EQM['LoadFactor_mps2'][0] , 
+                                          self.EQM['PosLin_EarthAx_m'][2]   ,
+                                          self.EQM['VelLin_EarthAx_mps'][2] , self.EQM['LoadFactor_mps2'][2] , 
+                                          self.EQM['EulerAngles_rad'][1]    , self.EQM['VelRot_BodyAx_radps'][1]])
+           
         obs_adm = obs_vec / self.adm_vec
         
         obs_sat = np.min( np.vstack((obs_adm,np.ones(len(obs_vec)) )) , axis=0)
@@ -461,6 +481,7 @@ class Vahana_VertFlight(gym.Env):
       self.OPT['UseAeroForce']  = 1
       self.OPT['UsePropMoment'] = 1
       self.OPT['UsePropForce']  = 1
+      self.OPT['UseSensors']    = 0
       self.OPT['EnableRoll']    = 1
       self.OPT['EnablePitch']   = 1
       self.OPT['EnableYaw']     = 1
@@ -570,13 +591,13 @@ class Vahana_VertFlight(gym.Env):
                                     CONT['TiltDiff_p'] ])
             else:
                 if GetNames:
-                    return ['VX_mps' , 'VZ_mps', 'Theta_deg', 'Q_degps', 'Nz_g','TiltDiff_p', 'Alpha_deg']
+                    return ['VX_mps' , 'VZ_mps', 'Theta_deg', 'Q_degps', 'Nz_mps2','TiltDiff_p', 'Alpha_deg']
                 else:
                     return np.array([EQM['VelLin_EarthAx_mps'][0] ,
                                     EQM['VelLin_EarthAx_mps'][2] , 
                                     np.rad2deg(EQM['EulerAngles_rad'][1]), 
                                     np.rad2deg(EQM['VelRot_BodyAx_radps'][1]), 
-                                    EQM['LoadFactor_g'][2],
+                                    EQM['LoadFactor_mps2'][2],
                                     CONT['TiltDiff_p'] ,
                                     ATM['Alpha_deg'] ])
                 
@@ -1374,7 +1395,7 @@ class Vahana_VertFlight(gym.Env):
         self.SENS['Data'] = {}
         
         self.SENS['Data']['IMU'] = {}      
-        self.SENS['Data']['IMU']['Delay_s'] = 0.005 * (1+self.UNC['Res']['SENS']['Gain']['IMU_Delay'])
+        self.SENS['Data']['IMU']['Delay_s'] = 0.01 * (1+self.UNC['Res']['SENS']['Gain']['IMU_Delay'])
         self.SENS['Data']['IMU']['CutFreq_radps'] = 40 * (1+self.UNC['Res']['SENS']['Gain']['IMU_Bandwidth'])
         
         self.SENS['Data']['ADS'] = {}      
@@ -1424,16 +1445,29 @@ class Vahana_VertFlight(gym.Env):
                                                    Delay_s = self.SENS['Data']['IMU']['Delay_s'],
                                                    time_sample_sensor = 0.001,
                                                    time_sample_sim = self.t_step)
+
+        self.SENS['Sensors']['IMU']['X_m'] = Sensor(CutFreq_radps = self.SENS['Data']['IMU']['CutFreq_radps'],
+                                                   Delay_s = self.SENS['Data']['IMU']['Delay_s'],
+                                                   time_sample_sensor = 0.001,
+                                                   time_sample_sim = self.t_step)
+        self.SENS['Sensors']['IMU']['Y_m'] = Sensor(CutFreq_radps = self.SENS['Data']['IMU']['CutFreq_radps'],
+                                                   Delay_s = self.SENS['Data']['IMU']['Delay_s'],
+                                                   time_sample_sensor = 0.001,
+                                                   time_sample_sim = self.t_step)
+        self.SENS['Sensors']['IMU']['Z_m'] = Sensor(CutFreq_radps = self.SENS['Data']['IMU']['CutFreq_radps'],
+                                                   Delay_s = self.SENS['Data']['IMU']['Delay_s'],
+                                                   time_sample_sensor = 0.001,
+                                                   time_sample_sim = self.t_step)
         
-        self.SENS['Sensors']['IMU']['NX_g'] = Sensor(CutFreq_radps = self.SENS['Data']['IMU']['CutFreq_radps'],
+        self.SENS['Sensors']['IMU']['NX_mps2'] = Sensor(CutFreq_radps = self.SENS['Data']['IMU']['CutFreq_radps'],
                                                    Delay_s = self.SENS['Data']['IMU']['Delay_s'],
                                                    time_sample_sensor = 0.001,
                                                    time_sample_sim = self.t_step)
-        self.SENS['Sensors']['IMU']['NY_g'] = Sensor(CutFreq_radps = self.SENS['Data']['IMU']['CutFreq_radps'],
+        self.SENS['Sensors']['IMU']['NY_mps2'] = Sensor(CutFreq_radps = self.SENS['Data']['IMU']['CutFreq_radps'],
                                                    Delay_s = self.SENS['Data']['IMU']['Delay_s'],
                                                    time_sample_sensor = 0.001,
                                                    time_sample_sim = self.t_step)
-        self.SENS['Sensors']['IMU']['NZ_g'] = Sensor(CutFreq_radps = self.SENS['Data']['IMU']['CutFreq_radps'],
+        self.SENS['Sensors']['IMU']['NZ_mps2'] = Sensor(CutFreq_radps = self.SENS['Data']['IMU']['CutFreq_radps'],
                                                    Delay_s = self.SENS['Data']['IMU']['Delay_s'],
                                                    time_sample_sensor = 0.001,
                                                    time_sample_sim = self.t_step)
@@ -1442,6 +1476,7 @@ class Vahana_VertFlight(gym.Env):
                                                     Delay_s = self.SENS['Data']['ADS']['Delay_s'],
                                                     time_sample_sensor = 0.001,
                                                     time_sample_sim = self.t_step)
+        
     # %% GENERAL FUNCTIONS
     def RotationMatrix(self,Phi_rad,Theta_rad,Psi_rad):
         
@@ -1549,7 +1584,7 @@ class Vahana_VertFlight(gym.Env):
             self.EQM['AccLin_EarthAx_mps2']  = np.dot(self.EQM['LB2E'] , dVL_b)
             self.EQM['EulerAnglesDot_radps'] = dXR_e 
     
-            self.EQM['LoadFactor_g'] = (F_b)/m 
+            self.EQM['LoadFactor_mps2'] = (F_b)/m 
 
             # VETOR SAIDA COM OS ESTADOS
             self.EQM['sta_dot'][6:9]  = dVL_b
@@ -2205,9 +2240,13 @@ class Vahana_VertFlight(gym.Env):
             self.SENS['Sensors']['IMU']['VY_mps'].set_zero(self.EQM['VelLin_EarthAx_mps'][1])
             self.SENS['Sensors']['IMU']['VZ_mps'].set_zero(self.EQM['VelLin_EarthAx_mps'][2])
             
-            self.SENS['Sensors']['IMU']['NX_g'].set_zero(self.EQM['LoadFactor_g'][0])
-            self.SENS['Sensors']['IMU']['NY_g'].set_zero(self.EQM['LoadFactor_g'][1])
-            self.SENS['Sensors']['IMU']['NZ_g'].set_zero(self.EQM['LoadFactor_g'][2])
+            self.SENS['Sensors']['IMU']['X_m'].set_zero(self.EQM['PosLin_EarthAx_m'][0])
+            self.SENS['Sensors']['IMU']['Y_m'].set_zero(self.EQM['PosLin_EarthAx_m'][1])
+            self.SENS['Sensors']['IMU']['Z_m'].set_zero(self.EQM['PosLin_EarthAx_m'][2])
+            
+            self.SENS['Sensors']['IMU']['NX_mps2'].set_zero(self.EQM['LoadFactor_mps2'][0])
+            self.SENS['Sensors']['IMU']['NY_mps2'].set_zero(self.EQM['LoadFactor_mps2'][1])
+            self.SENS['Sensors']['IMU']['NZ_mps2'].set_zero(self.EQM['LoadFactor_mps2'][2])
 
             self.SENS['Sensors']['ADS']['CAS_mps'].set_zero(self.ATM['CAS_mps'])
             
@@ -2224,9 +2263,13 @@ class Vahana_VertFlight(gym.Env):
             self.SENS['Sensors']['IMU']['VY_mps'].step(self.EQM['VelLin_EarthAx_mps'][1])
             self.SENS['Sensors']['IMU']['VZ_mps'].step(self.EQM['VelLin_EarthAx_mps'][2])
             
-            self.SENS['Sensors']['IMU']['NX_g'].step(self.EQM['LoadFactor_g'][0])
-            self.SENS['Sensors']['IMU']['NY_g'].step(self.EQM['LoadFactor_g'][1])
-            self.SENS['Sensors']['IMU']['NZ_g'].step(self.EQM['LoadFactor_g'][2])
+            self.SENS['Sensors']['IMU']['X_m'].step(self.EQM['PosLin_EarthAx_m'][0])
+            self.SENS['Sensors']['IMU']['Y_m'].step(self.EQM['PosLin_EarthAx_m'][1])
+            self.SENS['Sensors']['IMU']['Z_m'].step(self.EQM['PosLin_EarthAx_m'][2])
+            
+            self.SENS['Sensors']['IMU']['NX_mps2'].step(self.EQM['LoadFactor_mps2'][0])
+            self.SENS['Sensors']['IMU']['NY_mps2'].step(self.EQM['LoadFactor_mps2'][1])
+            self.SENS['Sensors']['IMU']['NZ_mps2'].step(self.EQM['LoadFactor_mps2'][2])
             
             self.SENS['Sensors']['ADS']['CAS_mps'].step(self.ATM['CAS_mps'])
                             
@@ -2239,9 +2282,12 @@ class Vahana_VertFlight(gym.Env):
         self.SENS['VX_mps']    = self.SENS['Sensors']['IMU']['VX_mps'].y 
         self.SENS['VY_mps']    = self.SENS['Sensors']['IMU']['VY_mps'].y 
         self.SENS['VZ_mps']    = self.SENS['Sensors']['IMU']['VZ_mps'].y 
-        self.SENS['NX_g']      = self.SENS['Sensors']['IMU']['NX_g'].y * (1+self.UNC['Res']['SENS']['Gain']['IMU_NX']) + (self.UNC['Res']['SENS']['Bias']['IMU_NX'])
-        self.SENS['NY_g']      = self.SENS['Sensors']['IMU']['NY_g'].y * (1+self.UNC['Res']['SENS']['Gain']['IMU_NY']) + (self.UNC['Res']['SENS']['Bias']['IMU_NY'])
-        self.SENS['NZ_g']      = self.SENS['Sensors']['IMU']['NZ_g'].y * (1+self.UNC['Res']['SENS']['Gain']['IMU_NZ']) + (self.UNC['Res']['SENS']['Bias']['IMU_NZ'])
+        self.SENS['X_m']       = self.SENS['Sensors']['IMU']['X_m'].y 
+        self.SENS['Y_m']       = self.SENS['Sensors']['IMU']['Y_m'].y 
+        self.SENS['Z_m']       = self.SENS['Sensors']['IMU']['Z_m'].y 
+        self.SENS['NX_mps2']   = self.SENS['Sensors']['IMU']['NX_mps2'].y * (1+self.UNC['Res']['SENS']['Gain']['IMU_NX']) + (self.UNC['Res']['SENS']['Bias']['IMU_NX'])
+        self.SENS['NY_mps2']   = self.SENS['Sensors']['IMU']['NY_mps2'].y * (1+self.UNC['Res']['SENS']['Gain']['IMU_NY']) + (self.UNC['Res']['SENS']['Bias']['IMU_NY'])
+        self.SENS['NZ_mps2']   = self.SENS['Sensors']['IMU']['NZ_mps2'].y * (1+self.UNC['Res']['SENS']['Gain']['IMU_NZ']) + (self.UNC['Res']['SENS']['Bias']['IMU_NZ'])
         self.SENS['CAS_mps']   = self.SENS['Sensors']['ADS']['CAS_mps'].y * (1+self.UNC['Res']['SENS']['Gain']['ADS_CAS'])
 
 
