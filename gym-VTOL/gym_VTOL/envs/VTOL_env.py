@@ -378,11 +378,11 @@ class Vahana_VertFlight(gym.Env):
         #                           np.inf,np.inf,np.inf,np.pi,np.pi,np.pi,np.inf,np.inf,np.inf,np.pi,np.pi,np.pi])
         # Observation Space    = [Vx , dVx, Vy , dVy , Z  , Vz , dVz , Phi      , p        , Theta    , q        , Psi      , r        ]
         if self.UseLateralActions:
-            self.adm_vec  = np.array([60 , 20 , 10 , 10  , 100, 10 , 10  , 3.1415/2 , 3.1415/2 , 3.1415/2 , 3.1415/2 , 3.1415/2 , 3.1415/2 ])
-            self.MaxState = np.array([1  , 1  , 1  , 1   , 1  ,  1 , 1   , 1        , 1        , 1        , 1        , 1        ,1         ])
+            self.adm_vec  = np.array([100 , 20 , 10 , 10  , 100, 10 , 10  , 3.1415/2 , 3.1415/2 , 3.1415/2 , 3.1415/2 , 3.1415/2 , 3.1415/2 , 100])
+            self.MaxState = np.array([1   , 1  , 1  , 1   , 1  ,  1 , 1   , 1        , 1        , 1        , 1        , 1        ,1          , 1])
         else:
-            self.adm_vec  = np.array([60 , 20 , 100, 10 , 10  , 3.1415/2 , 3.1415/2 ])
-            self.MaxState = np.array([1  , 1  , 1  ,  1 , 1   , 1        , 1        ])
+            self.adm_vec  = np.array([100 , 20 , 100, 10 , 10  , 3.1415/2 , 3.1415/2 , 100])
+            self.MaxState = np.array([1  , 1  , 1  ,  1 , 1   , 1        , 1         , 1])
             
         
         '''
@@ -433,13 +433,14 @@ class Vahana_VertFlight(gym.Env):
         # Observation Space    = [Vx , dVx, Vy , dVy , Vz , dVz , Phi      , p        , Theta    , q        , Psi      , r        ]
         if self.UseLateralActions:
             if self.OPT['UseSensors']:
-                obs_vec       = np.array([self.SENS['Sensors']['IMU']['VX_mps']   , self.SENS['Sensors']['IMU']['NX_mps2']  , 
-                                          self.SENS['Sensors']['IMU']['VY_mps']   , self.SENS['Sensors']['IMU']['NY_mps2']  , 
-                                          self.SENS['Sensors']['IMU']['Z_m']      ,
-                                          self.SENS['Sensors']['IMU']['VZ_mps']   , self.SENS['Sensors']['IMU']['NZ_mps2']  , 
-                                          self.SENS['Sensors']['IMU']['Phi_rad']  , self.SENS['Sensors']['IMU']['P_radps']  , 
-                                          self.SENS['Sensors']['IMU']['Theta_rad'], self.SENS['Sensors']['IMU']['Q_radps']  , 
-                                          self.SENS['Sensors']['IMU']['Psi_rad']  , self.SENS['Sensors']['IMU']['R_radps'] ])
+                obs_vec       = np.array([self.SENS['VX_mps']   , self.SENS['NX_mps2']  , 
+                                          self.SENS['VY_mps']   , self.SENS['NY_mps2']  , 
+                                          self.SENS['Z_m']      ,
+                                          self.SENS['VZ_mps']   , self.SENS['NZ_mps2']  , 
+                                          self.SENS['Phi_rad']  , self.SENS['P_radps']  , 
+                                          self.SENS['Theta_rad'], self.SENS['Q_radps']  , 
+                                          self.SENS['Psi_rad']  , self.SENS['R_radps']  , 
+                                          self.SENS['CAS_mps']])
             else:
                 obs_vec       = np.array([self.EQM['VelLin_EarthAx_mps'][0] , self.EQM['LoadFactor_mps2'][0] , 
                                           self.EQM['VelLin_EarthAx_mps'][1] , self.EQM['LoadFactor_mps2'][1] , 
@@ -447,19 +448,22 @@ class Vahana_VertFlight(gym.Env):
                                           self.EQM['VelLin_EarthAx_mps'][2] , self.EQM['LoadFactor_mps2'][2] , 
                                           self.EQM['EulerAngles_rad'][0]    , self.EQM['VelRot_BodyAx_radps'][0] , 
                                           self.EQM['EulerAngles_rad'][1]    , self.EQM['VelRot_BodyAx_radps'][1] , 
-                                          self.EQM['EulerAngles_rad'][2]    , self.EQM['VelRot_BodyAx_radps'][2]])
+                                          self.EQM['EulerAngles_rad'][2]    , self.EQM['VelRot_BodyAx_radps'][2] , 
+                                          self.ATM['CAS_mps']])
 
         else:
             if self.OPT['UseSensors']:
-                obs_vec       = np.array([self.SENS['Sensors']['IMU']['VX_mps']    , self.SENS['Sensors']['IMU']['NX_mps2'], 
-                                          self.SENS['Sensors']['IMU']['Z_m']       ,
-                                          self.SENS['Sensors']['IMU']['VZ_mps']    , self.SENS['Sensors']['IMU']['NZ_mps2'], 
-                                          self.SENS['Sensors']['IMU']['Theta_rad'] , self.SENS['Sensors']['IMU']['Q_radps'] ])
+                obs_vec       = np.array([self.SENS['VX_mps']    , self.SENS['NX_mps2'], 
+                                          self.SENS['Z_m']       ,
+                                          self.SENS['VZ_mps']    , self.SENS['NZ_mps2'], 
+                                          self.SENS['Theta_rad'] , self.SENS['Q_radps'],
+                                          self.SENS['CAS_mps']])
             else:
                 obs_vec       = np.array([self.EQM['VelLin_EarthAx_mps'][0] , self.EQM['LoadFactor_mps2'][0] , 
                                           self.EQM['PosLin_EarthAx_m'][2]   ,
                                           self.EQM['VelLin_EarthAx_mps'][2] , self.EQM['LoadFactor_mps2'][2] , 
-                                          self.EQM['EulerAngles_rad'][1]    , self.EQM['VelRot_BodyAx_radps'][1]])
+                                          self.EQM['EulerAngles_rad'][1]    , self.EQM['VelRot_BodyAx_radps'][1] , 
+                                          self.ATM['CAS_mps']])
            
         obs_adm = obs_vec / self.adm_vec
         
@@ -481,7 +485,7 @@ class Vahana_VertFlight(gym.Env):
       self.OPT['UseAeroForce']  = 1
       self.OPT['UsePropMoment'] = 1
       self.OPT['UsePropForce']  = 1
-      self.OPT['UseSensors']    = 0
+      self.OPT['UseSensors']    = 1
       self.OPT['EnableRoll']    = 1
       self.OPT['EnablePitch']   = 1
       self.OPT['EnableYaw']     = 1
