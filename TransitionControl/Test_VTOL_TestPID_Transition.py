@@ -19,8 +19,11 @@ for env in env_dict:
         del gym.envs.registration.registry.env_specs[env]
         
 TestEnv = gym.make('gym_VTOL:Vahana_VertFlight-v0')     
+reset_INPUT_VEC = {}
+reset_INPUT_VEC['FAILURE_MOT_5'] = np.array([[0, 20, 20.01, 40] , [0, 0, 0, 0]])
 obs = TestEnv.reset(VX_mps = 0, VZ_mps = 0.0, THETA = 0.0, DispMessages = False, 
-                    TermTheta_deg = 45, StaFreezeList = [] , UNC_seed = None , UNC_enable = 0)
+                    TermTheta_deg = 45, StaFreezeList = [] , UNC_seed = None , UNC_enable = 0,
+                    reset_INPUT_VEC = reset_INPUT_VEC)
 
 # %% PARAMS
 SimTime = 40
@@ -220,8 +223,8 @@ print('Return = {:0.1f}'.format(Return))
 exec(open("./Test_VTOL_TestPID_Transition_plot.py").read())
 fig.savefig('/home/dsalarc/Documents/DOUTORADO/Environments/VTOL/TransitionControl/PID_transition.pdf', bbox_inches='tight')
 
-exec(open("./Test_VTOL_TestPID_Transition_CheckSensors.py").read())
-exec(open("./Test_VTOL_TestPID_Transition_CheckAero.py").read())
+# exec(open("./Test_VTOL_TestPID_Transition_CheckSensors.py").read())
+# exec(open("./Test_VTOL_TestPID_Transition_CheckAero.py").read())
 
 print('Max Alt  : {:0.1f}'.format(np.max(SaveVec['H_m'])))
 print('Min Alt  : {:0.1f}'.format(np.min(SaveVec['H_m'])))

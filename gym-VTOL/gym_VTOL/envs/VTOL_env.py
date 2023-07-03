@@ -475,7 +475,7 @@ class Vahana_VertFlight(gym.Env):
     
     def reset(self,W = 0, Z = 0, THETA = 0,  PHI = 0,  PSI = 0, PaxIn = np.array([1,1]),
                    VX_mps = 0, VZ_mps = 0, DispMessages = False, Linearize = False, TermTheta_deg = 10, StaFreezeList = [],
-                   UNC_seed = None , UNC_enable = 0):
+                   UNC_seed = None , UNC_enable = 0, reset_INPUT_VEC = None):
       self.CurrentStep = 0
       self.trimming = 0
 
@@ -486,20 +486,22 @@ class Vahana_VertFlight(gym.Env):
       self.OPT['UsePropMoment'] = 1
       self.OPT['UsePropForce']  = 1
       self.OPT['UseSensors']    = 1
-      self.OPT['EnableRoll']    = 1
-      self.OPT['EnablePitch']   = 1
-      self.OPT['EnableYaw']     = 1
+      self.OPT['Enable_P']      = 1
+      self.OPT['Enable_Q']      = 1
+      self.OPT['Enable_R']      = 1
+      self.OPT['Enable_U']      = 1
+      self.OPT['Enable_V']      = 1
+      self.OPT['Enable_W']      = 1
       self.OPT['DispMessages']  = DispMessages
       self.OPT['StaFreezeList'] = StaFreezeList
       self.OPT['UNC_seed'] = UNC_seed
       self.OPT['UNC_enable'] = UNC_enable
 
-
       # Initialize Contants  
       self.Term = {}
       self.Term['Theta_deg'] = TermTheta_deg
 
-      self.StartUp(PaxIn = PaxIn)
+      self.StartUp(PaxIn = PaxIn , reset_INPUT_VEC = reset_INPUT_VEC)
       
       self.EQM['sta']        = np.zeros(shape=12,dtype = np.float32)
       if W == 'rand':
@@ -565,6 +567,36 @@ class Vahana_VertFlight(gym.Env):
 
       return obs
   
+    def init_INP(self, reset_INPUT_VEC = None):
+
+        INPUT_VEC = {}
+
+        INPUT_VEC['FAILURE_MOT_1'] = np.array([0,0])
+        INPUT_VEC['FAILURE_MOT_2'] = np.array([0,0])
+        INPUT_VEC['FAILURE_MOT_3'] = np.array([0,0])
+        INPUT_VEC['FAILURE_MOT_4'] = np.array([0,0])
+        INPUT_VEC['FAILURE_MOT_5'] = np.array([0,0])
+        INPUT_VEC['FAILURE_MOT_6'] = np.array([0,0])
+        INPUT_VEC['FAILURE_MOT_7'] = np.array([0,0])
+        INPUT_VEC['FAILURE_MOT_8'] = np.array([0,0])
+
+        INPUT_VEC['WIND_TowerX_mps'] = np.array([0,0])
+        INPUT_VEC['WIND_TowerY_mps'] = np.array([0,0])
+
+        if reset_INPUT_VEC != None:
+            for k in reset_INPUT_VEC.keys():
+                INPUT_VEC[k] = np.interp( np.arange(0 , max(reset_INPUT_VEC[k][0,:]) , self.t_step) , reset_INPUT_VEC[k][0,:] , reset_INPUT_VEC[k][1,:])
+            
+        return INPUT_VEC
+
+    def INP_fcn(self, INPUT_VEC, CurrentStep = 0):
+
+        INP = {}
+        for k in INPUT_VEC.keys():
+            INP[k] = INPUT_VEC[k][min(len(INPUT_VEC[k])-1 , CurrentStep)]
+
+        return INP
+    
     def trim(self, TrimVX_mps = 0, TrimVZ_mps = 0, TrimTheta_deg = 0, PitchController = 'PitchThrottle',FixedAction = np.array([]), Linearize = False):
         TrimData = {}
         TrimData['Trimmed'] = 0
@@ -811,6 +843,7 @@ class Vahana_VertFlight(gym.Env):
           self.EQM_fcn(np.zeros(3),np.zeros(3),self.MASS['I_kgm'],self.MASS['Weight_kgf'], CalcStaDot = False)
       
       # Calculate Control, Atmosphere, Motor Forces and Aero Forces
+      self.INP = self.INP_fcn(INPUT_VEC = self.VARS['INP'], CurrentStep = self.CurrentStep)
       self.CONT_fcn(action)
       self.ATM_fcn()
       self.MOT_fcn()
@@ -991,7 +1024,7 @@ class Vahana_VertFlight(gym.Env):
         return X
 
     # %% SARTUP FUNCTION
-    def StartUp (self,PaxIn):
+    def StartUp (self,PaxIn , reset_INPUT_VEC = None):
 
       # INITIALIZE DICTS
       self.UNC  = {}
@@ -1004,6 +1037,7 @@ class Vahana_VertFlight(gym.Env):
       self.CONS = {}
       self.CONT = {}
       self.SENS = {}
+      self.VARS  = {}
       
       # DEFINE CONSTANTS
       self.CONS['kt2mps'] = 0.514444
@@ -1019,6 +1053,7 @@ class Vahana_VertFlight(gym.Env):
       self.init_REW()
       self.init_CONT()
       self.init_SENS()
+      self.VARS['INP'] = self.init_INP(reset_INPUT_VEC = reset_INPUT_VEC)
       
     def init_UNC (self):
       # 1) define the Std Deviation of the deviations and uncertanties
@@ -1600,10 +1635,10 @@ class Vahana_VertFlight(gym.Env):
             self.EQM['LoadFactor_mps2'] = (F_b)/m 
 
             # VETOR SAIDA COM OS ESTADOS
-            self.EQM['sta_dot'][6:9]  = dVL_b
-            self.EQM['sta_dot'][9:12] = dVR_b
+            self.EQM['sta_dot'][6:9]  = np.array([self.OPT['Enable_U'],self.OPT['Enable_V'] ,self.OPT['Enable_W'] ]) * dVL_b
+            self.EQM['sta_dot'][9:12] = np.array([self.OPT['Enable_P'],self.OPT['Enable_Q'] ,self.OPT['Enable_R'] ]) * dVR_b
             self.EQM['sta_dot'][0:3]  = dXL_e
-            self.EQM['sta_dot'][3:6]  = np.array([self.OPT['EnableRoll'],self.OPT['EnablePitch'] ,self.OPT['EnableYaw'] ]) * dXR_e
+            self.EQM['sta_dot'][3:6]  = dXR_e
             
     # %% ATMOSPHERE FUNCTION
     def ATM_fcn(self):
@@ -1715,7 +1750,17 @@ class Vahana_VertFlight(gym.Env):
         self.MOT['Alpha_deg'] = np.rad2deg(np.arctan2(MOT_VTotal_p[:,2],Denominator))
         self.MOT['Beta_deg']  = np.rad2deg(np.arctan2(MOT_VTotal_p[:,1]*np.cos(np.deg2rad(self.MOT['Alpha_deg'])),
                                                           Denominator))
-        
+        # Motor Failure Array
+        MotorFail = np.array([self.INP['FAILURE_MOT_1'], 
+                              self.INP['FAILURE_MOT_2'],
+                              self.INP['FAILURE_MOT_3'],
+                              self.INP['FAILURE_MOT_4'],
+                              self.INP['FAILURE_MOT_5'],
+                              self.INP['FAILURE_MOT_6'],
+                              self.INP['FAILURE_MOT_7'],
+                              self.INP['FAILURE_MOT_8']])
+        MotorNotFailed = 1 - MotorFail
+
         # Calculate RPM and Rotation of each Propeller
         if self.trimming:   
             # Initialize arrays
@@ -1726,11 +1771,11 @@ class Vahana_VertFlight(gym.Env):
             
             # Calculate RPM
             for i in range(self.MOT['n_motor']):
-                self.MOT['ASSEMBLY']['obj'][i].set_zero(self.CONT['Throttle_p'][i] , MOT_VTotal_p[i,0] , self.ATM['rho_kgm3'])
+                self.MOT['ASSEMBLY']['obj'][i].set_zero(self.CONT['Throttle_p'][i], MOT_VTotal_p[i,0] , self.ATM['rho_kgm3'])
                 self.MOT['RPM'][i] = self.MOT['ASSEMBLY']['obj'][i].RPM
         else:
             for i in range(self.MOT['n_motor']):
-                self.MOT['ASSEMBLY']['obj'][i].step(self.CONT['Throttle_p'][i] , MOT_VTotal_p[i,0], self.ATM['rho_kgm3'])
+                self.MOT['ASSEMBLY']['obj'][i].step(self.CONT['Throttle_p'][i] * MotorNotFailed[i] , MOT_VTotal_p[i,0], self.ATM['rho_kgm3'])
                 self.MOT['RPM'][i] = self.MOT['ASSEMBLY']['obj'][i].RPM
                 
         self.MOT['RPS'] = self.MOT['RPM'] / 60
