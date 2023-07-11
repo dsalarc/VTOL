@@ -21,6 +21,7 @@ def SaveSelection(SaveVec,info):
     SaveVec = AppendValue(SaveVec,'Y_m',info['EQM']['PosLin_EarthAx_m'][1])
     SaveVec = AppendValue(SaveVec,'Z_m',info['EQM']['PosLin_EarthAx_m'][2])
     SaveVec = AppendValue(SaveVec,'H_m',-info['EQM']['PosLin_EarthAx_m'][2])
+    SaveVec = AppendValue(SaveVec,'Altitude_m',info['ATM']['Altitude_m'])
 
     SaveVec = AppendValue(SaveVec,'U_mps',info['EQM']['VelLin_BodyAx_mps'][0])
     SaveVec = AppendValue(SaveVec,'V_mps',info['EQM']['VelLin_BodyAx_mps'][1])

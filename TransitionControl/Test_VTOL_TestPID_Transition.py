@@ -26,7 +26,7 @@ obs = TestEnv.reset(VX_mps = 0, VZ_mps = 0.0, THETA = 0.0, DispMessages = False,
                     reset_INPUT_VEC = reset_INPUT_VEC)
 
 # %% PARAMS
-SimTime = 40
+SimTime = 10
 
 print(" ")
 print("Trimmed: " + str(TestEnv.TrimData['Trimmed']))
@@ -124,7 +124,7 @@ class GenThrottleController:
         VX_tgt_mps = np.interp(t,Gains['Target_VX_mps'][0,:],Gains['Target_VX_mps'][1,:])
         FF_Cmd_u = np.interp(VX_tgt_mps,Gains['Throttle_Trim_u'][0,:],Gains['Throttle_Trim_u'][1,:])
         
-        Z_ref_m   = 0
+        Z_ref_m   = -100
         Z_error_m = Z_ref_m - obs[2]
         
         VZ_ref_mps   = np.interp(t,Ref['VZ_mps'][0,:],Ref['VZ_mps'][1,:])

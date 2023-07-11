@@ -25,11 +25,11 @@ plt_n = 1
 plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
 plt.grid('on')
 plt.xlim([PlotTime1,PlotTime2])
-plt.plot(TimeVec,SaveVec['H_m'],'k', linewidth = linewidth, label='Altitude [m]')
+plt.plot(TimeVec,SaveVec['Altitude_m'],'k', linewidth = linewidth, label='Altitude [m]')
 plt.legend(loc='best')
 plt.ylabel('Altitude [m]')
 plt.xlabel('Time [s]')
-plt.ylim([-40,+10])
+plt.ylim([50,+150])
 
 
 plt.subplot(plt_l,plt_c,plt_n); plt_n+=1

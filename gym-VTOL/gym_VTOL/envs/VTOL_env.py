@@ -472,10 +472,13 @@ class Vahana_VertFlight(gym.Env):
 
         # obs = np.array([sta[8],sta_dot[8]])
         return obs
-    
-    def reset(self,W = 0, Z = 0, THETA = 0,  PHI = 0,  PSI = 0, PaxIn = np.array([1,1]),
+
+    ############################################
+    ############## RESET FUNCTION ##############
+    ############################################
+    def reset(self,W = 0, Altitude_m = 100, THETA = 0,  PHI = 0,  PSI = 0, PaxIn = np.array([1,1]),
                    VX_mps = 0, VZ_mps = 0, DispMessages = False, Linearize = False, TermTheta_deg = 10, StaFreezeList = [],
-                   UNC_seed = None , UNC_enable = 0, reset_INPUT_VEC = None):
+                   UNC_seed = None , UNC_enable = 0, reset_INPUT_VEC = None, GroundHeight_m = 0):
       self.CurrentStep = 0
       self.trimming = 0
 
@@ -501,7 +504,7 @@ class Vahana_VertFlight(gym.Env):
       self.Term = {}
       self.Term['Theta_deg'] = TermTheta_deg
 
-      self.StartUp(PaxIn = PaxIn , reset_INPUT_VEC = reset_INPUT_VEC)
+      self.StartUp(PaxIn = PaxIn , reset_INPUT_VEC = reset_INPUT_VEC , GroundHeight_m = GroundHeight_m)
       
       self.EQM['sta']        = np.zeros(shape=12,dtype = np.float32)
       if W == 'rand':
@@ -527,30 +530,30 @@ class Vahana_VertFlight(gym.Env):
       else:
           self.EQM['sta'][5] = PSI  
 
-      if Z == 'rand':
+      if Altitude_m == 'rand':
           self.EQM['sta'][2] = -np.random.random()*2000
       else:
-          self.EQM['sta'][2]     = -Z
+          self.EQM['sta'][2] = -Altitude_m
           
       
       self.EQM['sta_dot']    = np.zeros(shape=np.shape(self.EQM['sta']),dtype = np.float32)
       self.EQM['sta_dotdot'] = np.zeros(shape=np.shape(self.EQM['sta']),dtype = np.float32)
       self.EQM['sta_int']    = np.zeros(shape=np.shape(self.EQM['sta']),dtype = np.float32)
       
-      TrimData = self.trim(TrimVX_mps = VX_mps, TrimVZ_mps = VZ_mps, TrimTheta_deg = THETA, 
+      TrimData = self.trim(TrimVX_mps = VX_mps, TrimVZ_mps = VZ_mps, TrimTheta_deg = THETA, TrimZ_m = -Altitude_m, 
                            PitchController = 'W2_Elevator', Linearize = Linearize)
 
       # If not trimmed with elevator only, or deflection abobe 10deg, trim with Pitch Throttle
       if (TrimData['Trimmed'] == 0) or (any(abs(TrimData['info']['CONT']['Elevon_deg'])>10)):
         Action_W2_Elevator = np.sign(TrimData['Action'][self.action_names.index('W2_Elevator')]) * 10/(self.CONT['ElevRange_deg'][2]/2)
 
-        TrimData = self.trim(TrimVX_mps = VX_mps, TrimVZ_mps = VZ_mps, TrimTheta_deg = THETA, 
+        TrimData = self.trim(TrimVX_mps = VX_mps, TrimVZ_mps = VZ_mps, TrimTheta_deg = THETA, TrimZ_m = -Altitude_m,
                              PitchController = 'PitchThrottle' , 
                              FixedAction = np.array(['W2_Elevator',Action_W2_Elevator]), Linearize = Linearize)
 
         # If signs of PitchThrottle and Elevator are different, invert elevator  
         if np.sign(TrimData['Action'][self.action_names.index('W2_Elevator')]) == np.sign(TrimData['Action'][self.action_names.index('PitchThrottle')]):
-            TrimData = self.trim(TrimVX_mps = VX_mps, TrimVZ_mps = VZ_mps, TrimTheta_deg = THETA, 
+            TrimData = self.trim(TrimVX_mps = VX_mps, TrimVZ_mps = VZ_mps, TrimTheta_deg = THETA, TrimZ_m = -Altitude_m, 
                                 PitchController = 'PitchThrottle' , 
                                 FixedAction = np.array(['W2_Elevator',-Action_W2_Elevator]), Linearize = Linearize)
 
@@ -566,38 +569,9 @@ class Vahana_VertFlight(gym.Env):
       self.saveinfo()
 
       return obs
-  
-    def init_INP(self, reset_INPUT_VEC = None):
 
-        INPUT_VEC = {}
-
-        INPUT_VEC['FAILURE_MOT_1'] = np.array([0,0])
-        INPUT_VEC['FAILURE_MOT_2'] = np.array([0,0])
-        INPUT_VEC['FAILURE_MOT_3'] = np.array([0,0])
-        INPUT_VEC['FAILURE_MOT_4'] = np.array([0,0])
-        INPUT_VEC['FAILURE_MOT_5'] = np.array([0,0])
-        INPUT_VEC['FAILURE_MOT_6'] = np.array([0,0])
-        INPUT_VEC['FAILURE_MOT_7'] = np.array([0,0])
-        INPUT_VEC['FAILURE_MOT_8'] = np.array([0,0])
-
-        INPUT_VEC['WIND_TowerX_mps'] = np.array([0,0])
-        INPUT_VEC['WIND_TowerY_mps'] = np.array([0,0])
-
-        if reset_INPUT_VEC != None:
-            for k in reset_INPUT_VEC.keys():
-                INPUT_VEC[k] = np.interp( np.arange(0 , max(reset_INPUT_VEC[k][0,:]) , self.t_step) , reset_INPUT_VEC[k][0,:] , reset_INPUT_VEC[k][1,:])
-            
-        return INPUT_VEC
-
-    def INP_fcn(self, INPUT_VEC, CurrentStep = 0):
-
-        INP = {}
-        for k in INPUT_VEC.keys():
-            INP[k] = INPUT_VEC[k][min(len(INPUT_VEC[k])-1 , CurrentStep)]
-
-        return INP
     
-    def trim(self, TrimVX_mps = 0, TrimVZ_mps = 0, TrimTheta_deg = 0, PitchController = 'PitchThrottle',FixedAction = np.array([]), Linearize = False):
+    def trim(self, TrimVX_mps = 0, TrimVZ_mps = 0, TrimTheta_deg = 0, TrimZ_m = 0, PitchController = 'PitchThrottle',FixedAction = np.array([]), Linearize = False):
         TrimData = {}
         TrimData['Trimmed'] = 0
        
@@ -619,15 +593,16 @@ class Vahana_VertFlight(gym.Env):
         def GetOutputFreeze(EQM, CONT, ATM, GetNames = False, DefaultOutputs = True):
             if DefaultOutputs:
                 if GetNames:
-                    return ['VX_mps' , 'VZ_mps', 'Theta_rad', 'TiltDiff_p']
+                    return ['VX_mps' , 'VZ_mps', 'Theta_rad', 'TiltDiff_p', 'Z_m']
                 else:
                     return np.array([EQM['VelLin_EarthAx_mps'][0] ,
                                     EQM['VelLin_EarthAx_mps'][2] , 
                                     EQM['EulerAngles_rad'][1] , 
-                                    CONT['TiltDiff_p'] ])
+                                    CONT['TiltDiff_p'] ,
+                                    EQM['PosLin_EarthAx_m'][2] ])
             else:
                 if GetNames:
-                    return ['VX_mps' , 'VZ_mps', 'Theta_deg', 'Q_degps', 'Nz_mps2','TiltDiff_p', 'Alpha_deg']
+                    return ['VX_mps' , 'VZ_mps', 'Theta_deg', 'Q_degps', 'Nz_mps2','TiltDiff_p', 'Alpha_deg', 'Z_m']
                 else:
                     return np.array([EQM['VelLin_EarthAx_mps'][0] ,
                                     EQM['VelLin_EarthAx_mps'][2] , 
@@ -635,7 +610,8 @@ class Vahana_VertFlight(gym.Env):
                                     np.rad2deg(EQM['VelRot_BodyAx_radps'][1]), 
                                     EQM['LoadFactor_mps2'][2],
                                     CONT['TiltDiff_p'] ,
-                                    ATM['Alpha_deg'] ])
+                                    ATM['Alpha_deg'] , 
+                                    EQM['PosLin_EarthAx_m'][2] ])
                 
         
        # Define function to calculate Hessian
@@ -696,6 +672,7 @@ class Vahana_VertFlight(gym.Env):
         
         TrimState = np.zeros(np.shape(self.EQM['sta_names']))
         TrimState[self.EQM['sta_names'].index('U_mps')] = TrimVX_mps
+        TrimState[self.EQM['sta_names'].index('Z_m')] = TrimZ_m
         
         # Define Freeze and Floats Indexes
         name_ActionFloat = ['Throttle', PitchController, 'W1_Tilt', 'W2_Tilt']
@@ -703,13 +680,13 @@ class Vahana_VertFlight(gym.Env):
         for i in range(len(n_ActionFloat)):
             n_ActionFloat[i] = int(self.action_names.index(name_ActionFloat[i]))
 
-        name_StateFloat = ['Theta_rad', 'U_mps', 'W_mps']
+        name_StateFloat = ['Theta_rad', 'U_mps', 'W_mps', 'Z_m']
         n_StateFloat    = np.zeros(len(name_StateFloat), dtype = int)
         for i in range(len(n_StateFloat)):
             n_StateFloat[i] = self.EQM['sta_names'].index(name_StateFloat[i]) 
  
         name_StateDotFreeze = ['U_mps', 'W_mps', 'Q_radps']
-        n_StateDotFreeze    = np.zeros(len(name_StateFloat), dtype = int)
+        n_StateDotFreeze    = np.zeros(len(name_StateDotFreeze), dtype = int)
         for i in range(len(n_StateDotFreeze)):
             n_StateDotFreeze[i] = self.EQM['sta_names'].index(name_StateDotFreeze[i]) 
 
@@ -723,7 +700,7 @@ class Vahana_VertFlight(gym.Env):
         TrimVarsLim_m[len(n_ActionFloat):] = -np.inf
         
         # Trim Target Vector
-        TrimTarget = np.hstack((np.zeros(len(n_StateDotFreeze)) , np.array([TrimVX_mps, TrimVZ_mps, np.deg2rad(TrimTheta_deg), TrimTiltDiff_p])))
+        TrimTarget = np.hstack((np.zeros(len(n_StateDotFreeze)) , np.array([TrimVX_mps, TrimVZ_mps, np.deg2rad(TrimTheta_deg), TrimTiltDiff_p, TrimZ_m])))
        
         # Perform One Step    
         self.EQM['sta'] = TrimState
@@ -892,6 +869,38 @@ class Vahana_VertFlight(gym.Env):
       else:
           return info
           
+
+    def INP_fcn(self, INPUT_VEC, CurrentStep = 0):
+
+        INP = {}
+        for k in INPUT_VEC.keys():
+            INP[k] = INPUT_VEC[k][min(len(INPUT_VEC[k])-1 , CurrentStep)]
+
+        return INP
+  
+    def init_INP(self, reset_INPUT_VEC = None):
+
+        INPUT_VEC = {}
+
+        INPUT_VEC['FAILURE_MOT_1'] = np.array([0,0])
+        INPUT_VEC['FAILURE_MOT_2'] = np.array([0,0])
+        INPUT_VEC['FAILURE_MOT_3'] = np.array([0,0])
+        INPUT_VEC['FAILURE_MOT_4'] = np.array([0,0])
+        INPUT_VEC['FAILURE_MOT_5'] = np.array([0,0])
+        INPUT_VEC['FAILURE_MOT_6'] = np.array([0,0])
+        INPUT_VEC['FAILURE_MOT_7'] = np.array([0,0])
+        INPUT_VEC['FAILURE_MOT_8'] = np.array([0,0])
+
+        INPUT_VEC['WIND_TowerX_mps'] = np.array([0,0])
+        INPUT_VEC['WIND_TowerY_mps'] = np.array([0,0])
+        INPUT_VEC['GroundHeight_m'] = np.array([0,0])
+
+        if reset_INPUT_VEC != None:
+            for k in reset_INPUT_VEC.keys():
+                INPUT_VEC[k] = np.interp( np.arange(0 , max(reset_INPUT_VEC[k][0,:]) , self.t_step) , reset_INPUT_VEC[k][0,:] , reset_INPUT_VEC[k][1,:])
+            
+        return INPUT_VEC
+
     def init_REW(self):
         self.REW = {}
 
@@ -1024,7 +1033,7 @@ class Vahana_VertFlight(gym.Env):
         return X
 
     # %% SARTUP FUNCTION
-    def StartUp (self,PaxIn , reset_INPUT_VEC = None):
+    def StartUp (self,PaxIn , reset_INPUT_VEC = None , GroundHeight_m = 0):
 
       # INITIALIZE DICTS
       self.UNC  = {}
@@ -1037,7 +1046,7 @@ class Vahana_VertFlight(gym.Env):
       self.CONS = {}
       self.CONT = {}
       self.SENS = {}
-      self.VARS  = {}
+      self.VARS = {}
       
       # DEFINE CONSTANTS
       self.CONS['kt2mps'] = 0.514444
@@ -1658,22 +1667,22 @@ class Vahana_VertFlight(gym.Env):
                      Atmosphere model.
         """
         # CONSTANTS
-        Altitude_m     = -self.EQM['sta'][2]
-        self.ATM['PresAlt_ft'] = Altitude_m / 0.3048
+        self.ATM['Altitude_m'] = -self.EQM['sta'][2]
+        self.ATM['PresAlt_ft'] = self.ATM['Altitude_m'] / 0.3048
         
         # WIND VECTOR
         WindVec_kt = np.array([self.ATM['WindX_kt'],self.ATM['WindY_kt'] ,self.ATM['WindZ_kt'] ])
         WindVec_mps = WindVec_kt * self.CONS['kt2mps']
         # INITIAL CALCULATIIONS
         
-        if Altitude_m < 11000:
-            self.ATM['TStd_C'] = self.ATM['Const']['T0_C'] - 0.0065*Altitude_m
+        if self.ATM['Altitude_m'] < 11000:
+            self.ATM['TStd_C'] = self.ATM['Const']['T0_C'] - 0.0065*self.ATM['Altitude_m'] 
             self.ATM['T_C']    = self.ATM['TStd_C'] + self.ATM['dISA_C']
-            self.ATM['P_Pa']   = self.ATM['Const']['P0_Pa']*(1-0.0065*Altitude_m/self.ATM['Const']['T0_K'])**5.2561
+            self.ATM['P_Pa']   = self.ATM['Const']['P0_Pa']*(1-0.0065*self.ATM['Altitude_m'] /self.ATM['Const']['T0_K'])**5.2561
         else:
             self.ATM['TStd_C'] = -56.5
             self.ATM['T_C']    = self.ATM['TStd_C'] + self.ATM['dISA_C']
-            self.ATM['P_Pa']   = 22632 * np.exp(-self.CONS['g_mps2']/(self.ATM['Const']['R']*216.65)*(Altitude_m-11000))
+            self.ATM['P_Pa']   = 22632 * np.exp(-self.CONS['g_mps2']/(self.ATM['Const']['R']*216.65)*(self.ATM['Altitude_m'] -11000))
         
         self.ATM['rho_kgm3']   = self.ATM['P_Pa'] / (self.ATM['Const']['R']*(self.ATM['T_C'] + self.ATM['Const']['C2K']))
         self.ATM['Vsound_mps'] = np.sqrt(1.4*self.ATM['Const']['R']*(self.ATM['T_C']+self.ATM['Const']['C2K']))
