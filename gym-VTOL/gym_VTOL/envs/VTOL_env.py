@@ -893,6 +893,7 @@ class Vahana_VertFlight(gym.Env):
 
         INPUT_VEC['WIND_TowerX_mps'] = np.array([0,0])
         INPUT_VEC['WIND_TowerY_mps'] = np.array([0,0])
+        INPUT_VEC['WIND_TurbON']     = np.array([0,0])
         INPUT_VEC['GroundHeight_m'] = np.array([0,0])
 
         if reset_INPUT_VEC != None:
@@ -1178,7 +1179,13 @@ class Vahana_VertFlight(gym.Env):
       self.ATM['Const']['T0_K']        = self.ATM['Const']['T0_C'] + self.ATM['Const']['C2K']
       self.ATM['Const']['rho0_kgm3']   = 1.225
       self.ATM['Const']['Vsound0_mps'] = np.sqrt(1.4*self.ATM['Const']['R']*(self.ATM['Const']['T0_K']))
-        
+
+      self.ATM['Turb'] = {}
+      self.ATM['Turb']['rdm_u'] = np.random.default_rng(1)
+      self.ATM['Turb']['rdm_v'] = np.random.default_rng(2)
+      self.ATM['Turb']['rdm_w'] = np.random.default_rng(3)
+      self.ATM['Turb']['y']     = 0
+
     def init_GEOM (self):
       # GEOM
       self.GEOM['Wing1']          = {}
@@ -1671,11 +1678,10 @@ class Vahana_VertFlight(gym.Env):
         self.ATM['Altitude_m'] = -self.EQM['sta'][2]
         self.ATM['HAGL_m'] = self.ATM['Altitude_m'] - self.INP['GroundHeight_m']
         self.ATM['PresAlt_ft'] = self.ATM['Altitude_m'] / 0.3048
-        
-        # TOWER WIND
+        self.ATM['HAGL_ft'] = self.ATM['HAGL_m'] * self.CONS['m2ft']
+        # TOWER WIND - MIL-F-8785C / p.51
         TotalTowerWind_mps = np.sqrt(self.INP['WIND_TowerX_mps']**2 + self.INP['WIND_TowerY_mps']**2)
         
-        # MIL-F-8785C / p.51
         Z0 = 2.0 # considering 'other flight phase'
         
         if TotalTowerWind_mps > 0:
@@ -1685,12 +1691,66 @@ class Vahana_VertFlight(gym.Env):
         else:
             self.ATM['TowerWindLocalX_mps'] = 0
             self.ATM['TowerWindLocalY_mps'] = 0
-       
+        
+        # TURBULENCE
+        if self.trimming or (self.INP['WIND_TurbON'] < 0.5):
+            self.ATM['TurbBody_mps'] = np.zeros(3)
+
+        else:
+            HAGL_limited_ft = max(10,min(1000,self.ATM['HAGL_ft']))
+
+            # Calculate Turbulence Length Scales
+            Lu = HAGL_limited_ft / ((0.177 + 0.000823 * HAGL_limited_ft)**1.2)
+            Lv = Lu
+            Lw = HAGL_limited_ft
+
+            # Calculate standard deviations of u,v,w
+            sigma_w_mps = TotalTowerWind_mps * 0.1
+            sigma_u_mps = sigma_w_mps / ((0.177 + 0.000823*HAGL_limited_ft)**0.4)
+            sigma_v_mps = sigma_u_mps
+
+            # Space Step
+            Dx = max(1,self.ATM['TAS_mps']) * self.t_step
+
+            # Aux Pars
+            Ru = Dx / (2*Lu)
+            Au = (1-Ru)/(1+Ru)
+            Bu = Ru / (1+Ru)
+
+            Rv = Dx / (2*Lv)
+            Av = (1-Rv)/(1+Rv)
+            Bv = Rv / (1+Rv)
+
+            Rw = Dx / (2*Lw)
+            Aw = (1-Rw)/(1+Rw)
+            Bw = Rw / (1+Rw)
+            Cw = 3**0.5 / (1+Rw)
+
+            # unfiltered Std Deviation
+            sigma_wn_u_mps = sigma_u_mps *(2*Lu / Dx)**0.5
+            sigma_wn_v_mps = sigma_v_mps *(2*Lv / Dx)**0.5
+            sigma_wn_w_mps = sigma_w_mps *(Lw / Dx)**0.5
+
+            # Get rando functions
+            xu_mps = self.ATM['Turb']['rdm_u'].normal(0,sigma_wn_u_mps)
+            xv_mps = self.ATM['Turb']['rdm_v'].normal(0,sigma_wn_v_mps)
+            xw_mps = self.ATM['Turb']['rdm_w'].normal(0,sigma_wn_w_mps)
+
+            # Calculate Turbulences by filtering
+            last_Turb_mps = self.ATM['TurbBody_mps'][:]
+            self.ATM['TurbBody_mps'][0] = (Au*last_Turb_mps[0] + 2*Bu*xu_mps)
+            self.ATM['TurbBody_mps'][1] = Au * last_Turb_mps[1] + 2*Bv * xv_mps
+            last_y = self.ATM['Turb']['y']
+            self.ATM['Turb']['y'] = Aw * last_y + 2*Bw * xw_mps
+            self.ATM['TurbBody_mps'][2] = Aw * last_Turb_mps[2]  + Bw * (self.ATM['Turb']['y'] + last_y) + Cw * (self.ATM['Turb']['y'] - last_y)    
+
+        self.ATM['TurbEarth_mps'] = np.dot(self.EQM['LB2E'] , self.ATM['TurbBody_mps'])
         # WIND VECTOR
-        WindVec_kt = np.array([self.ATM['WindX_kt'] + self.ATM['TowerWindLocalX_mps']*self.CONS['mps2kt'],
-                               self.ATM['WindY_kt'] + self.ATM['TowerWindLocalY_mps']*self.CONS['mps2kt'],
-                               self.ATM['WindZ_kt'] ])
+        WindVec_kt = np.array([self.ATM['WindX_kt'] + self.ATM['TowerWindLocalX_mps']*self.CONS['mps2kt'] + self.ATM['TurbEarth_mps'][0]*self.CONS['mps2kt'],
+                               self.ATM['WindY_kt'] + self.ATM['TowerWindLocalY_mps']*self.CONS['mps2kt'] + self.ATM['TurbEarth_mps'][1]*self.CONS['mps2kt'],
+                               self.ATM['WindZ_kt']                                                       + self.ATM['TurbEarth_mps'][2]*self.CONS['mps2kt']])
         self.ATM['WindVec_mps'] = WindVec_kt * self.CONS['kt2mps']
+
         # INITIAL CALCULATIIONS
         
         if self.ATM['Altitude_m'] < 11000:

@@ -23,6 +23,7 @@ reset_INPUT_VEC = {}
 reset_INPUT_VEC['FAILURE_MOT_5'] = np.array([[0, 20, 20.01, 40] , [0, 0, 0, 0]])
 reset_INPUT_VEC['WIND_TowerX_mps'] = np.array([[0, 20, 40] , [10, 10, 10]])
 # reset_INPUT_VEC['WIND_TowerY_mps'] = np.array([[0, 20, 40] , [10, 10, 10]])
+reset_INPUT_VEC['WIND_TurbON'] = np.array([[0, 40] , [0, 0]])
 obs = TestEnv.reset(VX_mps = 0, VZ_mps = 0.0, THETA = 0.0, DispMessages = False, 
                     TermTheta_deg = 45, StaFreezeList = [] , UNC_seed = None , UNC_enable = 0,
                     reset_INPUT_VEC = reset_INPUT_VEC)
