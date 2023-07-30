@@ -75,6 +75,11 @@ def SaveSelection(SaveVec,info):
     SaveVec = AppendValue(SaveVec,'Beta_deg',info['ATM']['Beta_deg'])
     SaveVec = AppendValue(SaveVec,'DynPres_Pa',info['ATM']['DynPres_Pa'])
     SaveVec = AppendValue(SaveVec,'CAS_mps',info['ATM']['CAS_mps'])
+    SaveVec = AppendValue(SaveVec,'TowerWindLocalX_mps',info['ATM']['TowerWindLocalX_mps'])
+    SaveVec = AppendValue(SaveVec,'TowerWindLocalY_mps',info['ATM']['TowerWindLocalY_mps'])
+    SaveVec = AppendValue(SaveVec,'WindX_mps',info['ATM']['WindVec_mps'][0])
+    SaveVec = AppendValue(SaveVec,'WindY_mps',info['ATM']['WindVec_mps'][1])
+    SaveVec = AppendValue(SaveVec,'WindZ_mps',info['ATM']['WindVec_mps'][2])
 
     SaveVec = AppendValue(SaveVec,'W1_Alpha_deg',info['AERO']['Wing1']['Alpha_deg'])
     SaveVec = AppendValue(SaveVec,'W2_Alpha_deg',info['AERO']['Wing2']['Alpha_deg'])

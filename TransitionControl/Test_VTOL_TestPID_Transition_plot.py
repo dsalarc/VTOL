@@ -26,6 +26,10 @@ plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
 plt.grid('on')
 plt.xlim([PlotTime1,PlotTime2])
 plt.plot(TimeVec,SaveVec['Altitude_m'],'k', linewidth = linewidth, label='Altitude [m]')
+try:
+    plt.plot(Ref['Z_m'][0,:],-Ref['Z_m'][1,:],'r:', linewidth = linewidth, label = 'Alt ref')
+except:
+    pass
 plt.legend(loc='best')
 plt.ylabel('Altitude [m]')
 plt.xlabel('Time [s]')
@@ -156,15 +160,24 @@ plt.xlabel('Time [s]')
 # plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
 # plt.xlabel('Time [s]')
 
+# plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
+# plt.grid('on')
+# plt.xlim([PlotTime1,PlotTime2])
+# plt.plot(TimeVec,SaveVec['Thrust1_N'],'k', linewidth = linewidth, label='Front')
+# plt.plot(TimeVec,SaveVec['Thrust5_N'],'k--', linewidth = linewidth, label='Back')
+# plt.ylabel('Thrust [N]')
+# plt.legend(loc='best')
+# plt.xlabel('Time [s]')
+# plt.ylim([0,3000])
+
 plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
 plt.grid('on')
 plt.xlim([PlotTime1,PlotTime2])
-plt.plot(TimeVec,SaveVec['Thrust1_N'],'k', linewidth = linewidth, label='Front')
-plt.plot(TimeVec,SaveVec['Thrust5_N'],'k--', linewidth = linewidth, label='Back')
-plt.ylabel('Thrust [N]')
+plt.plot(TimeVec,SaveVec['WindX_mps'],'k', linewidth = linewidth, label='X')
+plt.plot(TimeVec,SaveVec['WindY_mps'],'k--', linewidth = linewidth, label='Y')
+plt.ylabel('Local Wind [m/s]')
 plt.legend(loc='best')
 plt.xlabel('Time [s]')
-plt.ylim([0,3000])
 
 # plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
 # plt.grid('on')

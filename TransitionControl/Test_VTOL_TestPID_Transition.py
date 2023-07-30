@@ -21,6 +21,8 @@ for env in env_dict:
 TestEnv = gym.make('gym_VTOL:Vahana_VertFlight-v0')     
 reset_INPUT_VEC = {}
 reset_INPUT_VEC['FAILURE_MOT_5'] = np.array([[0, 20, 20.01, 40] , [0, 0, 0, 0]])
+reset_INPUT_VEC['WIND_TowerX_mps'] = np.array([[0, 20, 40] , [10, 10, 10]])
+# reset_INPUT_VEC['WIND_TowerY_mps'] = np.array([[0, 20, 40] , [10, 10, 10]])
 obs = TestEnv.reset(VX_mps = 0, VZ_mps = 0.0, THETA = 0.0, DispMessages = False, 
                     TermTheta_deg = 45, StaFreezeList = [] , UNC_seed = None , UNC_enable = 0,
                     reset_INPUT_VEC = reset_INPUT_VEC)
@@ -45,7 +47,9 @@ Ref = {}
 Ref['VZ_mps'] = np.array([[0 , SimTime ],
                           [0 ,  0      ]])
 Ref['VX_mps'] = np.array([[0 , 5 , 45, SimTime ],
-                          [0 , 0 , 60 , 60    ]])
+                          [0 , 0 , 60*0 , 60    ]])
+Ref['Z_m'] = np.array([[0    , 5 , 45, SimTime ],
+                       [-100 , -100 , -100 , -100    ]])
 
 Ref['Theta_deg'] = np.array([[0 , 5, 5.01, 1000  ],
                              [0 , 0, 0   , 0     ]])
@@ -124,7 +128,7 @@ class GenThrottleController:
         VX_tgt_mps = np.interp(t,Gains['Target_VX_mps'][0,:],Gains['Target_VX_mps'][1,:])
         FF_Cmd_u = np.interp(VX_tgt_mps,Gains['Throttle_Trim_u'][0,:],Gains['Throttle_Trim_u'][1,:])
         
-        Z_ref_m   = -100
+        Z_ref_m   = np.interp(t,Ref['Z_m'][0,:],Ref['Z_m'][1,:])
         Z_error_m = Z_ref_m - obs[2]
         
         VZ_ref_mps   = np.interp(t,Ref['VZ_mps'][0,:],Ref['VZ_mps'][1,:])
@@ -209,13 +213,13 @@ for step in range(n_steps):
     W1_TiltCmd_deg , W2_TiltCmd_deg  = TiltController(Gains,CurrentTime_s)
     PitchThrottle_u , W2_ElevCmd_u = PitchController.CalcCmd(Ref, OutPitchCmd_u, obs, CurrentTime_s)
     
-    u_Vert [step+1]  = ThrottleController.CalcCmd(Ref, obs, CurrentTime_s)
+    # u_Vert [step+1]  = ThrottleController.CalcCmd(Ref, obs, CurrentTime_s)
     
-    u_Tilt1 [step+1] = 2 * (W1_TiltCmd_deg - TestEnv.CONT['MinTilt_deg'][0]) / TestEnv.CONT['TiltRange_deg'][0] - 1
-    u_Tilt2 [step+1] = 2 * (W2_TiltCmd_deg - TestEnv.CONT['MinTilt_deg'][1]) / TestEnv.CONT['TiltRange_deg'][1] - 1
+    # u_Tilt1 [step+1] = 2 * (W1_TiltCmd_deg - TestEnv.CONT['MinTilt_deg'][0]) / TestEnv.CONT['TiltRange_deg'][0] - 1
+    # u_Tilt2 [step+1] = 2 * (W2_TiltCmd_deg - TestEnv.CONT['MinTilt_deg'][1]) / TestEnv.CONT['TiltRange_deg'][1] - 1
 
-    u_Pitch [step+1] = PitchThrottle_u
-    u_Elev2 [step+1] = W2_ElevCmd_u
+    # u_Pitch [step+1] = PitchThrottle_u
+    # u_Elev2 [step+1] = W2_ElevCmd_u
 
 
 # % CALL PLOT FILE

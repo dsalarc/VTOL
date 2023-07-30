@@ -1051,6 +1051,7 @@ class Vahana_VertFlight(gym.Env):
       # DEFINE CONSTANTS
       self.CONS['kt2mps'] = 0.514444
       self.CONS['mps2kt'] = 1 / self.CONS['kt2mps']     
+      self.CONS['m2ft']   = 3.28084
       self.CONS['g_mps2'] = 9.806
        
       self.init_UNC()
@@ -1668,11 +1669,28 @@ class Vahana_VertFlight(gym.Env):
         """
         # CONSTANTS
         self.ATM['Altitude_m'] = -self.EQM['sta'][2]
+        self.ATM['HAGL_m'] = self.ATM['Altitude_m'] - self.INP['GroundHeight_m']
         self.ATM['PresAlt_ft'] = self.ATM['Altitude_m'] / 0.3048
         
+        # TOWER WIND
+        TotalTowerWind_mps = np.sqrt(self.INP['WIND_TowerX_mps']**2 + self.INP['WIND_TowerY_mps']**2)
+        
+        # MIL-F-8785C / p.51
+        Z0 = 2.0 # considering 'other flight phase'
+        
+        if TotalTowerWind_mps > 0:
+            TotalLocalWind_mps = TotalTowerWind_mps * np.log(self.ATM['HAGL_m']*self.CONS['m2ft'] / Z0) / np.log(20*self.CONS['m2ft']/ Z0) 
+            self.ATM['TowerWindLocalX_mps'] = TotalLocalWind_mps / TotalTowerWind_mps * self.INP['WIND_TowerX_mps']
+            self.ATM['TowerWindLocalY_mps'] = TotalLocalWind_mps / TotalTowerWind_mps * self.INP['WIND_TowerY_mps']
+        else:
+            self.ATM['TowerWindLocalX_mps'] = 0
+            self.ATM['TowerWindLocalY_mps'] = 0
+       
         # WIND VECTOR
-        WindVec_kt = np.array([self.ATM['WindX_kt'],self.ATM['WindY_kt'] ,self.ATM['WindZ_kt'] ])
-        WindVec_mps = WindVec_kt * self.CONS['kt2mps']
+        WindVec_kt = np.array([self.ATM['WindX_kt'] + self.ATM['TowerWindLocalX_mps']*self.CONS['mps2kt'],
+                               self.ATM['WindY_kt'] + self.ATM['TowerWindLocalY_mps']*self.CONS['mps2kt'],
+                               self.ATM['WindZ_kt'] ])
+        self.ATM['WindVec_mps'] = WindVec_kt * self.CONS['kt2mps']
         # INITIAL CALCULATIIONS
         
         if self.ATM['Altitude_m'] < 11000:
@@ -1688,7 +1706,7 @@ class Vahana_VertFlight(gym.Env):
         self.ATM['Vsound_mps'] = np.sqrt(1.4*self.ATM['Const']['R']*(self.ATM['T_C']+self.ATM['Const']['C2K']))
         self.ATM['TAS2EAS']    = np.sqrt(self.ATM['rho_kgm3']/self.ATM['Const']['rho0_kgm3'])
                     
-        self.ATM['Vaero']      = np.dot(self.EQM['LE2B'] , WindVec_mps) + self.EQM['VelLin_BodyAx_mps']
+        self.ATM['Vaero']      = np.dot(self.EQM['LE2B'] , self.ATM['WindVec_mps']) + self.EQM['VelLin_BodyAx_mps']
         self.ATM['TAS_mps']    = np.linalg.norm(self.ATM['Vaero'])
 
         self.ATM['EAS_mps']    = self.ATM['TAS_mps'] * self.ATM['TAS2EAS']
