@@ -412,67 +412,6 @@ class Vahana_VertFlight(gym.Env):
                                             high=self.MaxState,
                                             dtype=np.float16)  
 
-    
-    def saveinfo(self):
-      info = {}          
-      info['ATM']  = self.ATM
-      info['EQM']  = self.EQM
-      info['MOT']  = self.MOT
-      info['AERO'] = self.AERO
-      info['CONT'] = self.CONT
-      info['SENS'] = self.SENS
-      info['MASS'] = self.MASS
-      info['REW']  = self.LastReward
-      info['Action'] = self.action
-      self.info = info
-
-      return info
-      
-    def OutputObs(self,sta,sta_dot,sta_int,cont):
-        # obs = np.hstack((sta,sta_dot,cont))
-        # Observation Space    = [Vx , dVx, Vy , dVy , Vz , dVz , Phi      , p        , Theta    , q        , Psi      , r        ]
-        if self.UseLateralActions:
-            if self.OPT['UseSensors']:
-                obs_vec       = np.array([self.SENS['VX_mps']   , self.SENS['NX_mps2']  , 
-                                          self.SENS['VY_mps']   , self.SENS['NY_mps2']  , 
-                                          self.SENS['Z_m']      ,
-                                          self.SENS['VZ_mps']   , self.SENS['NZ_mps2']  , 
-                                          self.SENS['Phi_rad']  , self.SENS['P_radps']  , 
-                                          self.SENS['Theta_rad'], self.SENS['Q_radps']  , 
-                                          self.SENS['Psi_rad']  , self.SENS['R_radps']  , 
-                                          self.SENS['CAS_mps']])
-            else:
-                obs_vec       = np.array([self.EQM['VelLin_EarthAx_mps'][0] , self.EQM['LoadFactor_mps2'][0] , 
-                                          self.EQM['VelLin_EarthAx_mps'][1] , self.EQM['LoadFactor_mps2'][1] , 
-                                          self.EQM['PosLin_EarthAx_m'][2]   ,
-                                          self.EQM['VelLin_EarthAx_mps'][2] , self.EQM['LoadFactor_mps2'][2] , 
-                                          self.EQM['EulerAngles_rad'][0]    , self.EQM['VelRot_BodyAx_radps'][0] , 
-                                          self.EQM['EulerAngles_rad'][1]    , self.EQM['VelRot_BodyAx_radps'][1] , 
-                                          self.EQM['EulerAngles_rad'][2]    , self.EQM['VelRot_BodyAx_radps'][2] , 
-                                          self.ATM['CAS_mps']])
-
-        else:
-            if self.OPT['UseSensors']:
-                obs_vec       = np.array([self.SENS['VX_mps']    , self.SENS['NX_mps2'], 
-                                          self.SENS['Z_m']       ,
-                                          self.SENS['VZ_mps']    , self.SENS['NZ_mps2'], 
-                                          self.SENS['Theta_rad'] , self.SENS['Q_radps'],
-                                          self.SENS['CAS_mps']])
-            else:
-                obs_vec       = np.array([self.EQM['VelLin_EarthAx_mps'][0] , self.EQM['LoadFactor_mps2'][0] , 
-                                          self.EQM['PosLin_EarthAx_m'][2]   ,
-                                          self.EQM['VelLin_EarthAx_mps'][2] , self.EQM['LoadFactor_mps2'][2] , 
-                                          self.EQM['EulerAngles_rad'][1]    , self.EQM['VelRot_BodyAx_radps'][1] , 
-                                          self.ATM['CAS_mps']])
-           
-        obs_adm = obs_vec / self.adm_vec
-        
-        obs_sat = np.min( np.vstack((obs_adm,np.ones(len(obs_vec)) )) , axis=0)
-        obs     = np.max( np.vstack((obs_sat,-np.ones(len(obs_vec)))) , axis=0)
-
-        # obs = np.array([sta[8],sta_dot[8]])
-        return obs
-
     ############################################
     ############## RESET FUNCTION ##############
     ############################################
@@ -484,19 +423,21 @@ class Vahana_VertFlight(gym.Env):
 
       # OPTIONS
       self.OPT  = {}
-      self.OPT['UseAeroMoment'] = 1
-      self.OPT['UseAeroForce']  = 1
-      self.OPT['UsePropMoment'] = 1
-      self.OPT['UsePropForce']  = 1
-      self.OPT['UseSensors']    = 1
-      self.OPT['Enable_P']      = 1
-      self.OPT['Enable_Q']      = 1
-      self.OPT['Enable_R']      = 1
-      self.OPT['Enable_U']      = 1
-      self.OPT['Enable_V']      = 1
-      self.OPT['Enable_W']      = 1
-      self.OPT['DispMessages']  = DispMessages
-      self.OPT['StaFreezeList'] = StaFreezeList
+      self.OPT['UseAeroMoment']    = 1
+      self.OPT['UseAeroForce']     = 1
+      self.OPT['UsePropMoment']    = 1
+      self.OPT['UsePropForce']     = 1
+      self.OPT['UseSensors']       = 1
+      self.OPT['UseActuator']      = 1
+      self.OPT['Aero_useWingData'] = 1
+      self.OPT['Enable_P']         = 1
+      self.OPT['Enable_Q']         = 1
+      self.OPT['Enable_R']         = 1
+      self.OPT['Enable_U']         = 1
+      self.OPT['Enable_V']         = 1
+      self.OPT['Enable_W']         = 1
+      self.OPT['DispMessages']     = DispMessages
+      self.OPT['StaFreezeList']    = StaFreezeList
       self.OPT['UNC_seed'] = UNC_seed
       self.OPT['UNC_enable'] = UNC_enable
 
@@ -562,7 +503,7 @@ class Vahana_VertFlight(gym.Env):
       
       self.AllStates = self.EQM['sta']
       
-      self.LastReward = self.CalcReward()
+      self.LastReward = self.REW_fcn()
 
       obs = self.OutputObs(self.EQM['sta'],self.EQM['sta_dot'],self.EQM['sta_int'],self.CONT['Throttle_p'])
       
@@ -570,6 +511,38 @@ class Vahana_VertFlight(gym.Env):
 
       return obs
 
+   # %% SARTUP FUNCTION
+    def StartUp (self,PaxIn , reset_INPUT_VEC = None , GroundHeight_m = 0):
+
+      # INITIALIZE DICTS
+      self.UNC  = {}
+      self.EQM  = {}
+      self.GEOM = {}
+      self.ATM  = {}
+      self.MASS = {}
+      self.MOT  = {}
+      self.AERO = {}
+      self.CONS = {}
+      self.CONT = {}
+      self.SENS = {}
+      self.VARS = {}
+      
+      # DEFINE CONSTANTS
+      self.CONS['kt2mps'] = 0.514444
+      self.CONS['mps2kt'] = 1 / self.CONS['kt2mps']     
+      self.CONS['m2ft']   = 3.28084
+      self.CONS['g_mps2'] = 9.806
+       
+      self.init_UNC()
+      self.init_ATM()  
+      self.init_GEOM()  
+      self.init_MASS(PaxIn = PaxIn)  
+      self.init_AERO()
+      self.init_MOT()
+      self.init_REW()
+      self.init_CONT()
+      self.init_SENS()
+      self.VARS['INP'] = self.init_INP(reset_INPUT_VEC = reset_INPUT_VEC)
     
     def trim(self, TrimVX_mps = 0, TrimVZ_mps = 0, TrimTheta_deg = 0, TrimZ_m = 0, PitchController = 'PitchThrottle',FixedAction = np.array([]), Linearize = False):
         TrimData = {}
@@ -849,7 +822,7 @@ class Vahana_VertFlight(gym.Env):
 
       # Calculate Reward
       if not(self.trimming):
-          self.LastReward = self.CalcReward()
+          self.LastReward = self.REW_fcn()
       else:
           self.LastReward = 0
       
@@ -868,16 +841,90 @@ class Vahana_VertFlight(gym.Env):
           return obs, self.LastReward, done, info
       else:
           return info
-          
+           
+    def render(self, mode='console', close=False):
+        
+        # Render the environment to the screen       
+        plt.figure(1)
+        plt.clf()
+        plt.grid('on')
 
-    def INP_fcn(self, INPUT_VEC, CurrentStep = 0):
+        if self.CurrentStep > 0:
+            plt.plot(self.AllStates[:,2],self.AllStates[:,8],'tab:gray')
+            plt.plot(self.AllStates[-1,2],self.AllStates[-1,8],'or')
+        else:
+            plt.plot(self.AllStates[2],self.AllStates[8],'ob')
+        plt.xlabel('Position Z [m]')
+        plt.ylabel('Velocity W [m/s]')
+        plt.show()
+        
+    def close(self):
+        pass  
 
-        INP = {}
-        for k in INPUT_VEC.keys():
-            INP[k] = INPUT_VEC[k][min(len(INPUT_VEC[k])-1 , CurrentStep)]
+    def OutputObs(self,sta,sta_dot,sta_int,cont):
+        # obs = np.hstack((sta,sta_dot,cont))
+        # Observation Space    = [Vx , dVx, Vy , dVy , Vz , dVz , Phi      , p        , Theta    , q        , Psi      , r        ]
+        if self.UseLateralActions:
+            if self.OPT['UseSensors']:
+                obs_vec       = np.array([self.SENS['VX_mps']   , self.SENS['NX_mps2']  , 
+                                          self.SENS['VY_mps']   , self.SENS['NY_mps2']  , 
+                                          self.SENS['Z_m']      ,
+                                          self.SENS['VZ_mps']   , self.SENS['NZ_mps2']  , 
+                                          self.SENS['Phi_rad']  , self.SENS['P_radps']  , 
+                                          self.SENS['Theta_rad'], self.SENS['Q_radps']  , 
+                                          self.SENS['Psi_rad']  , self.SENS['R_radps']  , 
+                                          self.SENS['CAS_mps']])
+            else:
+                obs_vec       = np.array([self.EQM['VelLin_EarthAx_mps'][0] , self.EQM['LoadFactor_mps2'][0] , 
+                                          self.EQM['VelLin_EarthAx_mps'][1] , self.EQM['LoadFactor_mps2'][1] , 
+                                          self.EQM['PosLin_EarthAx_m'][2]   ,
+                                          self.EQM['VelLin_EarthAx_mps'][2] , self.EQM['LoadFactor_mps2'][2] , 
+                                          self.EQM['EulerAngles_rad'][0]    , self.EQM['VelRot_BodyAx_radps'][0] , 
+                                          self.EQM['EulerAngles_rad'][1]    , self.EQM['VelRot_BodyAx_radps'][1] , 
+                                          self.EQM['EulerAngles_rad'][2]    , self.EQM['VelRot_BodyAx_radps'][2] , 
+                                          self.ATM['CAS_mps']])
 
-        return INP
-  
+        else:
+            if self.OPT['UseSensors']:
+                obs_vec       = np.array([self.SENS['VX_mps']    , self.SENS['NX_mps2'], 
+                                          self.SENS['Z_m']       ,
+                                          self.SENS['VZ_mps']    , self.SENS['NZ_mps2'], 
+                                          self.SENS['Theta_rad'] , self.SENS['Q_radps'],
+                                          self.SENS['CAS_mps']])
+            else:
+                obs_vec       = np.array([self.EQM['VelLin_EarthAx_mps'][0] , self.EQM['LoadFactor_mps2'][0] , 
+                                          self.EQM['PosLin_EarthAx_m'][2]   ,
+                                          self.EQM['VelLin_EarthAx_mps'][2] , self.EQM['LoadFactor_mps2'][2] , 
+                                          self.EQM['EulerAngles_rad'][1]    , self.EQM['VelRot_BodyAx_radps'][1] , 
+                                          self.ATM['CAS_mps']])
+           
+        obs_adm = obs_vec / self.adm_vec
+        
+        obs_sat = np.min( np.vstack((obs_adm,np.ones(len(obs_vec)) )) , axis=0)
+        obs     = np.max( np.vstack((obs_sat,-np.ones(len(obs_vec)))) , axis=0)
+
+        # obs = np.array([sta[8],sta_dot[8]])
+        return obs
+
+    def saveinfo(self):
+      info = {}          
+      info['ATM']  = self.ATM
+      info['EQM']  = self.EQM
+      info['MOT']  = self.MOT
+      info['AERO'] = self.AERO
+      info['CONT'] = self.CONT
+      info['SENS'] = self.SENS
+      info['MASS'] = self.MASS
+      info['REW']  = self.LastReward
+      info['Action'] = self.action
+      self.info = info
+
+      return info
+
+    ############################################
+    ############## INIT FUNCTIONS ##############
+    ############################################
+
     def init_INP(self, reset_INPUT_VEC = None):
 
         INPUT_VEC = {}
@@ -961,111 +1008,6 @@ class Vahana_VertFlight(gym.Env):
 
         self.REW['DeadZone']['Slope'] = 0.01
 
-    def CalcReward(self):
-
-        self.REW['Value'] = {}
-        self.REW['Value']['Vx']        = self.EQM['VelLin_EarthAx_mps'][0]
-        self.REW['Value']['Vz']        = self.EQM['VelLin_EarthAx_mps'][2]
-        self.REW['Value']['Z']         = self.EQM['PosLin_EarthAx_m'][2]
-        self.REW['Value']['Theta']     = np.rad2deg(self.EQM['EulerAngles_rad'][1])
-        self.REW['Value']['Q']         = np.rad2deg(self.EQM['VelRot_BodyAx_radps'][1])
-        self.REW['Value']['Alpha_W1']  = self.AERO['Wing1']['Alpha_deg']
-        self.REW['Value']['Alpha_W2']  = self.AERO['Wing2']['Alpha_deg']
-
-        Reward = 0
-
-        for kk in self.REW['Target'].keys():
-            Delta2Target = self.REW['Value'][kk] - self.REW['Target'][kk]
-            abs_Delta2Target = np.abs(Delta2Target)
-            
-            if abs_Delta2Target < self.REW['DeadZone'][kk]:
-                AuxReward = 1 - self.REW['DeadZone']['Slope']  / self.REW['DeadZone'][kk] * abs_Delta2Target
-            elif (Delta2Target < -self.REW['Adm_n'][kk]) or (Delta2Target > self.REW['Adm_p'][kk]):
-                AuxReward = 0
-            elif self.REW['Value'][kk] < np.abs(self.REW['Target'][kk]):
-                AuxReward = np.max((0 , (1 - self.REW['DeadZone']['Slope']) * 
-                                    ((self.REW['Adm_n'][kk] - abs_Delta2Target) / 
-                                    (self.REW['Adm_n'][kk] - self.REW['DeadZone'][kk]))**self.REW['Order'][kk] ))
-            else:
-                AuxReward = np.max((0 , (1 - self.REW['DeadZone']['Slope']) * 
-                                    ((self.REW['Adm_p'][kk] - abs_Delta2Target) / 
-                                    (self.REW['Adm_p'][kk] - self.REW['DeadZone'][kk]))**self.REW['Order'][kk] ))
-            Reward += AuxReward * self.REW['Weight'][kk]
-
-        return Reward    
-    
-
-     
-      
-    def render(self, mode='console', close=False):
-        
-        # Render the environment to the screen       
-        plt.figure(1)
-        plt.clf()
-        plt.grid('on')
-
-        if self.CurrentStep > 0:
-            plt.plot(self.AllStates[:,2],self.AllStates[:,8],'tab:gray')
-            plt.plot(self.AllStates[-1,2],self.AllStates[-1,8],'or')
-        else:
-            plt.plot(self.AllStates[2],self.AllStates[8],'ob')
-        plt.xlabel('Position Z [m]')
-        plt.ylabel('Velocity W [m/s]')
-        plt.show()
-        
-    def close(self):
-        pass
-    
-    
-    # %% EULER INTEGRATOR
-    def Euler_2nd(self,X,Xdot,Xdotdot,t_step):
-
-        FreezeOff = np.ones(len(self.EQM['sta_names']))
-
-        for i in range(len(self.OPT['StaFreezeList'])):
-            FreezeOff[self.EQM['sta_names'].index(self.OPT['StaFreezeList'][i])] = 0
-
-        X = X + np.multiply(FreezeOff , (Xdot*t_step + (Xdotdot*t_step**2)/2))
-        return X
-    
-    def Euler_1st(self,X,Xdot,t_step):
-        
-        X = X + Xdot*t_step
-        return X
-
-    # %% SARTUP FUNCTION
-    def StartUp (self,PaxIn , reset_INPUT_VEC = None , GroundHeight_m = 0):
-
-      # INITIALIZE DICTS
-      self.UNC  = {}
-      self.EQM  = {}
-      self.GEOM = {}
-      self.ATM  = {}
-      self.MASS = {}
-      self.MOT  = {}
-      self.AERO = {}
-      self.CONS = {}
-      self.CONT = {}
-      self.SENS = {}
-      self.VARS = {}
-      
-      # DEFINE CONSTANTS
-      self.CONS['kt2mps'] = 0.514444
-      self.CONS['mps2kt'] = 1 / self.CONS['kt2mps']     
-      self.CONS['m2ft']   = 3.28084
-      self.CONS['g_mps2'] = 9.806
-       
-      self.init_UNC()
-      self.init_ATM()  
-      self.init_GEOM()  
-      self.init_MASS(PaxIn = PaxIn)  
-      self.init_AERO()
-      self.init_MOT()
-      self.init_REW()
-      self.init_CONT()
-      self.init_SENS()
-      self.VARS['INP'] = self.init_INP(reset_INPUT_VEC = reset_INPUT_VEC)
-      
     def init_UNC (self):
       # 1) define the Std Deviation of the deviations and uncertanties
       
@@ -1088,7 +1030,7 @@ class Vahana_VertFlight(gym.Env):
        self.UNC['StdDev']['MASS'] = {}
        self.UNC['StdDev']['MASS']['Gain'] = {}
        self.UNC['StdDev']['MASS']['Bias'] = {}
-       self.UNC['StdDev']['MASS']['Bias']['CGX_cma'] = 0.01
+       self.UNC['StdDev']['MASS']['Bias']['CGX_cma'] = 0.02
        self.UNC['StdDev']['MASS']['Gain']['Weight'] = 0.05
       
        self.UNC['StdDev']['MOT'] = {}
@@ -1119,9 +1061,9 @@ class Vahana_VertFlight(gym.Env):
        self.UNC['StdDev']['SENS']['Gain']['IMU_P']     = 0.03
        self.UNC['StdDev']['SENS']['Gain']['IMU_Q']     = 0.03
        self.UNC['StdDev']['SENS']['Gain']['IMU_R']     = 0.03
-       self.UNC['StdDev']['SENS']['Bias']['IMU_P']     = 0.01
-       self.UNC['StdDev']['SENS']['Bias']['IMU_Q']     = 0.01
-       self.UNC['StdDev']['SENS']['Bias']['IMU_R']     = 0.01
+       self.UNC['StdDev']['SENS']['Bias']['IMU_P']     = 0.01 * 0
+       self.UNC['StdDev']['SENS']['Bias']['IMU_Q']     = 0.01 * 0
+       self.UNC['StdDev']['SENS']['Bias']['IMU_R']     = 0.01 * 0
        self.UNC['StdDev']['SENS']['Gain']['IMU_Phi']   = 0.03
        self.UNC['StdDev']['SENS']['Gain']['IMU_Theta'] = 0.03
        self.UNC['StdDev']['SENS']['Gain']['IMU_Psi']   = 0.03
@@ -1131,9 +1073,9 @@ class Vahana_VertFlight(gym.Env):
        self.UNC['StdDev']['SENS']['Gain']['IMU_NX']    = 0.05
        self.UNC['StdDev']['SENS']['Gain']['IMU_NY']    = 0.05
        self.UNC['StdDev']['SENS']['Gain']['IMU_NZ']    = 0.05
-       self.UNC['StdDev']['SENS']['Bias']['IMU_NX']    = 0.1
-       self.UNC['StdDev']['SENS']['Bias']['IMU_NY']    = 0.1
-       self.UNC['StdDev']['SENS']['Bias']['IMU_NZ']    = 0.1
+       self.UNC['StdDev']['SENS']['Bias']['IMU_NX']    = 0.1 * 0
+       self.UNC['StdDev']['SENS']['Bias']['IMU_NY']    = 0.1 * 0
+       self.UNC['StdDev']['SENS']['Bias']['IMU_NZ']    = 0.1 * 0
        self.UNC['StdDev']['SENS']['Gain']['ADS_CAS']   = 0.05
       
       # 2) Calculate the real deviation, based on StdDeviation
@@ -1542,7 +1484,9 @@ class Vahana_VertFlight(gym.Env):
                                                     time_sample_sensor = 0.001,
                                                     time_sample_sim = self.t_step)
         
-    # %% GENERAL FUNCTIONS
+    ############################################
+    ############ GENERAL FUNCTIONS #############
+    ############################################
     def RotationMatrix(self,Phi_rad,Theta_rad,Psi_rad):
         
         LE2B = np.array([
@@ -1576,8 +1520,35 @@ class Vahana_VertFlight(gym.Env):
                 NewArray[i] = 0
         
         return NewArray
+
+    # %% EULER INTEGRATOR
+    def Euler_2nd(self,X,Xdot,Xdotdot,t_step):
+
+        FreezeOff = np.ones(len(self.EQM['sta_names']))
+
+        for i in range(len(self.OPT['StaFreezeList'])):
+            FreezeOff[self.EQM['sta_names'].index(self.OPT['StaFreezeList'][i])] = 0
+
+        X = X + np.multiply(FreezeOff , (Xdot*t_step + (Xdotdot*t_step**2)/2))
+        return X
     
-    # %% EQM FUNCTION
+    def Euler_1st(self,X,Xdot,t_step):
+        
+        X = X + Xdot*t_step
+        return X   
+
+
+    ############################################
+    ############## MAIN FUNCTIONS ##############
+    ############################################
+    def INP_fcn(self, INPUT_VEC, CurrentStep = 0):
+
+        INP = {}
+        for k in INPUT_VEC.keys():
+            INP[k] = INPUT_VEC[k][min(len(INPUT_VEC[k])-1 , CurrentStep)]
+
+        return INP
+
     def EQM_fcn(self,F_b,M_b,I,m, CalcStaDot = True):
         """
         Status da função:
@@ -2434,6 +2405,39 @@ class Vahana_VertFlight(gym.Env):
         self.SENS['NY_mps2']   = self.SENS['Sensors']['IMU']['NY_mps2'].y * (1+self.UNC['Res']['SENS']['Gain']['IMU_NY']) + (self.UNC['Res']['SENS']['Bias']['IMU_NY'])
         self.SENS['NZ_mps2']   = self.SENS['Sensors']['IMU']['NZ_mps2'].y * (1+self.UNC['Res']['SENS']['Gain']['IMU_NZ']) + (self.UNC['Res']['SENS']['Bias']['IMU_NZ'])
         self.SENS['CAS_mps']   = self.SENS['Sensors']['ADS']['CAS_mps'].y * (1+self.UNC['Res']['SENS']['Gain']['ADS_CAS'])
+
+    def REW_fcn(self):
+
+        self.REW['Value'] = {}
+        self.REW['Value']['Vx']        = self.EQM['VelLin_EarthAx_mps'][0]
+        self.REW['Value']['Vz']        = self.EQM['VelLin_EarthAx_mps'][2]
+        self.REW['Value']['Z']         = self.EQM['PosLin_EarthAx_m'][2]
+        self.REW['Value']['Theta']     = np.rad2deg(self.EQM['EulerAngles_rad'][1])
+        self.REW['Value']['Q']         = np.rad2deg(self.EQM['VelRot_BodyAx_radps'][1])
+        self.REW['Value']['Alpha_W1']  = self.AERO['Wing1']['Alpha_deg']
+        self.REW['Value']['Alpha_W2']  = self.AERO['Wing2']['Alpha_deg']
+
+        Reward = 0
+
+        for kk in self.REW['Target'].keys():
+            Delta2Target = self.REW['Value'][kk] - self.REW['Target'][kk]
+            abs_Delta2Target = np.abs(Delta2Target)
+            
+            if abs_Delta2Target < self.REW['DeadZone'][kk]:
+                AuxReward = 1 - self.REW['DeadZone']['Slope']  / self.REW['DeadZone'][kk] * abs_Delta2Target
+            elif (Delta2Target < -self.REW['Adm_n'][kk]) or (Delta2Target > self.REW['Adm_p'][kk]):
+                AuxReward = 0
+            elif self.REW['Value'][kk] < np.abs(self.REW['Target'][kk]):
+                AuxReward = np.max((0 , (1 - self.REW['DeadZone']['Slope']) * 
+                                    ((self.REW['Adm_n'][kk] - abs_Delta2Target) / 
+                                    (self.REW['Adm_n'][kk] - self.REW['DeadZone'][kk]))**self.REW['Order'][kk] ))
+            else:
+                AuxReward = np.max((0 , (1 - self.REW['DeadZone']['Slope']) * 
+                                    ((self.REW['Adm_p'][kk] - abs_Delta2Target) / 
+                                    (self.REW['Adm_p'][kk] - self.REW['DeadZone'][kk]))**self.REW['Order'][kk] ))
+            Reward += AuxReward * self.REW['Weight'][kk]
+
+        return Reward    
 
 
                 
