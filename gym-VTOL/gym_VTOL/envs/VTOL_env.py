@@ -76,7 +76,7 @@ class LowPassDiscreteFilter:
         return self.y
     
 class Actuator:
-    def __init__(self, CutFreq_radps = 40, MaxRate = 20, time_sample_actuator = 0.001, time_sample_sim = -1):
+    def __init__(self, CutFreq_radps = 40, MaxRate = 20, time_sample_actuator = 0.001, time_sample_sim = -1, bypassDynamic = False):
         
         self.MaxStepChange = MaxRate*time_sample_sim
         
@@ -93,6 +93,8 @@ class Actuator:
                                                time_sample_sim = time_sample_sim,
                                                order = 1,
                                                DiscType = 'euler_back')
+
+        self.bypassDynamic = bypassDynamic
         
     def set_zero(self,zero):
         self.y    = zero
@@ -100,25 +102,34 @@ class Actuator:
         
     def step(self,u):
         
-        ym1 = self.y
-        vm1 = self.v
-        
-        yaux = self.ActFilter.step(u)
-        
-        if (yaux - ym1) > self.MaxStepChange:
-            self.y = ym1 + self.MaxStepChange
-        elif (yaux - ym1) < -self.MaxStepChange:
-            self.y = ym1 - self.MaxStepChange
+        if self.bypassDynamic:
+            ym1 = self.y
+            vm1 = self.v
+
+            self.y = u
+            self.v = (self.y - ym1)/self.tss
+            self.a = (self.v - vm1)/self.tss
+
         else:
-            self.y = yaux
-        
-        self.v = (self.y - ym1)/self.tss
-        self.a = (self.v - vm1)/self.tss
+            ym1 = self.y
+            vm1 = self.v
+            
+            yaux = self.ActFilter.step(u)
+            
+            if (yaux - ym1) > self.MaxStepChange:
+                self.y = ym1 + self.MaxStepChange
+            elif (yaux - ym1) < -self.MaxStepChange:
+                self.y = ym1 - self.MaxStepChange
+            else:
+                self.y = yaux
+            
+            self.v = (self.y - ym1)/self.tss
+            self.a = (self.v - vm1)/self.tss
         
         return self.y, self.v, self.a
     
 class Sensor:
-    def __init__(self, CutFreq_radps = 40, Delay_s = 0, time_sample_sensor = 0.001, time_sample_sim = -1):
+    def __init__(self, CutFreq_radps = 40, Delay_s = 0, time_sample_sensor = 0.001, time_sample_sim = -1, bypassDynamic = False):
         
         if time_sample_sim == -1:
             time_sample_sim = time_sample_sensor
@@ -138,6 +149,8 @@ class Sensor:
                                                time_sample_sim = time_sample_sim,
                                                order = 1,
                                                DiscType = 'euler_back')
+
+        self.bypassDynamic = bypassDynamic
         
     def set_zero(self,zero):
         self.y    = zero
@@ -146,17 +159,21 @@ class Sensor:
         
     def step(self,u):
         
-        yaux = self.SensFilter.step(u)
-        
-        if self.DelaySteps == 0:
-            self.y = yaux
-        elif self.DelaySteps == 1:
-            self.y = self.BufferDelay[0]
-            self.BufferDelay[0] = yaux
+        if self.bypassDynamic:
+            self.y = u
+
         else:
-            self.y = self.BufferDelay[0]
-            self.BufferDelay[0:-1] = self.BufferDelay[1:]
-            self.BufferDelay[-1] = yaux
+            yaux = self.SensFilter.step(u)
+            
+            if self.DelaySteps == 0:
+                self.y = yaux
+            elif self.DelaySteps == 1:
+                self.y = self.BufferDelay[0]
+                self.BufferDelay[0] = yaux
+            else:
+                self.y = self.BufferDelay[0]
+                self.BufferDelay[0:-1] = self.BufferDelay[1:]
+                self.BufferDelay[-1] = yaux
         
         return self.y
 
@@ -427,9 +444,9 @@ class Vahana_VertFlight(gym.Env):
       self.OPT['UseAeroForce']     = 1
       self.OPT['UsePropMoment']    = 1
       self.OPT['UsePropForce']     = 1
-      self.OPT['UseSensors']       = 1
-      self.OPT['UseActuator']      = 1
-      self.OPT['Aero_useWingData'] = 1
+      self.OPT['UseSensors']       = False
+      self.OPT['UseActuator']      = False
+      self.OPT['Aero_useWingData'] = False
       self.OPT['Enable_P']         = 1
       self.OPT['Enable_Q']         = 1
       self.OPT['Enable_R']         = 1
@@ -865,38 +882,21 @@ class Vahana_VertFlight(gym.Env):
         # obs = np.hstack((sta,sta_dot,cont))
         # Observation Space    = [Vx , dVx, Vy , dVy , Vz , dVz , Phi      , p        , Theta    , q        , Psi      , r        ]
         if self.UseLateralActions:
-            if self.OPT['UseSensors']:
-                obs_vec       = np.array([self.SENS['VX_mps']   , self.SENS['NX_mps2']  , 
-                                          self.SENS['VY_mps']   , self.SENS['NY_mps2']  , 
-                                          self.SENS['Z_m']      ,
-                                          self.SENS['VZ_mps']   , self.SENS['NZ_mps2']  , 
-                                          self.SENS['Phi_rad']  , self.SENS['P_radps']  , 
-                                          self.SENS['Theta_rad'], self.SENS['Q_radps']  , 
-                                          self.SENS['Psi_rad']  , self.SENS['R_radps']  , 
-                                          self.SENS['CAS_mps']])
-            else:
-                obs_vec       = np.array([self.EQM['VelLin_EarthAx_mps'][0] , self.EQM['LoadFactor_mps2'][0] , 
-                                          self.EQM['VelLin_EarthAx_mps'][1] , self.EQM['LoadFactor_mps2'][1] , 
-                                          self.EQM['PosLin_EarthAx_m'][2]   ,
-                                          self.EQM['VelLin_EarthAx_mps'][2] , self.EQM['LoadFactor_mps2'][2] , 
-                                          self.EQM['EulerAngles_rad'][0]    , self.EQM['VelRot_BodyAx_radps'][0] , 
-                                          self.EQM['EulerAngles_rad'][1]    , self.EQM['VelRot_BodyAx_radps'][1] , 
-                                          self.EQM['EulerAngles_rad'][2]    , self.EQM['VelRot_BodyAx_radps'][2] , 
-                                          self.ATM['CAS_mps']])
+            obs_vec       = np.array([self.SENS['VX_mps']   , self.SENS['NX_mps2']  , 
+                                        self.SENS['VY_mps']   , self.SENS['NY_mps2']  , 
+                                        self.SENS['Z_m']      ,
+                                        self.SENS['VZ_mps']   , self.SENS['NZ_mps2']  , 
+                                        self.SENS['Phi_rad']  , self.SENS['P_radps']  , 
+                                        self.SENS['Theta_rad'], self.SENS['Q_radps']  , 
+                                        self.SENS['Psi_rad']  , self.SENS['R_radps']  , 
+                                        self.SENS['CAS_mps']])
 
         else:
-            if self.OPT['UseSensors']:
-                obs_vec       = np.array([self.SENS['VX_mps']    , self.SENS['NX_mps2'], 
-                                          self.SENS['Z_m']       ,
-                                          self.SENS['VZ_mps']    , self.SENS['NZ_mps2'], 
-                                          self.SENS['Theta_rad'] , self.SENS['Q_radps'],
-                                          self.SENS['CAS_mps']])
-            else:
-                obs_vec       = np.array([self.EQM['VelLin_EarthAx_mps'][0] , self.EQM['LoadFactor_mps2'][0] , 
-                                          self.EQM['PosLin_EarthAx_m'][2]   ,
-                                          self.EQM['VelLin_EarthAx_mps'][2] , self.EQM['LoadFactor_mps2'][2] , 
-                                          self.EQM['EulerAngles_rad'][1]    , self.EQM['VelRot_BodyAx_radps'][1] , 
-                                          self.ATM['CAS_mps']])
+            obs_vec       = np.array([self.SENS['VX_mps']    , self.SENS['NX_mps2'], 
+                                        self.SENS['Z_m']       ,
+                                        self.SENS['VZ_mps']    , self.SENS['NZ_mps2'], 
+                                        self.SENS['Theta_rad'] , self.SENS['Q_radps'],
+                                        self.SENS['CAS_mps']])
            
         obs_adm = obs_vec / self.adm_vec
         
@@ -1376,7 +1376,8 @@ class Vahana_VertFlight(gym.Env):
           self.CONT['Actuators']['WingTilt']['Actuators'].append(Actuator(CutFreq_radps = self.CONT['Actuators']['WingTilt']['CutFreq_radps'][i],
                                                                  MaxRate = self.CONT['Actuators']['WingTilt']['MaxRate'][i], 
                                                                  time_sample_actuator = self.CONT['Actuators']['WingTilt']['t_act'][i], 
-                                                                 time_sample_sim = self.t_step))
+                                                                 time_sample_sim = self.t_step, 
+                                                                 bypassDynamic = not(self.OPT['UseActuator'])))
       
       # Elevons
       self.CONT['n_elev'] = 4
@@ -1417,72 +1418,88 @@ class Vahana_VertFlight(gym.Env):
         self.SENS['Sensors']['IMU']['P_radps'] = Sensor(CutFreq_radps = self.SENS['Data']['IMU']['CutFreq_radps'],
                                                   Delay_s = self.SENS['Data']['IMU']['Delay_s'],
                                                   time_sample_sensor = 0.001,
-                                                  time_sample_sim = self.t_step)
+                                                  time_sample_sim = self.t_step,
+                                                  bypassDynamic = not(self.OPT['UseSensors']))
         self.SENS['Sensors']['IMU']['Q_radps'] = Sensor(CutFreq_radps = self.SENS['Data']['IMU']['CutFreq_radps'],
                                                   Delay_s = self.SENS['Data']['IMU']['Delay_s'],
                                                   time_sample_sensor = 0.001,
-                                                  time_sample_sim = self.t_step)
+                                                  time_sample_sim = self.t_step,
+                                                  bypassDynamic = not(self.OPT['UseSensors']))
         self.SENS['Sensors']['IMU']['R_radps'] = Sensor(CutFreq_radps = self.SENS['Data']['IMU']['CutFreq_radps'],
                                                   Delay_s = self.SENS['Data']['IMU']['Delay_s'],
                                                   time_sample_sensor = 0.001,
-                                                  time_sample_sim = self.t_step)
+                                                  time_sample_sim = self.t_step,
+                                                  bypassDynamic = not(self.OPT['UseSensors']))
         
         self.SENS['Sensors']['IMU']['Phi_rad'] = Sensor(CutFreq_radps = self.SENS['Data']['IMU']['CutFreq_radps'],
                                                     Delay_s = self.SENS['Data']['IMU']['Delay_s'],
                                                     time_sample_sensor = 0.001,
-                                                    time_sample_sim = self.t_step)
+                                                    time_sample_sim = self.t_step,
+                                                    bypassDynamic = not(self.OPT['UseSensors']))
         self.SENS['Sensors']['IMU']['Theta_rad'] = Sensor(CutFreq_radps = self.SENS['Data']['IMU']['CutFreq_radps'],
                                                       Delay_s = self.SENS['Data']['IMU']['Delay_s'],
                                                       time_sample_sensor = 0.001,
-                                                      time_sample_sim = self.t_step)
+                                                      time_sample_sim = self.t_step,
+                                                      bypassDynamic = not(self.OPT['UseSensors']))
         self.SENS['Sensors']['IMU']['Psi_rad'] = Sensor(CutFreq_radps = self.SENS['Data']['IMU']['CutFreq_radps'],
                                                     Delay_s = self.SENS['Data']['IMU']['Delay_s'],
                                                     time_sample_sensor = 0.001,
-                                                    time_sample_sim = self.t_step)
+                                                    time_sample_sim = self.t_step,
+                                                    bypassDynamic = not(self.OPT['UseSensors']))
         
         self.SENS['Sensors']['IMU']['VX_mps'] = Sensor(CutFreq_radps = self.SENS['Data']['IMU']['CutFreq_radps'],
                                                    Delay_s = self.SENS['Data']['IMU']['Delay_s'],
                                                    time_sample_sensor = 0.001,
-                                                   time_sample_sim = self.t_step)
+                                                   time_sample_sim = self.t_step,
+                                                   bypassDynamic = not(self.OPT['UseSensors']))
         self.SENS['Sensors']['IMU']['VY_mps'] = Sensor(CutFreq_radps = self.SENS['Data']['IMU']['CutFreq_radps'],
                                                    Delay_s = self.SENS['Data']['IMU']['Delay_s'],
                                                    time_sample_sensor = 0.001,
-                                                   time_sample_sim = self.t_step)
+                                                   time_sample_sim = self.t_step,
+                                                   bypassDynamic = not(self.OPT['UseSensors']))
         self.SENS['Sensors']['IMU']['VZ_mps'] = Sensor(CutFreq_radps = self.SENS['Data']['IMU']['CutFreq_radps'],
                                                    Delay_s = self.SENS['Data']['IMU']['Delay_s'],
                                                    time_sample_sensor = 0.001,
-                                                   time_sample_sim = self.t_step)
+                                                   time_sample_sim = self.t_step,
+                                                   bypassDynamic = not(self.OPT['UseSensors']))
 
         self.SENS['Sensors']['IMU']['X_m'] = Sensor(CutFreq_radps = self.SENS['Data']['IMU']['CutFreq_radps'],
                                                    Delay_s = self.SENS['Data']['IMU']['Delay_s'],
                                                    time_sample_sensor = 0.001,
-                                                   time_sample_sim = self.t_step)
+                                                   time_sample_sim = self.t_step,
+                                                   bypassDynamic = not(self.OPT['UseSensors']))
         self.SENS['Sensors']['IMU']['Y_m'] = Sensor(CutFreq_radps = self.SENS['Data']['IMU']['CutFreq_radps'],
                                                    Delay_s = self.SENS['Data']['IMU']['Delay_s'],
                                                    time_sample_sensor = 0.001,
-                                                   time_sample_sim = self.t_step)
+                                                   time_sample_sim = self.t_step,
+                                                   bypassDynamic = not(self.OPT['UseSensors']))
         self.SENS['Sensors']['IMU']['Z_m'] = Sensor(CutFreq_radps = self.SENS['Data']['IMU']['CutFreq_radps'],
                                                    Delay_s = self.SENS['Data']['IMU']['Delay_s'],
                                                    time_sample_sensor = 0.001,
-                                                   time_sample_sim = self.t_step)
+                                                   time_sample_sim = self.t_step,
+                                                   bypassDynamic = not(self.OPT['UseSensors']))
         
         self.SENS['Sensors']['IMU']['NX_mps2'] = Sensor(CutFreq_radps = self.SENS['Data']['IMU']['CutFreq_radps'],
                                                    Delay_s = self.SENS['Data']['IMU']['Delay_s'],
                                                    time_sample_sensor = 0.001,
-                                                   time_sample_sim = self.t_step)
+                                                   time_sample_sim = self.t_step,
+                                                   bypassDynamic = not(self.OPT['UseSensors']))
         self.SENS['Sensors']['IMU']['NY_mps2'] = Sensor(CutFreq_radps = self.SENS['Data']['IMU']['CutFreq_radps'],
                                                    Delay_s = self.SENS['Data']['IMU']['Delay_s'],
                                                    time_sample_sensor = 0.001,
-                                                   time_sample_sim = self.t_step)
+                                                   time_sample_sim = self.t_step,
+                                                   bypassDynamic = not(self.OPT['UseSensors']))
         self.SENS['Sensors']['IMU']['NZ_mps2'] = Sensor(CutFreq_radps = self.SENS['Data']['IMU']['CutFreq_radps'],
                                                    Delay_s = self.SENS['Data']['IMU']['Delay_s'],
                                                    time_sample_sensor = 0.001,
-                                                   time_sample_sim = self.t_step)
+                                                   time_sample_sim = self.t_step,
+                                                   bypassDynamic = not(self.OPT['UseSensors']))
         
         self.SENS['Sensors']['ADS']['CAS_mps'] = Sensor(CutFreq_radps = self.SENS['Data']['ADS']['CutFreq_radps'],
                                                     Delay_s = self.SENS['Data']['ADS']['Delay_s'],
                                                     time_sample_sensor = 0.001,
-                                                    time_sample_sim = self.t_step)
+                                                    time_sample_sim = self.t_step,
+                                                    bypassDynamic = not(self.OPT['UseSensors']))
         
     ############################################
     ############ GENERAL FUNCTIONS #############
@@ -1974,7 +1991,7 @@ class Vahana_VertFlight(gym.Env):
         W1_Alpha_deg_aux, W1_sign_aux = AuxAOA(self.AERO['Wing1']['Alpha_deg'])
         W1_Beta_deg_aux = self.AERO['Wing1']['Beta_deg']
 
-        if W1_Alpha_deg_aux <= self.AERO['Wing1']['Coefs']['Alpha_deg'][-1] and W1_Alpha_deg_aux >= self.AERO['Wing1']['Coefs']['Alpha_deg'][0]:
+        if (self.OPT['Aero_useWingData']) and (W1_Alpha_deg_aux <= self.AERO['Wing1']['Coefs']['Alpha_deg'][-1] and W1_Alpha_deg_aux >= self.AERO['Wing1']['Coefs']['Alpha_deg'][0]):
             self.AERO['Wing1']['CDS_25Local'] = np.interp(W1_Alpha_deg_aux, self.AERO['Wing1']['Coefs']['Alpha_deg'], self.AERO['Wing1']['Coefs']['CDS_25Local'])
             self.AERO['Wing1']['CLS_25Local'] = W1_sign_aux*np.interp(W1_Alpha_deg_aux, self.AERO['Wing1']['Coefs']['Alpha_deg'], self.AERO['Wing1']['Coefs']['CLS_25Local'])
             self.AERO['Wing1']['CMS_25Local'] = W1_sign_aux*np.interp(W1_Alpha_deg_aux, self.AERO['Wing1']['Coefs']['Alpha_deg'], self.AERO['Wing1']['Coefs']['CMS_25Local'])
@@ -2019,7 +2036,7 @@ class Vahana_VertFlight(gym.Env):
         W2_Beta_deg_aux = self.AERO['Wing2']['Beta_deg']
 
 
-        if W2_Alpha_deg_aux <= self.AERO['Wing2']['Coefs']['Alpha_deg'][-1] and W2_Alpha_deg_aux >= self.AERO['Wing2']['Coefs']['Alpha_deg'][0]:
+        if (self.OPT['Aero_useWingData']) and (W2_Alpha_deg_aux <= self.AERO['Wing2']['Coefs']['Alpha_deg'][-1] and W2_Alpha_deg_aux >= self.AERO['Wing2']['Coefs']['Alpha_deg'][0]):
             self.AERO['Wing2']['CDS_25Local'] = np.interp(W2_Alpha_deg_aux, self.AERO['Wing2']['Coefs']['Alpha_deg'], self.AERO['Wing2']['Coefs']['CDS_25Local'])
             self.AERO['Wing2']['CLS_25Local'] = W2_sign_aux*np.interp(W2_Alpha_deg_aux, self.AERO['Wing2']['Coefs']['Alpha_deg'], self.AERO['Wing2']['Coefs']['CLS_25Local'])
             self.AERO['Wing2']['CMS_25Local'] = W2_sign_aux*np.interp(W2_Alpha_deg_aux, self.AERO['Wing2']['Coefs']['Alpha_deg'], self.AERO['Wing2']['Coefs']['CMS_25Local'])
