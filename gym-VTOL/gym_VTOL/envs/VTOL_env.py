@@ -447,11 +447,11 @@ class Vahana_VertFlight(gym.Env):
       self.OPT['UseSensors']       = False
       self.OPT['UseActuator']      = False
       self.OPT['Aero_useWingData'] = False
-      self.OPT['Enable_P']         = 1
+      self.OPT['Enable_P']         = 0
       self.OPT['Enable_Q']         = 1
-      self.OPT['Enable_R']         = 1
+      self.OPT['Enable_R']         = 0
       self.OPT['Enable_U']         = 1
-      self.OPT['Enable_V']         = 1
+      self.OPT['Enable_V']         = 0
       self.OPT['Enable_W']         = 1
       self.OPT['DispMessages']     = DispMessages
       self.OPT['StaFreezeList']    = StaFreezeList
