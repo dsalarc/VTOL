@@ -766,12 +766,12 @@ class Vahana_VertFlight(gym.Env):
             for i in range(len(n_ActionFloat)):
                 n_ActionFloat[i] = int(self.action_names.index(name_ActionFloat[i]))
 
-            name_StateFloat = ['Q_radps', 'Theta_rad', 'U_mps', 'W_mps']
+            name_StateFloat = ['Q_radps', 'Theta_rad', 'U_mps', 'W_mps' , 'Z_m']
             n_StateFloat    = np.zeros(len(name_StateFloat), dtype = int)
             for i in range(len(n_StateFloat)):
                 n_StateFloat[i] = self.EQM['sta_names'].index(name_StateFloat[i]) 
     
-            name_StateDotFreeze = ['Q_radps', 'Theta_rad', 'U_mps', 'W_mps']
+            name_StateDotFreeze = ['Q_radps', 'Theta_rad', 'U_mps', 'W_mps' , 'Z_m']
             n_StateDotFreeze    = np.zeros(len(name_StateFloat), dtype = int)
             for i in range(len(n_StateDotFreeze)):
                 n_StateDotFreeze[i] = self.EQM['sta_names'].index(name_StateDotFreeze[i]) 
