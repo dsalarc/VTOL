@@ -193,17 +193,21 @@ class ElectricalMotor:
         self.Vm_V    = self.RPM / self.Kv
         self.i_A     = min(self.imax_A, (Vinp_V - self.Vm_V) / self.R_ohm)
         self.Q_Nm    = (self.i_A - self.i0_A) / self.Kq      
-        self.Energy_Ah   = 0
+        self.TotalCharge_Ah   = 0
+        self.TotalEnergy_Wh   = 0
                 
     def step(self,Vinp_V,RPM):
-        self.RPM     = RPM
-        self.RPS     = self.RPM * 60
-        self.w_radps = self.RPS * (2*np.pi)
-        self.Vm_V    = self.RPM / self.Kv
-        last_i_A     = self.i_A
-        self.i_A     = min(self.imax_A, (Vinp_V - self.Vm_V) / self.R_ohm)
-        self.Q_Nm    = (self.i_A - self.i0_A) / self.Kq 
-        self.Energy_Ah += max(0 , (self.i_A + last_i_A)/2 * self.dt / 3600)
+        self.RPM             = RPM
+        self.RPS             = self.RPM * 60
+        self.w_radps         = self.RPS * (2*np.pi)
+        self.Vm_V            = self.RPM / self.Kv
+        last_i_A             = self.i_A
+        self.i_A             = min(self.imax_A, (Vinp_V - self.Vm_V) / self.R_ohm)
+        self.Q_Nm            = (self.i_A - self.i0_A) / self.Kq 
+        self.Charge_Ah       = max(0 , (self.i_A + last_i_A)/2 * self.dt / 3600)
+        self.Energy_Wh       = max(0 , self.Charge_Ah * Vinp_V)
+        self.TotalCharge_Ah += self.Charge_Ah
+        self.TotalEnergy_Wh += self.Energy_Wh
         
         return self.Q_Nm
     
@@ -320,6 +324,7 @@ class MotorAssembly:
         self.MOTOR = MOTOR
         self.PROPELLER = PROPELLER
         self.Tscale = int(np.round(Sim_dt / Asb_dt))
+        self.Sim_dt = Sim_dt
         
         MOTOR.dt     = Asb_dt
         PROPELLER.dt = Asb_dt
@@ -358,18 +363,23 @@ class MotorAssembly:
                 Net1 = Net2
        
         self.RPM = RPM2
-        
+        self.AvgCurrent_A = 0
+
     def calc_V(self,Throttle):
         return Throttle**(1/2) * self.ESC.MaxV_V
         
     def step (self,Throttle,TAS_mps, rho_kgm3, Alpha_deg = 0, Pitch_deg = 0):
         self.Throttle = Throttle
-       
+
+        lastCharge_Ah = self.MOTOR.TotalCharge_Ah
         for i in range(self.Tscale):
             self.V_V   = self.calc_V(Throttle)
             Qmot       = self.MOTOR.step(self.V_V,self.RPM)  
             w,Qprop    = self.PROPELLER.step(Qmot , TAS_mps , rho_kgm3, Alpha_deg = Alpha_deg, Pitch_deg = Pitch_deg)
             self.RPM   = w * 60 / (2*np.pi)
+
+        currentCharge_Ah = self.MOTOR.TotalCharge_Ah
+        self.AvgCurrent_A = (currentCharge_Ah - lastCharge_Ah)*3600 / self.Sim_dt
         
         return self.RPM
     
@@ -958,8 +968,9 @@ class Vahana_VertFlight(gym.Env):
         self.REW['Target']['Z']        = 0
         self.REW['Target']['Theta']    = 0
         self.REW['Target']['Q']        = 0
-        self.REW['Target']['Alpha_W1'] = 0
-        self.REW['Target']['Alpha_W2'] = 0
+        self.REW['Target']['Tilt_W1']  = 0
+        self.REW['Target']['Tilt_W2']  = 0
+        self.REW['Target']['Current']  = 0
 
         self.REW['Adm_n'] = {}
         self.REW['Adm_n']['Vx']       = 60
@@ -967,8 +978,9 @@ class Vahana_VertFlight(gym.Env):
         self.REW['Adm_n']['Z']        = 5
         self.REW['Adm_n']['Theta']    = 5
         self.REW['Adm_n']['Q']        = 5
-        self.REW['Adm_n']['Alpha_W1'] = 90
-        self.REW['Adm_n']['Alpha_W2'] = 90
+        self.REW['Adm_n']['Tilt_W1']  = 90
+        self.REW['Adm_n']['Tilt_W2']  = 90
+        self.REW['Adm_n']['Current']  = 100
 
         self.REW['Adm_p'] = {}
         self.REW['Adm_p']['Vx']       = 10
@@ -976,8 +988,9 @@ class Vahana_VertFlight(gym.Env):
         self.REW['Adm_p']['Z']        = 5
         self.REW['Adm_p']['Theta']    = 5
         self.REW['Adm_p']['Q']        = 5
-        self.REW['Adm_p']['Alpha_W1'] = 90
-        self.REW['Adm_p']['Alpha_W2'] = 90
+        self.REW['Adm_p']['Tilt_W1']  = 90
+        self.REW['Adm_p']['Tilt_W2']  = 90
+        self.REW['Adm_p']['Current']  = 500
 
         self.REW['Order'] = {}
         self.REW['Order']['Vx']       = 2
@@ -985,17 +998,19 @@ class Vahana_VertFlight(gym.Env):
         self.REW['Order']['Z']        = 1
         self.REW['Order']['Theta']    = 1
         self.REW['Order']['Q']        = 1
-        self.REW['Order']['Alpha_W1'] = 1
-        self.REW['Order']['Alpha_W2'] = 1
+        self.REW['Order']['Tilt_W1']  = 3
+        self.REW['Order']['Tilt_W2']  = 3
+        self.REW['Order']['Current']  = 3
 
         self.REW['Weight'] = {}
         self.REW['Weight']['Vx']       = 0.40
         self.REW['Weight']['Vz']       = 0.15
-        self.REW['Weight']['Z']        = 0.15
+        self.REW['Weight']['Z']        = 0.40
         self.REW['Weight']['Theta']    = 0.15
         self.REW['Weight']['Q']        = 0.15
-        self.REW['Weight']['Alpha_W1'] = 0.10*0
-        self.REW['Weight']['Alpha_W2'] = 0.10*0
+        self.REW['Weight']['Tilt_W1']  = 0.10*0
+        self.REW['Weight']['Tilt_W2']  = 0.10*0
+        self.REW['Weight']['Current']  = 0.10
 
         self.REW['DeadZone'] = {}
         self.REW['DeadZone']['Vx']       = 2
@@ -1003,8 +1018,9 @@ class Vahana_VertFlight(gym.Env):
         self.REW['DeadZone']['Z']        = 1
         self.REW['DeadZone']['Theta']    = 1  
         self.REW['DeadZone']['Q']        = 1  
-        self.REW['DeadZone']['Alpha_W1'] = 10
-        self.REW['DeadZone']['Alpha_W2'] = 10
+        self.REW['DeadZone']['Tilt_W1']  = 10
+        self.REW['DeadZone']['Tilt_W2']  = 10
+        self.REW['DeadZone']['Current']  = 50
 
         self.REW['DeadZone']['Slope'] = 0.01
 
@@ -1337,7 +1353,7 @@ class Vahana_VertFlight(gym.Env):
       self.MOT['R_ohm']       = 15*1e-3
       self.MOT['Kq_A_Nm']     = 1/0.75  * (1+self.UNC['Res']['MOT']['Gain']['Kq'])
       self.MOT['Kv_rpm_V']    = 6.53    * (1+self.UNC['Res']['MOT']['Gain']['Kv'])
-      self.MOT['dt']          = 0.001 
+      self.MOT['dt']          = 0.001
       
       # Init Objects        
       self.MOT['ESC']['obj'] = []
@@ -2431,8 +2447,9 @@ class Vahana_VertFlight(gym.Env):
         self.REW['Value']['Z']         = self.EQM['PosLin_EarthAx_m'][2]
         self.REW['Value']['Theta']     = np.rad2deg(self.EQM['EulerAngles_rad'][1])
         self.REW['Value']['Q']         = np.rad2deg(self.EQM['VelRot_BodyAx_radps'][1])
-        self.REW['Value']['Alpha_W1']  = self.AERO['Wing1']['Alpha_deg']
-        self.REW['Value']['Alpha_W2']  = self.AERO['Wing2']['Alpha_deg']
+        self.REW['Value']['Tilt_W1']   = self.CONT['Tilt_deg'][0] #self.AERO['Wing1']['Alpha_deg']
+        self.REW['Value']['Tilt_W2']   = self.CONT['Tilt_deg'][1] #self.AERO['Wing2']['Alpha_deg']
+        self.REW['Value']['Current']   = self.MOT['ASSEMBLY']['obj'][0].MOTOR.i_A + self.MOT['ASSEMBLY']['obj'][4].MOTOR.i_A
 
         Reward = 0
 

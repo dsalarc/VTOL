@@ -162,8 +162,10 @@ def SaveSelection(SaveVec,info):
         SaveVec = AppendValue(SaveVec,'Throttle5_N',info['MOT']['ASSEMBLY']['obj'][4].Throttle)
     
         SaveVec = AppendValue(SaveVec,'J1',info['MOT']['ASSEMBLY']['obj'][0].PROPELLER.J)
-        SaveVec = AppendValue(SaveVec,'Energy1_Ah',info['MOT']['ASSEMBLY']['obj'][0].MOTOR.Energy_Ah)
-        SaveVec = AppendValue(SaveVec,'Energy5_Ah',info['MOT']['ASSEMBLY']['obj'][4].MOTOR.Energy_Ah)
+        SaveVec = AppendValue(SaveVec,'Charge1_Ah',info['MOT']['ASSEMBLY']['obj'][0].MOTOR.TotalCharge_Ah)
+        SaveVec = AppendValue(SaveVec,'Charge5_Ah',info['MOT']['ASSEMBLY']['obj'][4].MOTOR.TotalCharge_Ah)
+        SaveVec = AppendValue(SaveVec,'Energy1_Wh',info['MOT']['ASSEMBLY']['obj'][0].MOTOR.TotalEnergy_Wh)
+        SaveVec = AppendValue(SaveVec,'Energy5_Wh',info['MOT']['ASSEMBLY']['obj'][4].MOTOR.TotalEnergy_Wh)
         SaveVec = AppendValue(SaveVec,'Current1_A',info['MOT']['ASSEMBLY']['obj'][0].MOTOR.i_A)
         SaveVec = AppendValue(SaveVec,'Current5_A',info['MOT']['ASSEMBLY']['obj'][4].MOTOR.i_A)
         SaveVec = AppendValue(SaveVec,'Voltage1_v',info['MOT']['ASSEMBLY']['obj'][0].V_V)
@@ -176,6 +178,8 @@ def SaveSelection(SaveVec,info):
         SaveVec = AppendValue(SaveVec,'act_W2_Elevator',info['Action'][4])
     except:
         pass      
+    SaveVec = AppendValue(SaveVec,'AvgCurrent1_A',info['MOT']['ASSEMBLY']['obj'][0].AvgCurrent_A)
+    SaveVec = AppendValue(SaveVec,'AvgCurrent5_A',info['MOT']['ASSEMBLY']['obj'][4].AvgCurrent_A)
 
     SaveVec = AppendValue(SaveVec,'Weight_kgf',info['MASS']['Weight_kgf'])
     SaveVec = AppendValue(SaveVec,'XCG_m',info['MASS']['CG_m'][0])
