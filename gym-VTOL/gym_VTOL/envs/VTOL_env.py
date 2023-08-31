@@ -965,7 +965,7 @@ class Vahana_VertFlight(gym.Env):
         self.REW['Target'] = {}
         self.REW['Target']['Vx']       = 60
         self.REW['Target']['Vz']       = 0
-        self.REW['Target']['Z']        = 0
+        self.REW['Target']['Z']        = -100
         self.REW['Target']['Theta']    = 0
         self.REW['Target']['Q']        = 0
         self.REW['Target']['Tilt_W1']  = 0
@@ -1005,12 +1005,20 @@ class Vahana_VertFlight(gym.Env):
         self.REW['Weight'] = {}
         self.REW['Weight']['Vx']       = 0.40
         self.REW['Weight']['Vz']       = 0.15
-        self.REW['Weight']['Z']        = 0.40
+        self.REW['Weight']['Z']        = 0.15
         self.REW['Weight']['Theta']    = 0.15
         self.REW['Weight']['Q']        = 0.15
         self.REW['Weight']['Tilt_W1']  = 0.10*0
         self.REW['Weight']['Tilt_W2']  = 0.10*0
         self.REW['Weight']['Current']  = 0.10
+
+        w_sum = 0
+        for k in self.REW['Weight'].keys():
+            w_sum += self.REW['Weight'][k]
+
+        for k in self.REW['Weight'].keys():
+            self.REW['Weight'][k] = self.REW['Weight'][k] / w_sum
+
 
         self.REW['DeadZone'] = {}
         self.REW['DeadZone']['Vx']       = 2
