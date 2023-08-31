@@ -52,7 +52,7 @@ def gen_ControlAllocation(Gains):
                                    np.array([[0],
                                              [0]]) , 
                                    np.array([[    Gains['ContAlloc_Thr']],
-                                             [1 - Gains['ContAlloc_Thr']]]) , 
+                                             [-(1 - Gains['ContAlloc_Thr'])]]) , 
                                    inputs = ['PitchCmd'] , 
                                    outputs = ['ThrottlePitch', 'Elevator_u'],
                                    name = 'ControlAllocation' )
