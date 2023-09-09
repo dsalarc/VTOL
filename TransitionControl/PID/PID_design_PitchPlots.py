@@ -2,7 +2,7 @@ import numpy as np
 import control as ct
 import matplotlib.pyplot as plt
 
-def PitchPlots(ClosedLoops , Criteria):
+def PitchPlots(ClosedLoops , Criteria, PlotLabel):
     # %% THETA CMD RESPONSE
     T, yout = ct.step_response(ClosedLoops['Complete'] , T=5, input = 1)
     
@@ -11,10 +11,11 @@ def PitchPlots(ClosedLoops , Criteria):
     fig1 = plt.figure('ThetaStep')
     for i in range(len(yout)):
         plt.subplot(l,c,i+1)
-        plt.plot(T,yout[i][0])
+        plt.plot(T,yout[i][0], label = PlotLabel)
         plt.grid('on')
         plt.ylabel(ClosedLoops['Complete'].output_labels[i])
         plt.xlim([0,max(T)] )
+    plt.legend()
     plt.suptitle('Theta Command Step')
     plt.show()
 
@@ -28,10 +29,11 @@ def PitchPlots(ClosedLoops , Criteria):
     fig2 = plt.figure('QStep')
     for i in range(len(yout)):
         plt.subplot(l,c,i+1)
-        plt.plot(T,yout[i][0])
+        plt.plot(T,yout[i][0], label = PlotLabel)
         plt.grid('on')
         plt.ylabel(ClosedLoops['ThetaOpen'].output_labels[i])
         plt.xlim([0,max(T)] )
+    plt.legend()
     plt.suptitle('Q Command Step (No theta feedback')
     plt.show()
     
@@ -56,7 +58,7 @@ def PitchPlots(ClosedLoops , Criteria):
     plt.xlabel('Frequency [rad/s]')
     plt.ylabel('Gain [dB]')
     
-    plt.subplot(2,2,3)
+    plt.subplot(2,2,3, label = PlotLabel)
     plt.plot(w_radps , P_deg)
     plt.xscale("log")
     plt.grid('on')
@@ -100,7 +102,7 @@ def PitchPlots(ClosedLoops , Criteria):
     plt.xlabel('Frequency [rad/s]')
     plt.ylabel('Gain [dB]')
     
-    plt.subplot(2,2,3)
+    plt.subplot(2,2,3, label = PlotLabel)
     plt.plot(w_radps , P_deg)
     plt.xscale("log")
     plt.grid('on')

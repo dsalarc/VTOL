@@ -15,6 +15,7 @@ from PID_design_PitchPlots import PitchPlots
 from PID_design_PitchFunctions import gen_EngActuator, gen_ElevActuator, Controller, Sensor, gen_ControlAllocation
 import control as ct
 import time
+import pickle
 
 try:
     from IPython import get_ipython
@@ -22,7 +23,6 @@ try:
 except:
     pass
 
-plt.close('all')
 # %%LOAD MODEL
 env_dict = gym.envs.registration.registry.env_specs.copy()
 for env in env_dict:
@@ -35,13 +35,29 @@ TestEnv = gym.make('gym_VTOL:Vahana_VertFlight-v0')
 
 # %% DEFINE TRIM VECTOR
 TrimVec = {}
-TrimVec['VX_mps']        = np.array([0 , 5 , 10 , 20 , 30 , 35 , 40 , 50 , 60 ])
-TrimVec['ContAlloc_Thr'] = np.array([1 , 1 ,  1 ,  1 ,  1 ,  1 ,  1 ,  1 ,  1 ])
+TrimVec['VX_mps']        = np.array([  0.0 ,   5.0 ,   10.0 ,   20.0 ,   30.0 ,  35.0 ,   40.0 ,   50.0 ,   60.0 ])
+# TrimVec['VX_mps']        = np.array([  0.0 ,   5.0])
 
-TrimVec['VX_mps']        = np.array([0])
-TrimVec['ContAlloc_Thr'] = np.array([1])
+TrimVec['PitchThrottle_to_qdot']  = 0.0*TrimVec['VX_mps']
+TrimVec['Elevator_to_qdot']       = 0.0*TrimVec['VX_mps']
+for n_trim in range(len(TrimVec['VX_mps'])):
+    obs = TestEnv.reset(VX_mps = TrimVec['VX_mps'][n_trim], VZ_mps = 0.0, THETA = 0.0, DispMessages = False, Linearize = True,
+                        TermTheta_deg = 45, StaFreezeList = [] , UNC_seed = None , UNC_enable = 0)
+    TrimVec['PitchThrottle_to_qdot'][n_trim] = abs(TestEnv.TrimData['Linear']['B'][0,1])
+    TrimVec['Elevator_to_qdot'][n_trim]      = abs(TestEnv.TrimData['Linear']['B'][0,4]) 
 
+TrimVec['ContAlloc_Thr'] =   TrimVec['PitchThrottle_to_qdot'] /(TrimVec['PitchThrottle_to_qdot'] + 5*TrimVec['Elevator_to_qdot'])  
+    
 GainVec = {}
+
+# %% INITIALIZE GAINS VECTOR
+GainsVec = {}
+GainsVec['Kqp'] = 0.0*TrimVec['VX_mps'] 
+GainsVec['Kqi'] = 0.0*TrimVec['VX_mps'] 
+GainsVec['Kt']  = 0.0*TrimVec['VX_mps'] 
+GainsVec['Kff'] = 0.0*TrimVec['VX_mps'] 
+GainsVec['ContAlloc_Thr'] = 0*TrimVec['VX_mps'] 
+CostVec = 0.0*TrimVec['VX_mps'] 
 
 def GeneralPitchFunction(InpGains = [0.04, 0.02, 0.9, 0.0], ContAlloc_Thr = 1):
 
@@ -63,6 +79,7 @@ def GeneralPitchFunction(InpGains = [0.04, 0.02, 0.9, 0.0], ContAlloc_Thr = 1):
     return TotalCost
 
 for n_trim in range(len(TrimVec['VX_mps'])):
+    print(' ')
     print("Optimizing Speed %d / %d" %(n_trim+1,len(TrimVec['VX_mps'])))
     obs = TestEnv.reset(VX_mps = TrimVec['VX_mps'][n_trim], VZ_mps = 0.0, THETA = 0.0, DispMessages = False, Linearize = True,
                         TermTheta_deg = 45, StaFreezeList = [] , UNC_seed = None , UNC_enable = 0)
@@ -75,6 +92,7 @@ for n_trim in range(len(TrimVec['VX_mps'])):
                                               TestEnv.TrimData['Linear']['C'] , 
                                               TestEnv.TrimData['Linear']['D'] , 
                                               inputs=TestEnv.TrimData['Linear']['InpNames'] , 
+                                              states=TestEnv.TrimData['Linear']['StaNames'] , 
                                               outputs = TestEnv.TrimData['Linear']['OutNames'],
                                               name = 'Aircraft' )
     # %%
@@ -110,8 +128,8 @@ for n_trim in range(len(TrimVec['VX_mps'])):
         x0 = OptGains['x']
         
     bnds = ((0.0, 0.1),
-            (0.0, 0.1),
-            (0.1, 2.0),
+            (0.0, 0.2),
+            (0.1, 3.0),
             (0.0, 0.1))
     
     # OptGains = opt.minimize(GeneralPitchFunction , x0, args = (TrimVec['ContAlloc_Thr'][n_trim]), method = 'Nelder-Mead' , bounds=bnds)
@@ -129,13 +147,38 @@ for n_trim in range(len(TrimVec['VX_mps'])):
     print('Powell Elapsed Time [s]: %0.1f' %(elapsed))
    
     # OptGains = opt.minimize(GeneralPitchFunction , x0, args = (TrimVec['ContAlloc_Thr'][n_trim]), method = 'L-BFGS-B' , bounds=bnds)
-    # %% FINAL PLOT
+    
+    # SAVE GAINS
+    GainsVec['Kqp']           [n_trim] = OptGains['x'][0]
+    GainsVec['Kqi']           [n_trim] = OptGains['x'][1]
+    GainsVec['Kt']            [n_trim] = OptGains['x'][2]
+    GainsVec['Kff']           [n_trim] = OptGains['x'][3]
+    GainsVec['ContAlloc_Thr'] [n_trim] = TrimVec['ContAlloc_Thr'][n_trim]
+
     Gains = {}
-    Gains['Kqp']           = OptGains['x'][0]
-    Gains['Kqi']           = OptGains['x'][1]
-    Gains['Kt']            = OptGains['x'][2]
-    Gains['Kff']           = OptGains['x'][3]
-    Gains['ContAlloc_Thr'] = TrimVec['ContAlloc_Thr'][n_trim]
+    for kk in GainsVec.keys():
+        Gains[kk] = GainsVec[kk][n_trim]
+    
+    PitchController = Controller(Gains)
+    ControlAllocation = gen_ControlAllocation(Gains)
+    ClosedLoops = PitchClosedLoops(Aircraft , PitchController, Sensor_q , Sensor_t , EngActuator, ElevActuator, ControlAllocation)
+    Criteria    = CalculateIndividualCosts(ClosedLoops)
+    TotalCost   = CalculateTotalCost(Criteria)
+    CostVec[n_trim] = TotalCost
+
+    print('Final Cost: %0.2f' %(TotalCost))
+    
+    print_gains = ''
+    for kk in GainsVec.keys():
+        print_gains = print_gains + kk + ': ' + format(GainsVec[kk][n_trim],'0.4f')+ ';  '
+    print(print_gains)
+    
+# %% PLOT RESULTS
+plt.close('all')
+for n_trim in range(len(TrimVec['VX_mps'])):
+    Gains = {}
+    for kk in GainsVec.keys():
+        Gains[kk] = GainsVec[kk][n_trim]
     
     PitchController = Controller(Gains)
     ControlAllocation = gen_ControlAllocation(Gains)
@@ -143,30 +186,14 @@ for n_trim in range(len(TrimVec['VX_mps'])):
     Criteria    = CalculateIndividualCosts(ClosedLoops)
     TotalCost   = CalculateTotalCost(Criteria)
     
-    
-    print('Final Cost: %0.2f' %(TotalCost))
-    print(Gains)
-    
-    if n_trim == 0:
-        GainsVec = {}
-        for kk in Gains.keys():
-            GainsVec[kk] = np.zeros(len(TrimVec['VX_mps']))
-            
-        CostVec = np.zeros(len(TrimVec['VX_mps']))
-            
-    for kk in Gains.keys():
-        GainsVec[kk][n_trim] = Gains[kk]
-        CostVec[n_trim] = TotalCost
-
-
-    PitchPlots(ClosedLoops , Criteria)
+    PitchPlots(ClosedLoops , Criteria, (str(TrimVec['VX_mps'][n_trim]) + 'm/s') )
     
 # %% PLOT GAINS
 
 plt.figure('Gains')
 
 keys = GainsVec.keys()
-l = int(np.ceil(np.sqrt(len(keys))))
+l = int(np.ceil(np.sqrt(1+len(keys))))
 c = int(np.ceil(len(keys) / l))
 
 for i in range(len(keys)-1):
@@ -176,5 +203,21 @@ for i in range(len(keys)-1):
     plt.ylabel(list(keys)[i])
     plt.ylim(bnds[i])
     plt.xlabel('VX [mps]')
+    
+plt.subplot(l,c,i+2)
+plt.plot(TrimVec['VX_mps'] , CostVec)
+plt.grid('on')
+plt.ylabel('Cost')
+plt.xlabel('VX [mps]')
+
+    
 plt.tight_layout()
 plt.show()
+
+File2Save = {'GainsVec': GainsVec, 'TrimVec': TrimVec}
+with open('SavedGains3.pkl', 'wb') as fp:
+    pickle.dump(File2Save, fp)
+
+
+with open('SavedGains3.pkl', 'rb') as fp:
+    std = pickle.load(fp)
