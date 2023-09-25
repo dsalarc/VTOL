@@ -8,6 +8,37 @@ Created on Mon Aug 21 22:53:18 2023
 import numpy as np
 import control as ct
 
+def gen_Aircraft (TestEnv , VX_mps = 0):
+    obs = TestEnv.reset(VX_mps = VX_mps, VZ_mps = 0.0, THETA = 0.0, DispMessages = False, Linearize = True,
+                        TermTheta_deg = 45, StaFreezeList = [] , UNC_seed = None , UNC_enable = 0)
+    
+    # %%
+    Aircraft = {}
+    Aircraft['AltitudeIncluded'] = {}
+    Aircraft['AltitudeIncluded']['SS'] = ct.ss(TestEnv.TrimData['Linear']['A'] , 
+                                              TestEnv.TrimData['Linear']['B'] , 
+                                              TestEnv.TrimData['Linear']['C'] , 
+                                              TestEnv.TrimData['Linear']['D'] , 
+                                              inputs=TestEnv.TrimData['Linear']['InpNames'] , 
+                                              states=TestEnv.TrimData['Linear']['StaNames'] , 
+                                              outputs = TestEnv.TrimData['Linear']['OutNames'],
+                                              name = 'Aircraft' )
+    
+    Aircraft['AltitudeNotIncluded'] = {}
+    idx_Z = TestEnv.TrimData['Linear']['StaNames'].index('Z_m')
+    idx   = np.arange(0,len(TestEnv.TrimData['Linear']['StaNames']))
+    idx   = np.delete(idx,idx_Z)
+    Aircraft['AltitudeNotIncluded']['SS'] = ct.ss(TestEnv.TrimData['Linear']['A'][:,idx][idx,:] , 
+                                              TestEnv.TrimData['Linear']['B'][idx,:] , 
+                                              TestEnv.TrimData['Linear']['C'][:,idx]  , 
+                                              TestEnv.TrimData['Linear']['D'] , 
+                                              inputs=TestEnv.TrimData['Linear']['InpNames'] , 
+                                              states=[TestEnv.TrimData['Linear']['StaNames'][index] for index in idx], 
+                                              outputs = TestEnv.TrimData['Linear']['OutNames'],
+                                              name = 'Aircraft' )
+    
+    return Aircraft
+   
 def gen_EngActuator(wn_radps = 40):
     EngActuator = {}
     EngActuator['wn_radps']  = wn_radps
@@ -69,3 +100,15 @@ def Sensor(wn_radps = 40, inp_name = 'inp_name', out_name = 'out_name' , sensor_
                            inputs=inp_name, outputs=out_name, name = sensor_name)
     
     return Sensor
+
+def gen_Gain(Gain_val = 1, inp_name = 'inp_name', out_name = 'out_name' , gain_name = 'gain_name'):
+    Gain = {}
+    Gain['Gain']  = Gain_val
+    Gain['TF'] = ct.tf([Gain_val],[1])
+    Gain['SS'] = ct.ss(np.array([0]),
+                       np.array([0]),
+                       np.array([0]),
+                       np.array([Gain_val]) ,
+                       inputs=inp_name, outputs=out_name, name = gain_name)
+    
+    return Gain

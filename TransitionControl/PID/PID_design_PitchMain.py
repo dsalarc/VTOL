@@ -12,7 +12,7 @@ import scipy.optimize as opt
 from PID_design_PitchCosts import CalculateIndividualCosts, CalculateTotalCost
 from PID_design_PitchClosedLoops import PitchClosedLoops
 from PID_design_PitchPlots import PitchPlots
-from PID_design_PitchFunctions import gen_EngActuator, gen_ElevActuator, Controller, Sensor, gen_ControlAllocation
+from PID_design_PitchFunctions import gen_EngActuator, gen_ElevActuator, Controller, Sensor, gen_ControlAllocation, gen_Aircraft
 import control as ct
 import time
 import pickle
@@ -36,7 +36,8 @@ TestEnv = gym.make('gym_VTOL:Vahana_VertFlight-v0')
 # %% DEFINE TRIM VECTOR
 TrimVec = {}
 TrimVec['VX_mps']        = np.array([  0.0 ,   5.0 ,   10.0 ,   20.0 ,   30.0 ,  35.0 ,   40.0 ,   50.0 ,   60.0 ])
-# TrimVec['VX_mps']        = np.array([  0.0 ,   5.0])
+# TrimVec['VX_mps']        = np.array([  0.0 ,   10.0,   50.0 , 60.0])
+# TrimVec['VX_mps']        = np.array([  30.0, 30.0, 30.0, 30.0, 30.0])
 
 TrimVec['PitchThrottle_to_qdot']  = 0.0*TrimVec['VX_mps']
 TrimVec['Elevator_to_qdot']       = 0.0*TrimVec['VX_mps']
@@ -46,8 +47,8 @@ for n_trim in range(len(TrimVec['VX_mps'])):
     TrimVec['PitchThrottle_to_qdot'][n_trim] = abs(TestEnv.TrimData['Linear']['B'][0,1])
     TrimVec['Elevator_to_qdot'][n_trim]      = abs(TestEnv.TrimData['Linear']['B'][0,4]) 
 
-TrimVec['ContAlloc_Thr'] =   TrimVec['PitchThrottle_to_qdot'] /(TrimVec['PitchThrottle_to_qdot'] + 5*TrimVec['Elevator_to_qdot'])  
-    
+TrimVec['ContAlloc_Thr'] =   0.1*TrimVec['PitchThrottle_to_qdot'] /(0.1*TrimVec['PitchThrottle_to_qdot'] + 0.3*TrimVec['Elevator_to_qdot'])  
+  
 GainVec = {}
 
 # %% INITIALIZE GAINS VECTOR
@@ -81,37 +82,11 @@ def GeneralPitchFunction(InpGains = [0.04, 0.02, 0.9, 0.0], ContAlloc_Thr = 1):
 for n_trim in range(len(TrimVec['VX_mps'])):
     print(' ')
     print("Optimizing Speed %d / %d" %(n_trim+1,len(TrimVec['VX_mps'])))
-    obs = TestEnv.reset(VX_mps = TrimVec['VX_mps'][n_trim], VZ_mps = 0.0, THETA = 0.0, DispMessages = False, Linearize = True,
-                        TermTheta_deg = 45, StaFreezeList = [] , UNC_seed = None , UNC_enable = 0)
     
+           
+   
     # %%
-    Aircraft = {}
-    Aircraft['SpeedIncluded'] = {}
-    Aircraft['SpeedIncluded']['SS'] = ct.ss(TestEnv.TrimData['Linear']['A'] , 
-                                              TestEnv.TrimData['Linear']['B'] , 
-                                              TestEnv.TrimData['Linear']['C'] , 
-                                              TestEnv.TrimData['Linear']['D'] , 
-                                              inputs=TestEnv.TrimData['Linear']['InpNames'] , 
-                                              states=TestEnv.TrimData['Linear']['StaNames'] , 
-                                              outputs = TestEnv.TrimData['Linear']['OutNames'],
-                                              name = 'Aircraft' )
-    # %%
-    
-    # M,P,w = ct.bode(Sensor['TF'],omega = np.linspace(0,100,num=100))
-    
-    # plt.figure
-    # plt.subplot(2,1,1)
-    # plt.grid('on')
-    # plt.plot(w,20*np.log10(M))
-    # plt.xscale('log')
-    
-    # plt.subplot(2,1,2)
-    # plt.grid('on')
-    # plt.plot(w,np.rad2deg(P))
-    # plt.xscale('log')
-    
-    # plt.show()
-    # %%
+    Aircraft        = gen_Aircraft(TestEnv, TrimVec['VX_mps'][n_trim])
     EngActuator     = gen_EngActuator(wn_radps = 40)
     ElevActuator    = gen_ElevActuator(wn_radps = 40)
     Sensor_q        = Sensor(wn_radps = 40, inp_name = 'Q_degps', out_name = 'Q_sen_degps' , sensor_name = 'Sensor_q')
@@ -179,7 +154,8 @@ for n_trim in range(len(TrimVec['VX_mps'])):
     Gains = {}
     for kk in GainsVec.keys():
         Gains[kk] = GainsVec[kk][n_trim]
-    
+       
+    Aircraft    = gen_Aircraft(TestEnv, TrimVec['VX_mps'][n_trim])
     PitchController = Controller(Gains)
     ControlAllocation = gen_ControlAllocation(Gains)
     ClosedLoops = PitchClosedLoops(Aircraft , PitchController, Sensor_q , Sensor_t , EngActuator, ElevActuator, ControlAllocation)
@@ -187,7 +163,6 @@ for n_trim in range(len(TrimVec['VX_mps'])):
     TotalCost   = CalculateTotalCost(Criteria)
     
     PitchPlots(ClosedLoops , Criteria, (str(TrimVec['VX_mps'][n_trim]) + 'm/s') )
-    
 # %% PLOT GAINS
 
 plt.figure('Gains')
