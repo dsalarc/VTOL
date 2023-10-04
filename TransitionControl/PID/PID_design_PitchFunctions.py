@@ -8,8 +8,8 @@ Created on Mon Aug 21 22:53:18 2023
 import numpy as np
 import control as ct
 
-def gen_Aircraft (TestEnv , VX_mps = 0):
-    obs = TestEnv.reset(VX_mps = VX_mps, VZ_mps = 0.0, THETA = 0.0, DispMessages = False, Linearize = True,
+def gen_Aircraft (TestEnv , VX_mps = 0, Tilt_deg = None):
+    obs = TestEnv.reset(VX_mps = VX_mps, VZ_mps = 0.0, Tilt_deg = Tilt_deg, THETA = 0.0, DispMessages = False, Linearize = True,
                         TermTheta_deg = 45, StaFreezeList = [] , UNC_seed = None , UNC_enable = 0)
     
     # %%

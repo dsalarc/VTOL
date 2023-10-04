@@ -408,9 +408,9 @@ class Vahana_VertFlight(gym.Env):
             self.adm_vec  = np.array([100 , 20 , 10 , 10  , 100, 10 , 10  , 3.1415/2 , 3.1415/2 , 3.1415/2 , 3.1415/2 , 3.1415/2 , 3.1415/2 , 100])
             self.MaxState = np.array([1   , 1  , 1  , 1   , 1  ,  1 , 1   , 1        , 1        , 1        , 1        , 1        ,1          , 1])
         else:
-            self.adm_vec  = np.array([100 , 20 , 100, 10 , 10  , 3.1415/2 , 3.1415/2 , 100])
-            self.MaxState = np.array([1  , 1  , 1  ,  1 , 1   , 1        , 1         , 1])
-            
+            # Observation Space    = [Vx  , dVx, Vxerror , Z    , Zerror , Vz , dVz , Theta    , q         , CAS]
+            self.adm_vec  = np.array([100 , 20 , 100     , 1000 , 100    , 10 , 10  , 3.1415/2 , 3.1415/2  , 100])
+            self.MaxState = np.array([1   , 1  , 1       , 1    , 1      , 1  , 1   , 1        , 1         , 1])
         
         '''
         ACTIONS:
@@ -442,82 +442,88 @@ class Vahana_VertFlight(gym.Env):
     ############################################
     ############## RESET FUNCTION ##############
     ############################################
-    def reset(self,W = 0, Altitude_m = 100, THETA = 0,  PHI = 0,  PSI = 0, PaxIn = np.array([1,1]),
-                   VX_mps = 0, VZ_mps = 0, Tilt_deg = None, DispMessages = False, Linearize = False, TermTheta_deg = 10, StaFreezeList = [],
+    def reset(self,W = 0, Altitude_m = 100, Altitude_ref_m = 100, THETA = 0,  PHI = 0,  PSI = 0, PaxIn = np.array([1,1]),
+                   VX_mps = 0, VX_ref_mps = 60, VZ_mps = 0, Tilt_deg = None, DispMessages = False, Linearize = False, TermTheta_deg = 10, StaFreezeList = [],
                    UNC_seed = None , UNC_enable = 0, reset_INPUT_VEC = None, GroundHeight_m = 0):
-      self.CurrentStep = 0
-      self.trimming = 0
+        self.CurrentStep = 0
+        self.trimming = 0
 
-      # OPTIONS
-      self.OPT  = {}
-      self.OPT['UseAeroMoment']    = 1
-      self.OPT['UseAeroForce']     = 1
-      self.OPT['UsePropMoment']    = 1
-      self.OPT['UsePropForce']     = 1
-      self.OPT['UseSensors']       = False
-      self.OPT['UseActuator']      = False
-      self.OPT['Aero_useWingData'] = False
-      self.OPT['Enable_P']         = 0
-      self.OPT['Enable_Q']         = 1
-      self.OPT['Enable_R']         = 0
-      self.OPT['Enable_U']         = 1
-      self.OPT['Enable_V']         = 0
-      self.OPT['Enable_W']         = 1
-      self.OPT['DispMessages']     = DispMessages
-      self.OPT['StaFreezeList']    = StaFreezeList
-      self.OPT['UNC_seed'] = UNC_seed
-      self.OPT['UNC_enable'] = UNC_enable
+        # OPTIONS
+        self.OPT  = {}
+        self.OPT['UseAeroMoment']    = 1
+        self.OPT['UseAeroForce']     = 1
+        self.OPT['UsePropMoment']    = 1
+        self.OPT['UsePropForce']     = 1
+        self.OPT['UseSensors']       = True
+        self.OPT['UseActuator']      = True
+        self.OPT['Aero_useWingData'] = False
+        self.OPT['Enable_P']         = 0
+        self.OPT['Enable_Q']         = 1
+        self.OPT['Enable_R']         = 0
+        self.OPT['Enable_U']         = 1
+        self.OPT['Enable_V']         = 0
+        self.OPT['Enable_W']         = 1
+        self.OPT['DispMessages']     = DispMessages
+        self.OPT['StaFreezeList']    = StaFreezeList
+        self.OPT['UNC_seed'] = UNC_seed
+        self.OPT['UNC_enable'] = UNC_enable
 
-      # Initialize Contants  
-      self.Term = {}
-      self.Term['Theta_deg'] = TermTheta_deg
+        # Initialize Contants  
+        self.Term = {}
+        self.Term['Theta_deg'] = TermTheta_deg
 
-      self.StartUp(PaxIn = PaxIn , reset_INPUT_VEC = reset_INPUT_VEC , GroundHeight_m = GroundHeight_m)
-      
-      self.EQM['sta']        = np.zeros(shape=12,dtype = np.float32)
-      if W == 'rand':
-          self.EQM['sta'][8] = np.random.randint(-1,2)*10
-      else:
-          self.EQM['sta'][8] = W    
-          
-      if THETA == 'rand':
-          # self.EQM['sta'][4] = (2*np.random.random()-1)*10/57.3
-          self.EQM['sta'][4] = np.random.randint(-1,2)*10/57.3
-      else:
-          self.EQM['sta'][4] = THETA  
-          
-      if PHI == 'rand':
-          # self.EQM['sta'][3] = (2*np.random.random()-1)*10/57.3
-          self.EQM['sta'][3] = np.random.randint(-1,2)*10/57.3
-      else:
-          self.EQM['sta'][3] = PHI  
-          
-      if PSI == 'rand':
-          # self.EQM['sta'][5] = (2*np.random.random()-1)*10/57.3
-          self.EQM['sta'][5] = np.random.randint(-1,2)*10/57.3
-      else:
-          self.EQM['sta'][5] = PSI  
+        self.StartUp(PaxIn = PaxIn , reset_INPUT_VEC = reset_INPUT_VEC , GroundHeight_m = GroundHeight_m)
+        
+        # Initialize Control References
+        self.CONT['ref'] = {}
+        self.CONT['ref']['Z_m'] = -Altitude_ref_m
+        self.CONT['ref']['VX_mps'] = VX_ref_mps
 
-      if Altitude_m == 'rand':
-          self.EQM['sta'][2] = -np.random.random()*2000
-      else:
-          self.EQM['sta'][2] = -Altitude_m
-          
-      
-      self.EQM['sta_dot']    = np.zeros(shape=np.shape(self.EQM['sta']),dtype = np.float32)
-      self.EQM['sta_dotdot'] = np.zeros(shape=np.shape(self.EQM['sta']),dtype = np.float32)
-      self.EQM['sta_int']    = np.zeros(shape=np.shape(self.EQM['sta']),dtype = np.float32)
-      
-      TrimData = self.trim(TrimVX_mps = VX_mps, TrimVZ_mps = VZ_mps, TrimTilt_deg = Tilt_deg, TrimTheta_deg = THETA, TrimZ_m = -Altitude_m, 
-                           PitchController = 'W2_Elevator', Linearize = Linearize)
+        # Initialize States
+        self.EQM['sta']        = np.zeros(shape=12,dtype = np.float32)
+        if W == 'rand':
+            self.EQM['sta'][8] = np.random.randint(-1,2)*10
+        else:
+            self.EQM['sta'][8] = W    
+            
+        if THETA == 'rand':
+            # self.EQM['sta'][4] = (2*np.random.random()-1)*10/57.3
+            self.EQM['sta'][4] = np.random.randint(-1,2)*10/57.3
+        else:
+            self.EQM['sta'][4] = THETA  
+            
+        if PHI == 'rand':
+            # self.EQM['sta'][3] = (2*np.random.random()-1)*10/57.3
+            self.EQM['sta'][3] = np.random.randint(-1,2)*10/57.3
+        else:
+            self.EQM['sta'][3] = PHI  
+            
+        if PSI == 'rand':
+            # self.EQM['sta'][5] = (2*np.random.random()-1)*10/57.3
+            self.EQM['sta'][5] = np.random.randint(-1,2)*10/57.3
+        else:
+            self.EQM['sta'][5] = PSI  
 
-      # If not trimmed with elevator only, or deflection abobe 10deg, trim with Pitch Throttle
-      if (TrimData['Trimmed'] == 0) or (any(abs(TrimData['info']['CONT']['Elevon_deg'])>10)):
-        Action_W2_Elevator = np.sign(TrimData['Action'][self.action_names.index('W2_Elevator')]) * 10/(self.CONT['ElevRange_deg'][2]/2)
+        if Altitude_m == 'rand':
+            self.EQM['sta'][2] = -np.random.random()*2000
+        else:
+            self.EQM['sta'][2] = -Altitude_m
+            
+        
+        self.EQM['sta_dot']    = np.zeros(shape=np.shape(self.EQM['sta']),dtype = np.float32)
+        self.EQM['sta_dotdot'] = np.zeros(shape=np.shape(self.EQM['sta']),dtype = np.float32)
+        self.EQM['sta_int']    = np.zeros(shape=np.shape(self.EQM['sta']),dtype = np.float32)
+        
+        TrimData = self.trim(TrimVX_mps = VX_mps, TrimVZ_mps = VZ_mps, TrimTilt_deg = Tilt_deg, TrimTheta_deg = THETA, TrimZ_m = -Altitude_m, 
+                            PitchController = 'W2_Elevator', Linearize = Linearize)
 
-        TrimData = self.trim(TrimVX_mps = VX_mps, TrimVZ_mps = VZ_mps, TrimTilt_deg = Tilt_deg, TrimTheta_deg = THETA, TrimZ_m = -Altitude_m,
-                             PitchController = 'PitchThrottle' , 
-                             FixedAction = np.array(['W2_Elevator',Action_W2_Elevator]), Linearize = Linearize)
+        # If not trimmed with elevator only, or deflection above 10deg, trim with Pitch Throttle
+        if (TrimData['Trimmed'] == 0) or (any(abs(TrimData['info']['CONT']['Elevon_deg'])>10)):
+            Action_W2_Elevator = np.sign(TrimData['Action'][self.action_names.index('W2_Elevator')]) * 10/(self.CONT['ElevRange_deg'][2]/2)
+
+            TrimData = self.trim(TrimVX_mps = VX_mps, TrimVZ_mps = VZ_mps, TrimTilt_deg = Tilt_deg, TrimTheta_deg = THETA, TrimZ_m = -Altitude_m,
+                                    PitchController = 'PitchThrottle' , 
+                                    FixedAction = np.array(['W2_Elevator',Action_W2_Elevator]), Linearize = Linearize)
 
         # If signs of PitchThrottle and Elevator are different, invert elevator  
         if np.sign(TrimData['Action'][self.action_names.index('W2_Elevator')]) == np.sign(TrimData['Action'][self.action_names.index('PitchThrottle')]):
@@ -526,17 +532,17 @@ class Vahana_VertFlight(gym.Env):
                                 FixedAction = np.array(['W2_Elevator',-Action_W2_Elevator]), Linearize = Linearize)
 
 
-      self.TrimData = TrimData
-      
-      self.AllStates = self.EQM['sta']
-      
-      self.LastReward = self.REW_fcn()
+        self.TrimData = TrimData
+        
+        self.AllStates = self.EQM['sta']
+        
+        self.LastReward = self.REW_fcn()
 
-      obs = self.OutputObs(self.EQM['sta'],self.EQM['sta_dot'],self.EQM['sta_int'],self.CONT['Throttle_p'])
-      
-      self.saveinfo()
+        obs = self.OutputObs(self.EQM['sta'],self.EQM['sta_dot'],self.EQM['sta_int'],self.CONT['Throttle_p'])
+        
+        self.saveinfo()
 
-      return obs
+        return obs
 
    # %% SARTUP FUNCTION
     def StartUp (self,PaxIn , reset_INPUT_VEC = None , GroundHeight_m = 0):
@@ -933,8 +939,15 @@ class Vahana_VertFlight(gym.Env):
                                         self.SENS['CAS_mps']])
 
         else:
-            obs_vec       = np.array([self.SENS['VX_mps']    , self.SENS['NX_mps2'], 
-                                        self.SENS['Z_m']       ,
+            # Observation Space    = [Vx  , dVx, Vxerror , Z    , Zerror , Vz , dVz , Theta    , q         , CAS]
+            # self.adm_vec  = np.array([100 , 20 , 100     , 1000 , 100    , 10 , 10  , 3.1415/2 , 3.1415/2  , 100])
+            # self.MaxState = np.array([1   , 1  , 1       , 1    , 1      , 1  , 1   , 1        , 1         , 1])
+
+            Vx_error_mps = self.SENS['VX_mps'] - self.CONT['ref']['VX_mps'] 
+            Z_error_m    = self.SENS['Z_m'] - self.CONT['ref']['Z_m']
+
+            obs_vec       = np.array([self.SENS['VX_mps']      , self.SENS['NX_mps2'], Vx_error_mps ,  
+                                        self.SENS['Z_m']       , Z_error_m , 
                                         self.SENS['VZ_mps']    , self.SENS['NZ_mps2'], 
                                         self.SENS['Theta_rad'] , self.SENS['Q_radps'],
                                         self.SENS['CAS_mps']])
@@ -1041,7 +1054,7 @@ class Vahana_VertFlight(gym.Env):
         self.REW['Weight']['Q']        = 0.15
         self.REW['Weight']['Tilt_W1']  = 0.10*0
         self.REW['Weight']['Tilt_W2']  = 0.10*0
-        self.REW['Weight']['Current']  = 0.10
+        self.REW['Weight']['Current']  = 0.10*0
 
         w_sum = 0
         for k in self.REW['Weight'].keys():

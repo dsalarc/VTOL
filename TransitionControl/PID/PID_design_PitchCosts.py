@@ -106,7 +106,7 @@ def CalculateIndividualCosts(ClosedLoops):
     Criteria['q_steadystate']['cost'] = (np.max([Criteria['q_steadystate']['res'] - Criteria['q_steadystate']['target'],0]) * Criteria['q_steadystate']['weight_over'] + 
                                            np.min([Criteria['q_steadystate']['res'] - Criteria['q_steadystate']['target'],0]) * -Criteria['q_steadystate']['weight_down'])
     
-    # CLOSED LOOP STABILITY
+    # %% CLOSED LOOP STABILITY
     Criteria['closedloop_stability'] = {}
     Criteria['closedloop_stability']['weight_over'] = 1
     Criteria['closedloop_stability']['weight_down'] = 0
@@ -143,68 +143,6 @@ def CalculateIndividualCosts(ClosedLoops):
                                            np.min([Criteria['q_damp']['res'] - Criteria['q_damp']['target'],0]) * -Criteria['q_damp']['weight_down'])
     
     
-    
-    # # %% Phase/Gain Margin T2T
-    # Criteria['theta_gainmargin'] = {}
-    # Criteria['theta_gainmargin']['weight_over'] = 0
-    # Criteria['theta_gainmargin']['weight_down'] = 1
-    # Criteria['theta_gainmargin']['weight'] = 1
-    # Criteria['theta_gainmargin']['target'] = 6.0
-    
-    # Criteria['theta_phasemargin'] = {}
-    # Criteria['theta_phasemargin']['weight_over'] = 0
-    # Criteria['theta_phasemargin']['weight_down'] = 1
-    # Criteria['theta_phasemargin']['weight'] = 1/5
-    # Criteria['theta_phasemargin']['target'] = 45.0
-    
-    # G_adm,P_rad,w_radps = ct.bode(ClosedLoops['T2T'],omega = 10**np.linspace(-2,2,num=100),plot = False)
-    # G_db = 20*np.log10(G_adm)
-    # P_deg = np.rad2deg(P_rad)
-    # PM_deg = P_deg - (-180)
-    # GM_dB = 0 - G_db
-    
-    
-    # [T_GM_adm, T_PM_deg, T_wGM_radps, T_wPM_radps] = ct.margin(G_adm,P_deg,w_radps);
-    # T_GM_dB = 20*np.log10(T_GM_adm)
-    
-    # Criteria['theta_gainmargin']['res'] = min(T_GM_dB,1000)
-    # Criteria['theta_gainmargin']['cost'] = (np.max([Criteria['theta_gainmargin']['res'] - Criteria['theta_gainmargin']['target'],0]) * Criteria['theta_gainmargin']['weight_over'] + 
-    #                                        np.min([Criteria['theta_gainmargin']['res'] - Criteria['theta_gainmargin']['target'],0]) * -Criteria['theta_gainmargin']['weight_down'])
-    
-    # Criteria['theta_phasemargin']['res'] = min(T_PM_deg,1000)
-    # Criteria['theta_phasemargin']['cost'] = (np.max([Criteria['theta_phasemargin']['res'] - Criteria['theta_phasemargin']['target'],0]) * Criteria['theta_phasemargin']['weight_over'] + 
-    #                                        np.min([Criteria['theta_phasemargin']['res'] - Criteria['theta_phasemargin']['target'],0]) * -Criteria['theta_phasemargin']['weight_down'])
-    
-    # # %% Phase/Gain Margin Q
-    # Criteria['q_gainmargin'] = {}
-    # Criteria['q_gainmargin']['weight_over'] = 0
-    # Criteria['q_gainmargin']['weight_down'] = 1
-    # Criteria['q_gainmargin']['weight'] = 1
-    # Criteria['q_gainmargin']['target'] = 6.0
-    
-    # Criteria['q_phasemargin'] = {}
-    # Criteria['q_phasemargin']['weight_over'] = 0
-    # Criteria['q_phasemargin']['weight_down'] = 1
-    # Criteria['q_phasemargin']['weight'] = 1/5
-    # Criteria['q_phasemargin']['target'] = 45.0
-    
-    # G_adm,P_rad,w_radps = ct.bode(ClosedLoops['Q2Q'],omega = 10**np.linspace(-2,2,num=100),plot = False)
-    # G_db = 20*np.log10(G_adm)
-    # P_deg = np.rad2deg(P_rad)
-    # PM_deg = P_deg - (-180)
-    # GM_dB = 0 - G_db
-    
-    
-    # [Q_GM_adm, Q_PM_deg, Q_wGM_radps, Q_wPM_radps] = ct.margin(G_adm,P_deg,w_radps);
-    # Q_GM_dB = 20*np.log10(Q_GM_adm)
-    
-    # Criteria['q_gainmargin']['res'] = min(Q_GM_dB,1000)
-    # Criteria['q_gainmargin']['cost'] = (np.max([Criteria['q_gainmargin']['res'] - Criteria['q_gainmargin']['target'],0]) * Criteria['q_gainmargin']['weight_over'] + 
-    #                                         np.min([Criteria['q_gainmargin']['res'] - Criteria['q_gainmargin']['target'],0]) * -Criteria['q_gainmargin']['weight_down'])
-    
-    # Criteria['q_phasemargin']['res'] = min(Q_PM_deg,1000)
-    # Criteria['q_phasemargin']['cost'] = (np.max([Criteria['q_phasemargin']['res'] - Criteria['q_phasemargin']['target'],0]) * Criteria['q_phasemargin']['weight_over'] + 
-    #                                         np.min([Criteria['q_phasemargin']['res'] - Criteria['q_phasemargin']['target'],0]) * -Criteria['q_phasemargin']['weight_down'])
     
     # %% Phase/Gain Margin - OpenLoop PitchCmd
     Criteria['openloop_pitchcmd_gainmargin'] = {}

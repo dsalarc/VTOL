@@ -36,29 +36,32 @@ TestEnv = gym.make('gym_VTOL:Vahana_VertFlight-v0')
 # %% DEFINE TRIM VECTOR
 TrimVec = {}
 TrimVec['VX_mps']        = np.array([  0.0 ,   5.0 ,   10.0 ,   20.0 ,   30.0 ,  35.0 ,   40.0 ,   50.0 ,   60.0 ])
-# TrimVec['VX_mps']        = np.array([  0.0 ,   10.0,   50.0 , 60.0])
-# TrimVec['VX_mps']        = np.array([  30.0, 30.0, 30.0, 30.0, 30.0])
+TrimVec['TrimTilt_deg']  = np.arange(0.0, 90.0, 10.0)
+
+TrimVec['VX_mps']        = np.array([ 27.0, 28.0, 29.0, 29.5 ,   30.0 ,  30.5, 31.0, 32.0, 33.0])
+TrimVec['TrimTilt_deg']  = np.arange(0.0, 90.1, 90.0,)
 
 TrimVec['PitchThrottle_to_qdot']  = 0.0*TrimVec['VX_mps']
 TrimVec['Elevator_to_qdot']       = 0.0*TrimVec['VX_mps']
-for n_trim in range(len(TrimVec['VX_mps'])):
-    obs = TestEnv.reset(VX_mps = TrimVec['VX_mps'][n_trim], VZ_mps = 0.0, THETA = 0.0, DispMessages = False, Linearize = True,
+for nv_trim in range(len(TrimVec['VX_mps'])):
+    obs = TestEnv.reset(VX_mps = TrimVec['VX_mps'][nv_trim], VZ_mps = 0.0, THETA = 0.0, DispMessages = False, Linearize = True,
                         TermTheta_deg = 45, StaFreezeList = [] , UNC_seed = None , UNC_enable = 0)
-    TrimVec['PitchThrottle_to_qdot'][n_trim] = abs(TestEnv.TrimData['Linear']['B'][0,1])
-    TrimVec['Elevator_to_qdot'][n_trim]      = abs(TestEnv.TrimData['Linear']['B'][0,4]) 
+    TrimVec['PitchThrottle_to_qdot'][nv_trim] = abs(TestEnv.TrimData['Linear']['B'][0,1])
+    TrimVec['Elevator_to_qdot'][nv_trim]      = abs(TestEnv.TrimData['Linear']['B'][0,4]) 
 
 TrimVec['ContAlloc_Thr'] =   0.1*TrimVec['PitchThrottle_to_qdot'] /(0.1*TrimVec['PitchThrottle_to_qdot'] + 0.3*TrimVec['Elevator_to_qdot'])  
+TrimVec['ContAlloc_Thr'] =   0.1*TrimVec['PitchThrottle_to_qdot'] /(0.1*TrimVec['PitchThrottle_to_qdot'] + 0.0*TrimVec['Elevator_to_qdot'])  
   
 GainVec = {}
 
 # %% INITIALIZE GAINS VECTOR
 GainsVec = {}
-GainsVec['Kqp'] = 0.0*TrimVec['VX_mps'] 
-GainsVec['Kqi'] = 0.0*TrimVec['VX_mps'] 
-GainsVec['Kt']  = 0.0*TrimVec['VX_mps'] 
-GainsVec['Kff'] = 0.0*TrimVec['VX_mps'] 
-GainsVec['ContAlloc_Thr'] = 0*TrimVec['VX_mps'] 
-CostVec = 0.0*TrimVec['VX_mps'] 
+GainsVec['Kqp'] = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['TrimTilt_deg'])))
+GainsVec['Kqi'] = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['TrimTilt_deg'])))
+GainsVec['Kt']  = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['TrimTilt_deg'])))
+GainsVec['Kff'] = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['TrimTilt_deg'])))
+GainsVec['ContAlloc_Thr'] = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['TrimTilt_deg'])))
+CostVec = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['TrimTilt_deg'])))
 
 def GeneralPitchFunction(InpGains = [0.04, 0.02, 0.9, 0.0], ContAlloc_Thr = 1):
 
@@ -79,90 +82,95 @@ def GeneralPitchFunction(InpGains = [0.04, 0.02, 0.9, 0.0], ContAlloc_Thr = 1):
     
     return TotalCost
 
-for n_trim in range(len(TrimVec['VX_mps'])):
-    print(' ')
-    print("Optimizing Speed %d / %d" %(n_trim+1,len(TrimVec['VX_mps'])))
-    
-           
-   
-    # %%
-    Aircraft        = gen_Aircraft(TestEnv, TrimVec['VX_mps'][n_trim])
-    EngActuator     = gen_EngActuator(wn_radps = 40)
-    ElevActuator    = gen_ElevActuator(wn_radps = 40)
-    Sensor_q        = Sensor(wn_radps = 40, inp_name = 'Q_degps', out_name = 'Q_sen_degps' , sensor_name = 'Sensor_q')
-    Sensor_t        = Sensor(wn_radps = 40, inp_name = 'Theta_deg', out_name = 'Theta_sen_deg' , sensor_name = 'Sensor_t')
-    # %%
-    
-    # TotalCost = GeneralPitchFunction(InpGains = [0.04, 0.02, 0.1, 0.0])   
-    
-    TotalCost = GeneralPitchFunction()
-    
-    if n_trim == 0:
-        x0 = [0.04, 0.02, 0.9, 0.0]
-    else:
-        x0 = OptGains['x']
+SaveAircraft = []
+for nv_trim in range(len(TrimVec['VX_mps'])):
+    for nt_trim in range(len(TrimVec['TrimTilt_deg'])):
+        print(' ')
+        print("Optimizing Speed %d / %d" %(nv_trim+1,len(TrimVec['VX_mps'])))
+        print("Optimizing Tilt %d / %d" %(nt_trim+1,len(TrimVec['TrimTilt_deg'])))
         
-    bnds = ((0.0, 0.1),
-            (0.0, 0.2),
-            (0.1, 3.0),
-            (0.0, 0.1))
+               
+       
+        # %%
+        Aircraft        = gen_Aircraft(TestEnv, VX_mps = TrimVec['VX_mps'][nv_trim], Tilt_deg = None) #TrimVec['TrimTilt_deg'][nt_trim])
+        EngActuator     = gen_EngActuator(wn_radps = 40)
+        ElevActuator    = gen_ElevActuator(wn_radps = 40)
+        Sensor_q        = Sensor(wn_radps = 40, inp_name = 'Q_degps', out_name = 'Q_sen_degps' , sensor_name = 'Sensor_q')
+        Sensor_t        = Sensor(wn_radps = 40, inp_name = 'Theta_deg', out_name = 'Theta_sen_deg' , sensor_name = 'Sensor_t')
+        
+        SaveAircraft.append(Aircraft)
+        # %%
+           
+        TotalCost = GeneralPitchFunction()
+        
+        if nv_trim == 0:
+            x0 = [0.04, 0.02, 0.9, 0.0]
+        else:
+            x0 = OptGains['x']
+            
+        bnds = ((0.0, 0.1),
+                (0.0, 0.2),
+                (0.1, 3.0),
+                (0.0, 0.1))
+        
+        # OptGains = opt.minimize(GeneralPitchFunction , x0, args = (TrimVec['ContAlloc_Thr'][nv_trim]), method = 'Nelder-Mead' , bounds=bnds)
+       
+        # t = time.time()
+        # OptGains = opt.minimize(GeneralPitchFunction , x0, args = (TrimVec['ContAlloc_Thr'][nv_trim]), method = 'TNC' , bounds=bnds)
+        # elapsed = time.time() - t
+        # print('TNC Elapsed Time [s]: %0.1f' %(elapsed))
+       
+        # OptGains = opt.minimize(GeneralPitchFunction , x0, args = (TrimVec['ContAlloc_Thr'][nv_trim]), method = 'SLSQP' , bounds=bnds)
+        
+        t = time.time()    
+        OptGains = opt.minimize(GeneralPitchFunction , x0, args = (TrimVec['ContAlloc_Thr'][nv_trim]), method = 'Powell' , bounds=bnds)
+        elapsed = time.time() - t
+        print('Powell Elapsed Time [s]: %0.1f' %(elapsed))
+       
+        # OptGains = opt.minimize(GeneralPitchFunction , x0, args = (TrimVec['ContAlloc_Thr'][nv_trim]), method = 'L-BFGS-B' , bounds=bnds)
+        
+        # SAVE GAINS
+        GainsVec['Kqp']           [nv_trim,nt_trim] = OptGains['x'][0]
+        GainsVec['Kqi']           [nv_trim,nt_trim] = OptGains['x'][1]
+        GainsVec['Kt']            [nv_trim,nt_trim] = OptGains['x'][2]
+        GainsVec['Kff']           [nv_trim,nt_trim] = OptGains['x'][3]
+        GainsVec['ContAlloc_Thr'] [nv_trim,nt_trim] = TrimVec['ContAlloc_Thr'][nv_trim]
     
-    # OptGains = opt.minimize(GeneralPitchFunction , x0, args = (TrimVec['ContAlloc_Thr'][n_trim]), method = 'Nelder-Mead' , bounds=bnds)
-   
-    # t = time.time()
-    # OptGains = opt.minimize(GeneralPitchFunction , x0, args = (TrimVec['ContAlloc_Thr'][n_trim]), method = 'TNC' , bounds=bnds)
-    # elapsed = time.time() - t
-    # print('TNC Elapsed Time [s]: %0.1f' %(elapsed))
-   
-    # OptGains = opt.minimize(GeneralPitchFunction , x0, args = (TrimVec['ContAlloc_Thr'][n_trim]), method = 'SLSQP' , bounds=bnds)
+        Gains = {}
+        for kk in GainsVec.keys():
+            Gains[kk] = GainsVec[kk][nv_trim,nt_trim]
+        
+        PitchController = Controller(Gains)
+        ControlAllocation = gen_ControlAllocation(Gains)
+        ClosedLoops = PitchClosedLoops(Aircraft , PitchController, Sensor_q , Sensor_t , EngActuator, ElevActuator, ControlAllocation)
+        Criteria    = CalculateIndividualCosts(ClosedLoops)
+        TotalCost   = CalculateTotalCost(Criteria)
+        CostVec[nv_trim,nt_trim] = TotalCost
     
-    t = time.time()    
-    OptGains = opt.minimize(GeneralPitchFunction , x0, args = (TrimVec['ContAlloc_Thr'][n_trim]), method = 'Powell' , bounds=bnds)
-    elapsed = time.time() - t
-    print('Powell Elapsed Time [s]: %0.1f' %(elapsed))
-   
-    # OptGains = opt.minimize(GeneralPitchFunction , x0, args = (TrimVec['ContAlloc_Thr'][n_trim]), method = 'L-BFGS-B' , bounds=bnds)
-    
-    # SAVE GAINS
-    GainsVec['Kqp']           [n_trim] = OptGains['x'][0]
-    GainsVec['Kqi']           [n_trim] = OptGains['x'][1]
-    GainsVec['Kt']            [n_trim] = OptGains['x'][2]
-    GainsVec['Kff']           [n_trim] = OptGains['x'][3]
-    GainsVec['ContAlloc_Thr'] [n_trim] = TrimVec['ContAlloc_Thr'][n_trim]
-
-    Gains = {}
-    for kk in GainsVec.keys():
-        Gains[kk] = GainsVec[kk][n_trim]
-    
-    PitchController = Controller(Gains)
-    ControlAllocation = gen_ControlAllocation(Gains)
-    ClosedLoops = PitchClosedLoops(Aircraft , PitchController, Sensor_q , Sensor_t , EngActuator, ElevActuator, ControlAllocation)
-    Criteria    = CalculateIndividualCosts(ClosedLoops)
-    TotalCost   = CalculateTotalCost(Criteria)
-    CostVec[n_trim] = TotalCost
-
-    print('Final Cost: %0.2f' %(TotalCost))
-    
-    print_gains = ''
-    for kk in GainsVec.keys():
-        print_gains = print_gains + kk + ': ' + format(GainsVec[kk][n_trim],'0.4f')+ ';  '
-    print(print_gains)
+        print('Final Cost: %0.2f' %(TotalCost))
+        
+        print_gains = ''
+        for kk in GainsVec.keys():
+            print_gains = print_gains + kk + ': ' + format(GainsVec[kk][nv_trim,nt_trim],'0.4f')+ ';  '
+        print(print_gains)
     
 # %% PLOT RESULTS
 plt.close('all')
-for n_trim in range(len(TrimVec['VX_mps'])):
-    Gains = {}
-    for kk in GainsVec.keys():
-        Gains[kk] = GainsVec[kk][n_trim]
-       
-    Aircraft    = gen_Aircraft(TestEnv, TrimVec['VX_mps'][n_trim])
-    PitchController = Controller(Gains)
-    ControlAllocation = gen_ControlAllocation(Gains)
-    ClosedLoops = PitchClosedLoops(Aircraft , PitchController, Sensor_q , Sensor_t , EngActuator, ElevActuator, ControlAllocation)
-    Criteria    = CalculateIndividualCosts(ClosedLoops)
-    TotalCost   = CalculateTotalCost(Criteria)
+for nv_trim in range(len(TrimVec['VX_mps'])):
+    for nt_trim in range(len(TrimVec['TrimTilt_deg'])):
+        Gains = {}
+        for kk in GainsVec.keys():
+            Gains[kk] = GainsVec[kk][nv_trim,nt_trim]
+           
+        PitchController = Controller(Gains)
+        ControlAllocation = gen_ControlAllocation(Gains)
+        ClosedLoops = PitchClosedLoops(SaveAircraft[nv_trim] , PitchController, Sensor_q , Sensor_t , EngActuator, ElevActuator, ControlAllocation)
+        Criteria    = CalculateIndividualCosts(ClosedLoops)
+        TotalCost   = CalculateTotalCost(Criteria)
+        
+        print("Speed: %0.1f / TotalCost: %0.2f " %(TrimVec['VX_mps'][nv_trim] , TotalCost))
+        PitchPlots(ClosedLoops , Criteria, (str(TrimVec['VX_mps'][nv_trim]) + 'm/s') )
     
-    PitchPlots(ClosedLoops , Criteria, (str(TrimVec['VX_mps'][n_trim]) + 'm/s') )
 # %% PLOT GAINS
 
 plt.figure('Gains')
@@ -176,7 +184,7 @@ for i in range(len(keys)-1):
     plt.plot(TrimVec['VX_mps'] , GainsVec[list(keys)[i]])
     plt.grid('on')
     plt.ylabel(list(keys)[i])
-    plt.ylim(bnds[i])
+    # plt.ylim(bnds[i])
     plt.xlabel('VX [mps]')
     
 plt.subplot(l,c,i+2)
@@ -189,10 +197,10 @@ plt.xlabel('VX [mps]')
 plt.tight_layout()
 plt.show()
 
-File2Save = {'GainsVec': GainsVec, 'TrimVec': TrimVec}
+File2Save = {'GainsVec': GainsVec, 'TrimVec': TrimVec, 'CostVec': CostVec}
 with open('SavedGains3.pkl', 'wb') as fp:
     pickle.dump(File2Save, fp)
 
 
-with open('SavedGains3.pkl', 'rb') as fp:
-    std = pickle.load(fp)
+# with open('SavedGains3.pkl', 'rb') as fp:
+#     std = pickle.load(fp)

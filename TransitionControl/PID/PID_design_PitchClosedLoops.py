@@ -20,16 +20,17 @@ def PitchClosedLoops(Aircraft , Control, Sensor_q , Sensor_t , EngActuator, Elev
                                              ['Aircraft.PitchThrottle'     , 'EngActuator.PitchThrottle_u'],
                                              ['Aircraft.W2_Elevator'       , 'ElevActuator.Elevator_u']],
                                 name = 'ClosedLoop' , 
-                                inplist = ['Control.Q_ref_degps', 'Control.Theta_ref_deg', 'Control.PitchCmd_inp'],
-                                inputs = ['Q_ref_degps', 'Theta_ref_deg', 'PitchCmd_inp'],
+                                inplist = ['Control.Q_ref_degps', 'Control.Theta_ref_deg', 'Control.PitchCmd_inp', 'Aircraft.Throttle'],
+                                inputs = ['Q_ref_degps', 'Theta_ref_deg', 'PitchCmd_inp', 'Throttle_inp'],
                                 outlist = ['Aircraft.Theta_deg', 'Aircraft.Q_degps', 
                                            'Control.Q_cmd_degps', 'Control.Q_err_int_deg' , 
                                            'Control.PitchCmd', 
-                                           'ControlAllocation.ThrottlePitch' , 'ControlAllocation.Elevator_u'],
+                                           'ControlAllocation.ThrottlePitch' , 'ControlAllocation.Elevator_u',
+                                           'Aircraft.Z_m'],
                                 outputs = ['Theta_deg', 'Q_degps' , 
                                            'Q_cmd_degps' , 'Q_err_int_deg', 
                                            'PitchCmd_u' , 
-                                           'ThrottlePitchCmd_u', 'ElevatorCmd_u'])
+                                           'ThrottlePitchCmd_u', 'ElevatorCmd_u', 'Z_m'])
     
     ClosedLoops['AltitudeNotIncluded'] = ct.interconnect(
                                 [Aircraft['AltitudeNotIncluded']['SS'], Control['SS'] , Sensor_q['SS'] , Sensor_t['SS'] , EngActuator['SS']  , ElevActuator['SS']  , ControlAllocation['SS'] ],

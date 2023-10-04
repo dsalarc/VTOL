@@ -20,8 +20,6 @@ def PitchPlots(ClosedLoops , Criteria, PlotLabel):
         plt.xlim([0,max(T)] )
     plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
     plt.suptitle('Theta Command Step')
-    # fig1.tight_layout(rect=[0, 0.03, 1, 0.95]) 
-    # fig1.tight_layout() 
     fig1.savefig('Step_Theta.png', bbox_inches='tight')
     plt.show()
 
@@ -29,7 +27,6 @@ def PitchPlots(ClosedLoops , Criteria, PlotLabel):
     # %% Q CMD RESPONSE, Theta Open
     T, yout = ct.step_response(ClosedLoops['NoThetaFeedback'] , T=5, input = 0)
     
-    # plt.close('all')
     l = int(np.ceil(np.sqrt(len(yout))))
     c = int(np.ceil(len(yout) / l))
     fig2 = plt.figure('QStep')
@@ -41,11 +38,28 @@ def PitchPlots(ClosedLoops , Criteria, PlotLabel):
         plt.xlim([0,max(T)] )
     plt.legend()
     plt.suptitle('Q Command Step (No theta feedback')
-    # fig2.tight_layout(rect=[0, 0.03, 1, 0.95]) 
+    fig2.tight_layout(rect=[0, 0.03, 1, 0.95]) 
     fig2.savefig('Step_Q_NoThetaFeedback.png', bbox_inches='tight')
     plt.show()
 
+    # %% THETA RESPONSE TO THROTTLE INPUT
+    T, yout = ct.step_response(ClosedLoops['AltitudeIncluded'] , T=5, input = 3)
     
+    l = int(np.ceil(np.sqrt(len(yout))))
+    c = int(np.ceil(len(yout) / l))
+    fig3 = plt.figure('ThrottleDist')
+    for i in range(len(yout)):
+        plt.subplot(l,c,i+1)
+        plt.plot(T,yout[i][0], label = PlotLabel)
+        plt.grid('on')
+        plt.ylabel(ClosedLoops['AltitudeIncluded'].output_labels[i])
+        plt.xlim([0,max(T)] )
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.suptitle('Throttle Disturbance')
+    fig3.savefig('Throttle_Disturbance.png', bbox_inches='tight')
+    plt.show()
+
+   
     # %% OPEN LOOP PITCH CMD MARGIN PLOT
     
     G_adm,P_rad,w_radps = ct.bode(ClosedLoops['OpenLoop_pitchcmd'],omega = 10**np.linspace(BodePlot_minFreq_10e_radps,BodePlot_maxFreq_10e_radps,num=100),plot = False)
@@ -75,8 +89,8 @@ def PitchPlots(ClosedLoops , Criteria, PlotLabel):
     plt.xlabel('Frequency [rad/s]')
     plt.ylabel('Gain [dB]')
     
-    plt.subplot(2,2,3, label = PlotLabel)
-    plt.plot(w_radps , P_deg)
+    plt.subplot(2,2,3)
+    plt.plot(w_radps , P_deg, label = PlotLabel)
     plt.plot(w_radps , (w_radps*0-180), 'k:')
     plt.plot(w_radps , (w_radps*0+180), 'k:')
     for i in range(len(margins_res[1])):
@@ -144,8 +158,8 @@ def PitchPlots(ClosedLoops , Criteria, PlotLabel):
     plt.xlabel('Frequency [rad/s]')
     plt.ylabel('Gain [dB]')
     
-    plt.subplot(2,2,3, label = PlotLabel)
-    plt.plot(w_radps , P_deg)
+    plt.subplot(2,2,3)
+    plt.plot(w_radps , P_deg, label = PlotLabel)
     plt.plot(w_radps , (w_radps*0-180), 'k:')
     plt.plot(w_radps , (w_radps*0+180), 'k:')
     for i in range(len(margins_res[1])):
@@ -210,8 +224,8 @@ def PitchPlots(ClosedLoops , Criteria, PlotLabel):
     plt.xlabel('Frequency [rad/s]')
     plt.ylabel('Gain [dB]')
     
-    plt.subplot(2,2,3, label = PlotLabel)
-    plt.plot(w_radps , P_deg)
+    plt.subplot(2,2,3)
+    plt.plot(w_radps , P_deg, label = PlotLabel)
     plt.plot(w_radps , (w_radps*0-180), 'k:')
     plt.plot(w_radps , (w_radps*0+180), 'k:')
     for i in range(len(margins_res[1])):

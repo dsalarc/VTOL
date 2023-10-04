@@ -12,7 +12,7 @@ import scipy.optimize as opt
 from PID_design_VertCosts import CalculateIndividualCosts, CalculateTotalCost
 from PID_design_VertClosedLoops import gen_ClosedLoops
 from PID_design_VertPlots import gen_Plots
-from PID_design_VertFunctions import gen_EngActuator, gen_Controller, gen_Sensor
+from PID_design_VertFunctions import gen_EngActuator, gen_Controller, gen_Sensor, gen_Aircraft
 import control as ct
 import time
 import pickle
@@ -71,47 +71,22 @@ SaveAircraft = []
 for n_trim in range(len(TrimVec['VX_mps'])):
     print(' ')
     print("Optimizing Speed %d / %d" %(n_trim+1,len(TrimVec['VX_mps'])))
-    obs = TestEnv.reset(VX_mps = TrimVec['VX_mps'][n_trim], VZ_mps = 0.0, THETA = 0.0, DispMessages = False, Linearize = True,
-                        TermTheta_deg = 45, StaFreezeList = [] , UNC_seed = None , UNC_enable = 0)
     
-    # %%
-    Aircraft = {}
-    Aircraft['PitchIncluded'] = {}
-    Aircraft['PitchIncluded']['SS'] = ct.ss(TestEnv.TrimData['Linear']['A'] , 
-                                              TestEnv.TrimData['Linear']['B'] , 
-                                              TestEnv.TrimData['Linear']['C'] , 
-                                              TestEnv.TrimData['Linear']['D'] , 
-                                              inputs=TestEnv.TrimData['Linear']['InpNames'] , 
-                                              states=TestEnv.TrimData['Linear']['StaNames'] , 
-                                              outputs = TestEnv.TrimData['Linear']['OutNames'],
-                                              name = 'Aircraft' )
-    Aircraft['PitchNotIncluded'] = {}
-    States_to_remove = [TestEnv.TrimData['Linear']['StaNames'].index('Q_radps') , 
-                        TestEnv.TrimData['Linear']['StaNames'].index('Theta_rad')]
-    States_to_include = list(np.arange(0, len(TestEnv.TrimData['Linear']['StaNames'])))
-    for i in range(len(States_to_remove)):
-        States_to_include.remove(States_to_remove[i])
-    Aircraft['PitchNotIncluded']['SS'] = ct.ss(TestEnv.TrimData['Linear']['A'][States_to_include,:][:,States_to_include] , 
-                                              TestEnv.TrimData['Linear']['B'][States_to_include,:] , 
-                                              TestEnv.TrimData['Linear']['C'][:,States_to_include] , 
-                                              TestEnv.TrimData['Linear']['D'] , 
-                                              inputs=TestEnv.TrimData['Linear']['InpNames'] , 
-                                              states=[TestEnv.TrimData['Linear']['StaNames'][i] for i in States_to_include], 
-                                              outputs = TestEnv.TrimData['Linear']['OutNames'],
-                                              name = 'Aircraft' )
     
-    SaveAircraft.append(Aircraft)
     # %% 
+    Aircraft        = gen_Aircraft(TestEnv, TrimVec['VX_mps'][n_trim])
     EngActuator     = gen_EngActuator(wn_radps = 40,  inp_name = 'ThrottleCmd_u', out_name = 'Throttle_u' , act_name = 'EngActuator')
     Sensor_vz       = gen_Sensor(wn_radps = 40, inp_name = 'VZ_mps', out_name = 'VZ_sen_mps' , sensor_name = 'Sensor_vz')
     Sensor_z        = gen_Sensor(wn_radps = 40, inp_name = 'Z_m', out_name = 'Z_sen_m' , sensor_name = 'Sensor_z')
     Sensor_az       = gen_Sensor(wn_radps = 40, inp_name = 'AZi_mps2', out_name = 'AZi_sen_mps2' , sensor_name = 'Sensor_az')
-    # %%
+    
+    SaveAircraft.append(Aircraft)
+   # %%
        
     TotalCost = GeneralFunction()
     
     if n_trim == 0:
-        x0 = [-0.10, -0.00, 1.0, 0.0, 0.0]
+        x0 = [-0.10, -0.025, 0.9, -0.01, -0.009]
     else:
         x0 = OptGains['x']
         
@@ -139,7 +114,7 @@ for n_trim in range(len(TrimVec['VX_mps'])):
     for kk in GainsVec.keys():
         Gains[kk] = GainsVec[kk][n_trim]
     
-    Controller = gen_Controller(Gains)
+    Controller  = gen_Controller(Gains)
     ClosedLoops = gen_ClosedLoops(Aircraft , Controller, Sensor_vz , Sensor_z, Sensor_az, EngActuator)
     Criteria    = CalculateIndividualCosts(ClosedLoops)
     TotalCost   = CalculateTotalCost(Criteria)
@@ -189,11 +164,10 @@ plt.plot(TrimVec['VX_mps'] , CostVec)
 plt.grid('on')
 plt.ylabel('Cost')
 plt.xlabel('VX [mps]')
-
-    
+ 
 plt.tight_layout()
 plt.show()
 
-File2Save = {'GainsVec': GainsVec, 'TrimVec': TrimVec}
+File2Save = {'GainsVec': GainsVec, 'TrimVec': TrimVec, 'CostVec': CostVec}
 with open('VertGains.pkl', 'wb') as fp:
     pickle.dump(File2Save, fp)
