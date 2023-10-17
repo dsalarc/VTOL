@@ -127,3 +127,22 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+/gym-VTOL/gym_VTOL/envs/Tcontrol/*
+/gym-VTOL/gym_VTOL/envs/TransitionControl/*
+/gym-VTOL/gym_VTOL/envs/Wcontrol/*
+/gym-VTOL/gym_VTOL/envs/WTcontrol/*
+/gym-VTOL/gym_VTOL/envs/WTPcontrol/*
+/gym-VTOL/gym_VTOL/envs/WTPPcontrol/*
+
+/TransitionControl/DDPG
+/TransitionControl/PPO
+TransitionControl/PID_gains.pdf
+TransitionControl/PID_transition.pdf
+TransitionControl/PID_transition_05s.pdf
+TransitionControl/PID_transition_05s_v2.pdf
+*.pkl
+*.png
+*.pdf
+TransitionControl/PID/open_loop_q.txt
+gym-VTOL/gym_VTOL/envs/VTOL_env_old.py
