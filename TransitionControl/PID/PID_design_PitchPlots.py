@@ -38,7 +38,6 @@ def PitchPlots(ClosedLoops , Criteria, PlotLabel):
         plt.xlim([0,max(T)] )
     plt.legend()
     plt.suptitle('Q Command Step (No theta feedback')
-    fig2.tight_layout(rect=[0, 0.03, 1, 0.95]) 
     fig2.savefig('Step_Q_NoThetaFeedback.png', bbox_inches='tight')
     plt.show()
 

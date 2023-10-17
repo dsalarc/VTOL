@@ -4,10 +4,10 @@ import control as ct
 def CalculateTotalCost(Criteria):
     TotalCost = 0
     for i in range(len(Criteria.keys())):
-        CriteriaCost = Criteria[list(Criteria.keys())[i]]['cost'] * Criteria[list(Criteria.keys())[i]]['weight']
+        Criteria[list(Criteria.keys())[i]]['cost_weighted'] = Criteria[list(Criteria.keys())[i]]['cost'] * Criteria[list(Criteria.keys())[i]]['weight']
         # print("%s Cost: %0.2f" %(list(Criteria.keys())[i] , CriteriaCost))
-        TotalCost += CriteriaCost
-    
+        TotalCost += Criteria[list(Criteria.keys())[i]]['cost_weighted']
+        
     return TotalCost
 
 def CalculateCost (Criteria_dict):
@@ -106,6 +106,25 @@ def CalculateIndividualCosts(ClosedLoops):
     Criteria['q_steadystate']['cost'] = (np.max([Criteria['q_steadystate']['res'] - Criteria['q_steadystate']['target'],0]) * Criteria['q_steadystate']['weight_over'] + 
                                            np.min([Criteria['q_steadystate']['res'] - Criteria['q_steadystate']['target'],0]) * -Criteria['q_steadystate']['weight_down'])
     
+    # THROTTLE DISTURBANCE REJECTION
+    Criteria['disturb_rejection'] = {}
+    Criteria['disturb_rejection']['weight_over'] = 1
+    Criteria['disturb_rejection']['weight_down'] = -0.1
+    Criteria['disturb_rejection']['weight'] = 0.5
+    Criteria['disturb_rejection']['target'] = 2.0
+    Criteria['disturb_rejection']['type']   = 'abs'
+    
+    T, yout = ct.step_response(ClosedLoops['AltitudeIncluded'] , T=5, input = ClosedLoops['AltitudeIncluded'].input_labels.index('Throttle_inp'))
+
+    accomod_time = T[np.abs(yout[ClosedLoops['AltitudeIncluded'].output_labels.index('Theta_deg')][0]) > 0.2]
+    if len(accomod_time) == 0:
+        theta_acc = 0
+    else:
+        theta_acc = accomod_time[-1]
+    Criteria['disturb_rejection']['res'] = theta_acc
+    Criteria['disturb_rejection']['cost'] = CalculateCost(Criteria['disturb_rejection'])
+    
+ 
     # %% CLOSED LOOP STABILITY
     Criteria['closedloop_stability'] = {}
     Criteria['closedloop_stability']['weight_over'] = 1
