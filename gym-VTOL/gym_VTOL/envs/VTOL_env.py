@@ -454,9 +454,9 @@ class Vahana_VertFlight(gym.Env):
         self.OPT['UseAeroForce']     = 1
         self.OPT['UsePropMoment']    = 1
         self.OPT['UsePropForce']     = 1
-        self.OPT['UseSensors']       = False
+        self.OPT['UseSensors']       = True
         self.OPT['UseActuator']      = True
-        self.OPT['Aero_useWingData'] = False
+        self.OPT['Aero_useWingData'] = True
         self.OPT['Enable_P']         = 0
         self.OPT['Enable_Q']         = 1
         self.OPT['Enable_R']         = 0
@@ -1020,7 +1020,7 @@ class Vahana_VertFlight(gym.Env):
         self.REW['Target']['Q']        = 0
         self.REW['Target']['Tilt_W1']  = 0
         self.REW['Target']['Tilt_W2']  = 0
-        self.REW['Target']['Current']  = 100
+        self.REW['Target']['Current']  = 90
 
         self.REW['Adm_n'] = {}
         self.REW['Adm_n']['Vx']       = 60
@@ -1050,7 +1050,7 @@ class Vahana_VertFlight(gym.Env):
         self.REW['Order']['Q']        = 1
         self.REW['Order']['Tilt_W1']  = 3
         self.REW['Order']['Tilt_W2']  = 3
-        self.REW['Order']['Current']  = 3
+        self.REW['Order']['Current']  = 1
 
         self.REW['Weight'] = {}
         self.REW['Weight']['Vx']       = 0.40
@@ -1060,7 +1060,7 @@ class Vahana_VertFlight(gym.Env):
         self.REW['Weight']['Q']        = 0.15
         self.REW['Weight']['Tilt_W1']  = 0.10*0
         self.REW['Weight']['Tilt_W2']  = 0.10*0
-        self.REW['Weight']['Current']  = 0.10*0
+        self.REW['Weight']['Current']  = 0.05
 
         w_sum = 0
         for k in self.REW['Weight'].keys():
