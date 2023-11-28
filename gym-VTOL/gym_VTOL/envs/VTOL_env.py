@@ -443,7 +443,7 @@ class Vahana_VertFlight(gym.Env):
     ############## RESET FUNCTION ##############
     ############################################
     def reset(self,W = 0, Altitude_m = 100, Altitude_ref_m = 100, THETA = 0,  PHI = 0,  PSI = 0, PaxIn = np.array([1,1]),
-                   VX_mps = 0, VX_ref_mps = 60, VZ_mps = 0, Tilt_deg = None, AX_mps2 = None, Elevator_deg = 0, DispMessages = False, Linearize = False, TermTheta_deg = 10, StaFreezeList = [],
+                   VX_mps = 0, VX_ref_mps = 60, VZ_mps = 0, Tilt_deg = None, AX_mps2 = None, Throttle_u = None, Elevator_deg = 0, DispMessages = False, Linearize = False, TermTheta_deg = 10, StaFreezeList = [],
                    UNC_seed = None , UNC_enable = 0, reset_INPUT_VEC = None, GroundHeight_m = 0):
         self.CurrentStep = 0
         self.trimming = 0
@@ -516,24 +516,24 @@ class Vahana_VertFlight(gym.Env):
         
         if Elevator_deg != None:
             Action_W2_Elevator = Elevator_deg/(self.CONT['ElevRange_deg'][2]/2)
-            TrimData = self.trim(TrimVX_mps = VX_mps, TrimVZ_mps = VZ_mps, TrimTilt_deg = Tilt_deg, TrimAX_mps2 = AX_mps2, TrimTheta_deg = THETA, TrimZ_m = -Altitude_m,
+            TrimData = self.trim(TrimVX_mps = VX_mps, TrimVZ_mps = VZ_mps, TrimTilt_deg = Tilt_deg, TrimAX_mps2 = AX_mps2, TrimThrottle_u = Throttle_u, TrimTheta_deg = THETA, TrimZ_m = -Altitude_m,
                                     PitchController = 'PitchThrottle' , 
                                     FixedAction = np.array(['W2_Elevator',Action_W2_Elevator]), Linearize = Linearize)
         else:
-            TrimData = self.trim(TrimVX_mps = VX_mps, TrimVZ_mps = VZ_mps, TrimTilt_deg = Tilt_deg, TrimAX_mps2 = AX_mps2, TrimTheta_deg = THETA, TrimZ_m = -Altitude_m, 
+            TrimData = self.trim(TrimVX_mps = VX_mps, TrimVZ_mps = VZ_mps, TrimTilt_deg = Tilt_deg, TrimAX_mps2 = AX_mps2, TrimThrottle_u = Throttle_u, TrimTheta_deg = THETA, TrimZ_m = -Altitude_m, 
                                 PitchController = 'W2_Elevator', Linearize = Linearize)
 
             # If not trimmed with elevator only, or deflection above 10deg, trim with Pitch Throttle
             if (TrimData['Trimmed'] == 0) or (any(abs(TrimData['info']['CONT']['Elevon_deg'])>10)):
                 Action_W2_Elevator = np.sign(TrimData['Action'][self.action_names.index('W2_Elevator')]) * 10/(self.CONT['ElevRange_deg'][2]/2)
 
-                TrimData = self.trim(TrimVX_mps = VX_mps, TrimVZ_mps = VZ_mps, TrimTilt_deg = Tilt_deg, TrimAX_mps2 = AX_mps2, TrimTheta_deg = THETA, TrimZ_m = -Altitude_m,
+                TrimData = self.trim(TrimVX_mps = VX_mps, TrimVZ_mps = VZ_mps, TrimTilt_deg = Tilt_deg, TrimAX_mps2 = AX_mps2, TrimThrottle_u = Throttle_u, TrimTheta_deg = THETA, TrimZ_m = -Altitude_m,
                                         PitchController = 'PitchThrottle' , 
                                         FixedAction = np.array(['W2_Elevator',Action_W2_Elevator]), Linearize = Linearize)
 
             # If signs of PitchThrottle and Elevator are different, invert elevator  
             if np.sign(TrimData['Action'][self.action_names.index('W2_Elevator')]) == np.sign(TrimData['Action'][self.action_names.index('PitchThrottle')]):
-                TrimData = self.trim(TrimVX_mps = VX_mps, TrimVZ_mps = VZ_mps, TrimTilt_deg = Tilt_deg, TrimAX_mps2 = AX_mps2, TrimTheta_deg = THETA, TrimZ_m = -Altitude_m, 
+                TrimData = self.trim(TrimVX_mps = VX_mps, TrimVZ_mps = VZ_mps, TrimTilt_deg = Tilt_deg, TrimAX_mps2 = AX_mps2, TrimThrottle_u = Throttle_u, TrimTheta_deg = THETA, TrimZ_m = -Altitude_m, 
                                     PitchController = 'PitchThrottle' , 
                                     FixedAction = np.array(['W2_Elevator',-Action_W2_Elevator]), Linearize = Linearize)
 
@@ -583,7 +583,7 @@ class Vahana_VertFlight(gym.Env):
       self.init_SENS()
       self.VARS['INP'] = self.init_INP(reset_INPUT_VEC = reset_INPUT_VEC)
     
-    def trim(self, TrimVX_mps = 0, TrimVZ_mps = 0, TrimTilt_deg = None, TrimAX_mps2 = None, TrimTheta_deg = 0, TrimZ_m = 0, PitchController = 'PitchThrottle',FixedAction = np.array([]), Linearize = False):
+    def trim(self, TrimVX_mps = 0, TrimVZ_mps = 0, TrimTilt_deg = None, TrimAX_mps2 = None, TrimThrottle_u = None, TrimTheta_deg = 0, TrimZ_m = 0, PitchController = 'PitchThrottle',FixedAction = np.array([]), Linearize = False):
         TrimData = {}
         TrimData['Trimmed'] = 0
        
@@ -612,11 +612,13 @@ class Vahana_VertFlight(gym.Env):
             if DefaultOutputs:
                 if GetNames:
                     if TrimTilt_deg != None:
-                        return ['VX_mps' , 'VZ_mps', 'AZ_mps2', 'Theta_rad', 'Z_m']
+                        return ['VX_mps' , 'VZ_mps',            'AZ_mps2', 'Theta_rad',               'Z_m']
                     elif TrimAX_mps2 != None:
                         return ['VX_mps' , 'VZ_mps', 'AX_mps2', 'AZ_mps2', 'Theta_rad', 'TiltDiff_p', 'Z_m']
+                    elif TrimThrottle_u != None:
+                        return ['VX_mps' , 'VZ_mps',            'AZ_mps2', 'Theta_rad', 'TiltDiff_p', 'Z_m']
                     else:
-                        return ['VX_mps' , 'VZ_mps', 'Theta_rad', 'TiltDiff_p', 'Z_m']
+                        return ['VX_mps' , 'VZ_mps', 'AX_mps2', 'AZ_mps2', 'Theta_rad', 'TiltDiff_p', 'Z_m']
 
                 else:
                     if TrimTilt_deg != None:
@@ -629,6 +631,13 @@ class Vahana_VertFlight(gym.Env):
                         return np.array([EQM['VelLin_EarthAx_mps'][0] ,
                                         EQM['VelLin_EarthAx_mps'][2] , 
                                         EQM['AccLin_EarthAx_mps2'][0] , 
+                                        EQM['AccLin_EarthAx_mps2'][2] , 
+                                        EQM['EulerAngles_rad'][1] , 
+                                        CONT['TiltDiff_p'] ,
+                                        EQM['PosLin_EarthAx_m'][2] ])
+                    elif TrimThrottle_u != None:
+                        return np.array([EQM['VelLin_EarthAx_mps'][0] ,
+                                        EQM['VelLin_EarthAx_mps'][2] , 
                                         EQM['AccLin_EarthAx_mps2'][2] , 
                                         EQM['EulerAngles_rad'][1] , 
                                         CONT['TiltDiff_p'] ,
@@ -712,6 +721,8 @@ class Vahana_VertFlight(gym.Env):
         if (TrimTilt_deg != None):
             TrimTilt_u = (2*TrimTilt_deg - (self.CONT['MaxTilt_deg']+self.CONT['MinTilt_deg'])) / (self.CONT['MaxTilt_deg']-self.CONT['MinTilt_deg'])
             FixedAction = np.append(FixedAction , np.array(['W1_Tilt',TrimTilt_u[0] , 'W2_Tilt', TrimTilt_u[1]]))
+        elif TrimThrottle_u != None:
+            FixedAction = np.append(FixedAction , np.array(['Throttle',TrimThrottle_u]))
 
         TrimAction = np.zeros(np.shape(self.action_space))     
         for i in range(len(TrimAction)):
@@ -726,6 +737,10 @@ class Vahana_VertFlight(gym.Env):
         # Define Freeze and Floats Indexes
         if TrimTilt_deg != None:
             name_ActionFloat = ['Throttle', PitchController]
+        elif TrimAX_mps2 != None:
+            name_ActionFloat = ['Throttle', PitchController, 'W1_Tilt', 'W2_Tilt']
+        elif TrimThrottle_u != None:
+            name_ActionFloat = [PitchController, 'W1_Tilt', 'W2_Tilt']
         else:
             name_ActionFloat = ['Throttle', PitchController, 'W1_Tilt', 'W2_Tilt']
            
@@ -738,12 +753,14 @@ class Vahana_VertFlight(gym.Env):
         for i in range(len(n_StateFloat)):
             n_StateFloat[i] = self.EQM['sta_names'].index(name_StateFloat[i]) 
  
-        if TrimTilt_deg != None:
-            name_StateDotFreeze = ['Q_radps']
-        elif TrimAX_mps2 != None:
-            name_StateDotFreeze = ['Q_radps']
-        else:
-            name_StateDotFreeze = ['U_mps', 'W_mps', 'Q_radps']
+        # if TrimTilt_deg != None:
+        name_StateDotFreeze = ['Q_radps']
+        # elif TrimAX_mps2 != None:
+        #     name_StateDotFreeze = ['Q_radps']
+        # elif TrimThrottle_u != None:
+        #     name_StateDotFreeze = ['Q_radps']
+        # else:
+        #     name_StateDotFreeze = ['U_mps', 'W_mps', 'Q_radps']
 
         n_StateDotFreeze    = np.zeros(len(name_StateDotFreeze), dtype = int)
         for i in range(len(n_StateDotFreeze)):
@@ -760,11 +777,13 @@ class Vahana_VertFlight(gym.Env):
         
         # Trim Target Vector
         if TrimTilt_deg != None:
-            TrimTarget = np.hstack((np.zeros(len(n_StateDotFreeze)) , np.array([TrimVX_mps, TrimVZ_mps, 0, np.deg2rad(TrimTheta_deg), TrimZ_m])))
+            TrimTarget = np.hstack((np.zeros(len(n_StateDotFreeze)) , np.array([TrimVX_mps, TrimVZ_mps,              0, np.deg2rad(TrimTheta_deg),                 TrimZ_m])))
         elif TrimAX_mps2 != None:
             TrimTarget = np.hstack((np.zeros(len(n_StateDotFreeze)) , np.array([TrimVX_mps, TrimVZ_mps, TrimAX_mps2, 0, np.deg2rad(TrimTheta_deg), TrimTiltDiff_p, TrimZ_m])))
+        elif TrimThrottle_u != None:
+            TrimTarget = np.hstack((np.zeros(len(n_StateDotFreeze)) , np.array([TrimVX_mps, TrimVZ_mps,              0, np.deg2rad(TrimTheta_deg), TrimTiltDiff_p, TrimZ_m])))
         else:
-            TrimTarget = np.hstack((np.zeros(len(n_StateDotFreeze)) , np.array([TrimVX_mps, TrimVZ_mps, np.deg2rad(TrimTheta_deg), TrimTiltDiff_p, TrimZ_m])))
+            TrimTarget = np.hstack((np.zeros(len(n_StateDotFreeze)) , np.array([TrimVX_mps, TrimVZ_mps,           0, 0, np.deg2rad(TrimTheta_deg), TrimTiltDiff_p, TrimZ_m])))
         
        
         # Perform One Step    
