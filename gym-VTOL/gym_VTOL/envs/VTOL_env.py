@@ -443,7 +443,7 @@ class Vahana_VertFlight(gym.Env):
     ############## RESET FUNCTION ##############
     ############################################
     def reset(self,W = 0, Altitude_m = 100, Altitude_ref_m = 100, THETA = 0,  PHI = 0,  PSI = 0, PaxIn = np.array([1,1]),
-                   VX_mps = 0, VX_ref_mps = 60, VZ_mps = 0, Tilt_deg = None, Elevator_deg = 0, DispMessages = False, Linearize = False, TermTheta_deg = 10, StaFreezeList = [],
+                   VX_mps = 0, VX_ref_mps = 60, VZ_mps = 0, Tilt_deg = None, AX_mps2 = None, Elevator_deg = 0, DispMessages = False, Linearize = False, TermTheta_deg = 10, StaFreezeList = [],
                    UNC_seed = None , UNC_enable = 0, reset_INPUT_VEC = None, GroundHeight_m = 0):
         self.CurrentStep = 0
         self.trimming = 0
@@ -516,24 +516,24 @@ class Vahana_VertFlight(gym.Env):
         
         if Elevator_deg != None:
             Action_W2_Elevator = Elevator_deg/(self.CONT['ElevRange_deg'][2]/2)
-            TrimData = self.trim(TrimVX_mps = VX_mps, TrimVZ_mps = VZ_mps, TrimTilt_deg = Tilt_deg, TrimTheta_deg = THETA, TrimZ_m = -Altitude_m,
+            TrimData = self.trim(TrimVX_mps = VX_mps, TrimVZ_mps = VZ_mps, TrimTilt_deg = Tilt_deg, TrimAX_mps2 = AX_mps2, TrimTheta_deg = THETA, TrimZ_m = -Altitude_m,
                                     PitchController = 'PitchThrottle' , 
                                     FixedAction = np.array(['W2_Elevator',Action_W2_Elevator]), Linearize = Linearize)
         else:
-            TrimData = self.trim(TrimVX_mps = VX_mps, TrimVZ_mps = VZ_mps, TrimTilt_deg = Tilt_deg, TrimTheta_deg = THETA, TrimZ_m = -Altitude_m, 
+            TrimData = self.trim(TrimVX_mps = VX_mps, TrimVZ_mps = VZ_mps, TrimTilt_deg = Tilt_deg, TrimAX_mps2 = AX_mps2, TrimTheta_deg = THETA, TrimZ_m = -Altitude_m, 
                                 PitchController = 'W2_Elevator', Linearize = Linearize)
 
             # If not trimmed with elevator only, or deflection above 10deg, trim with Pitch Throttle
             if (TrimData['Trimmed'] == 0) or (any(abs(TrimData['info']['CONT']['Elevon_deg'])>10)):
                 Action_W2_Elevator = np.sign(TrimData['Action'][self.action_names.index('W2_Elevator')]) * 10/(self.CONT['ElevRange_deg'][2]/2)
 
-                TrimData = self.trim(TrimVX_mps = VX_mps, TrimVZ_mps = VZ_mps, TrimTilt_deg = Tilt_deg, TrimTheta_deg = THETA, TrimZ_m = -Altitude_m,
+                TrimData = self.trim(TrimVX_mps = VX_mps, TrimVZ_mps = VZ_mps, TrimTilt_deg = Tilt_deg, TrimAX_mps2 = AX_mps2, TrimTheta_deg = THETA, TrimZ_m = -Altitude_m,
                                         PitchController = 'PitchThrottle' , 
                                         FixedAction = np.array(['W2_Elevator',Action_W2_Elevator]), Linearize = Linearize)
 
             # If signs of PitchThrottle and Elevator are different, invert elevator  
             if np.sign(TrimData['Action'][self.action_names.index('W2_Elevator')]) == np.sign(TrimData['Action'][self.action_names.index('PitchThrottle')]):
-                TrimData = self.trim(TrimVX_mps = VX_mps, TrimVZ_mps = VZ_mps, TrimTilt_deg = Tilt_deg, TrimTheta_deg = THETA, TrimZ_m = -Altitude_m, 
+                TrimData = self.trim(TrimVX_mps = VX_mps, TrimVZ_mps = VZ_mps, TrimTilt_deg = Tilt_deg, TrimAX_mps2 = AX_mps2, TrimTheta_deg = THETA, TrimZ_m = -Altitude_m, 
                                     PitchController = 'PitchThrottle' , 
                                     FixedAction = np.array(['W2_Elevator',-Action_W2_Elevator]), Linearize = Linearize)
 
@@ -583,7 +583,7 @@ class Vahana_VertFlight(gym.Env):
       self.init_SENS()
       self.VARS['INP'] = self.init_INP(reset_INPUT_VEC = reset_INPUT_VEC)
     
-    def trim(self, TrimVX_mps = 0, TrimVZ_mps = 0, TrimTilt_deg = None, TrimTheta_deg = 0, TrimZ_m = 0, PitchController = 'PitchThrottle',FixedAction = np.array([]), Linearize = False):
+    def trim(self, TrimVX_mps = 0, TrimVZ_mps = 0, TrimTilt_deg = None, TrimAX_mps2 = None, TrimTheta_deg = 0, TrimZ_m = 0, PitchController = 'PitchThrottle',FixedAction = np.array([]), Linearize = False):
         TrimData = {}
         TrimData['Trimmed'] = 0
        
@@ -600,28 +600,46 @@ class Vahana_VertFlight(gym.Env):
                               [ 1.000e+00 ,  9.618e-01 ,  8.481e-01 ,  4.325e-01 , -4.394e-02 , -2.334e-01  , -3.780e-01 , -4.387e-01 , -7.860e-01 , -8.266e-01 , -8.572e-01 , -8.717e-01  , -8.801e-01 , -8.878e-01 , -8.979e-01],
                               [ 1.000e+00 ,  9.618e-01 ,  8.481e-01 ,  4.325e-01 , -4.394e-02 , -2.334e-01  , -3.780e-01 , -4.387e-01 , -7.860e-01 , -8.266e-01 , -8.572e-01 , -8.717e-01  , -8.801e-01 , -8.878e-01 , -8.979e-01],
                               [ 6.667e-01 ,  6.667e-01 ,  6.667e-01 ,  6.667e-01 ,  3.025e-01 ,  6.959e-02  , -2.063e-02 , -2.047e-01 , -1.192e-01 , -1.149e-01 , -1.064e-01 , -1.027e-01  , -1.008e-01 , -0.987e-01 , -9.643e-02]])
+        IniAction = np.array([[0.,  5., 10., 15., 20., 25., 30., 35., 40., 45., 50., 55., 60.,       65.],
+                              [-0.139, -0.138, -0.133, -0.13 , -0.148, -0.202, -0.243, -0.289,        -0.332, -0.749, -0.705, -0.654, -0.598, -0.536],
+                              [-0.059*0, -0.058*0, -0.055*0, -0.045*0, -0.027*0,  0.   , -0.   ,  0.   ,         0.   ,  0.   ,  0.   ,  0.   ,  0.   ,  0.   ],
+                              [ 1.   ,  0.963,  0.851,  0.669,  0.434,  0.178, -0.04 , -0.222,        -0.368, -0.782, -0.823, -0.854, -0.878, -0.896],
+                              [ 1.   ,  0.963,  0.851,  0.669,  0.434,  0.178, -0.04 , -0.222,        -0.368, -0.782, -0.823, -0.854, -0.878, -0.896],
+                              [ 0.667,  0.667,  0.667,  0.667,  0.667,  0.627,  0.198,  0.045,        -0.014, -0.12 , -0.117, -0.108, -0.102, -0.097]])
         
         # Define function to get Outputs of interest
         def GetOutputFreeze(EQM, CONT, ATM, GetNames = False, DefaultOutputs = True):
             if DefaultOutputs:
                 if GetNames:
-                    if TrimTilt_deg == None:
-                        return ['VX_mps' , 'VZ_mps', 'Theta_rad', 'TiltDiff_p', 'Z_m']
-                    else:
+                    if TrimTilt_deg != None:
                         return ['VX_mps' , 'VZ_mps', 'AZ_mps2', 'Theta_rad', 'Z_m']
+                    elif TrimAX_mps2 != None:
+                        return ['VX_mps' , 'VZ_mps', 'AX_mps2', 'AZ_mps2', 'Theta_rad', 'TiltDiff_p', 'Z_m']
+                    else:
+                        return ['VX_mps' , 'VZ_mps', 'Theta_rad', 'TiltDiff_p', 'Z_m']
+
                 else:
-                    if TrimTilt_deg == None:
+                    if TrimTilt_deg != None:
                         return np.array([EQM['VelLin_EarthAx_mps'][0] ,
                                         EQM['VelLin_EarthAx_mps'][2] , 
+                                        EQM['AccLin_EarthAx_mps2'][2] , 
+                                        EQM['EulerAngles_rad'][1] , 
+                                        EQM['PosLin_EarthAx_m'][2] ])
+                    elif TrimAX_mps2 != None:
+                        return np.array([EQM['VelLin_EarthAx_mps'][0] ,
+                                        EQM['VelLin_EarthAx_mps'][2] , 
+                                        EQM['AccLin_EarthAx_mps2'][0] , 
+                                        EQM['AccLin_EarthAx_mps2'][2] , 
                                         EQM['EulerAngles_rad'][1] , 
                                         CONT['TiltDiff_p'] ,
                                         EQM['PosLin_EarthAx_m'][2] ])
                     else:
                         return np.array([EQM['VelLin_EarthAx_mps'][0] ,
                                         EQM['VelLin_EarthAx_mps'][2] , 
-                                        EQM['AccLin_EarthAx_mps2'][2] , 
                                         EQM['EulerAngles_rad'][1] , 
+                                        CONT['TiltDiff_p'] ,
                                         EQM['PosLin_EarthAx_m'][2] ])
+
             else:
                 if GetNames:
                     return ['VX_mps' , 'VZ_mps', 'Theta_deg', 'Q_degps', 'Nz_mps2', 'Nx_mps2', 'TiltDiff_p', 'Alpha_deg', 'Z_m', 'Nzi_mps2']
@@ -691,7 +709,7 @@ class Vahana_VertFlight(gym.Env):
                 
         #Define Initial Trim Action
         
-        if TrimTilt_deg != None:
+        if (TrimTilt_deg != None):
             TrimTilt_u = (2*TrimTilt_deg - (self.CONT['MaxTilt_deg']+self.CONT['MinTilt_deg'])) / (self.CONT['MaxTilt_deg']-self.CONT['MinTilt_deg'])
             FixedAction = np.append(FixedAction , np.array(['W1_Tilt',TrimTilt_u[0] , 'W2_Tilt', TrimTilt_u[1]]))
 
@@ -706,10 +724,10 @@ class Vahana_VertFlight(gym.Env):
         TrimState[self.EQM['sta_names'].index('Z_m')] = TrimZ_m
         
         # Define Freeze and Floats Indexes
-        if TrimTilt_deg == None:
-            name_ActionFloat = ['Throttle', PitchController, 'W1_Tilt', 'W2_Tilt']
-        else:
+        if TrimTilt_deg != None:
             name_ActionFloat = ['Throttle', PitchController]
+        else:
+            name_ActionFloat = ['Throttle', PitchController, 'W1_Tilt', 'W2_Tilt']
            
         n_ActionFloat    = np.zeros(len(name_ActionFloat), dtype = int)
         for i in range(len(n_ActionFloat)):
@@ -720,15 +738,17 @@ class Vahana_VertFlight(gym.Env):
         for i in range(len(n_StateFloat)):
             n_StateFloat[i] = self.EQM['sta_names'].index(name_StateFloat[i]) 
  
-        if TrimTilt_deg == None:
-            name_StateDotFreeze = ['U_mps', 'W_mps', 'Q_radps']
-        else:
+        if TrimTilt_deg != None:
             name_StateDotFreeze = ['Q_radps']
+        elif TrimAX_mps2 != None:
+            name_StateDotFreeze = ['Q_radps']
+        else:
+            name_StateDotFreeze = ['U_mps', 'W_mps', 'Q_radps']
 
         n_StateDotFreeze    = np.zeros(len(name_StateDotFreeze), dtype = int)
         for i in range(len(n_StateDotFreeze)):
             n_StateDotFreeze[i] = self.EQM['sta_names'].index(name_StateDotFreeze[i]) 
-
+            
         name_OutputFreeze  = GetOutputFreeze(self.EQM, self.CONT, self.ATM, GetNames = True)
               
         TrimVars = np.hstack((TrimAction[n_ActionFloat],TrimState[n_StateFloat]))
@@ -739,10 +759,12 @@ class Vahana_VertFlight(gym.Env):
         TrimVarsLim_m[len(n_ActionFloat):] = -np.inf
         
         # Trim Target Vector
-        if TrimTilt_deg == None:
-            TrimTarget = np.hstack((np.zeros(len(n_StateDotFreeze)) , np.array([TrimVX_mps, TrimVZ_mps, np.deg2rad(TrimTheta_deg), TrimTiltDiff_p, TrimZ_m])))
-        else:
+        if TrimTilt_deg != None:
             TrimTarget = np.hstack((np.zeros(len(n_StateDotFreeze)) , np.array([TrimVX_mps, TrimVZ_mps, 0, np.deg2rad(TrimTheta_deg), TrimZ_m])))
+        elif TrimAX_mps2 != None:
+            TrimTarget = np.hstack((np.zeros(len(n_StateDotFreeze)) , np.array([TrimVX_mps, TrimVZ_mps, TrimAX_mps2, 0, np.deg2rad(TrimTheta_deg), TrimTiltDiff_p, TrimZ_m])))
+        else:
+            TrimTarget = np.hstack((np.zeros(len(n_StateDotFreeze)) , np.array([TrimVX_mps, TrimVZ_mps, np.deg2rad(TrimTheta_deg), TrimTiltDiff_p, TrimZ_m])))
         
        
         # Perform One Step    
@@ -1020,7 +1042,7 @@ class Vahana_VertFlight(gym.Env):
         self.REW['Target']['Q']        = 0
         self.REW['Target']['Tilt_W1']  = 0
         self.REW['Target']['Tilt_W2']  = 0
-        self.REW['Target']['Current']  = 90
+        self.REW['Target']['Current']  = 100
 
         self.REW['Adm_n'] = {}
         self.REW['Adm_n']['Vx']       = 60
@@ -1050,7 +1072,7 @@ class Vahana_VertFlight(gym.Env):
         self.REW['Order']['Q']        = 1
         self.REW['Order']['Tilt_W1']  = 3
         self.REW['Order']['Tilt_W2']  = 3
-        self.REW['Order']['Current']  = 1
+        self.REW['Order']['Current']  = 3
 
         self.REW['Weight'] = {}
         self.REW['Weight']['Vx']       = 0.40
@@ -1060,7 +1082,7 @@ class Vahana_VertFlight(gym.Env):
         self.REW['Weight']['Q']        = 0.15
         self.REW['Weight']['Tilt_W1']  = 0.10*0
         self.REW['Weight']['Tilt_W2']  = 0.10*0
-        self.REW['Weight']['Current']  = 0.05
+        self.REW['Weight']['Current']  = 0.10*0
 
         w_sum = 0
         for k in self.REW['Weight'].keys():
@@ -1345,33 +1367,33 @@ class Vahana_VertFlight(gym.Env):
       
       # CT e CP - Vide planilha
       self.MOT['PROPELLER']['Tables'] = {}
-      self.MOT['PROPELLER']['Tables']['J']         = np.array([0.0 , 0.1 , 0.2 , 0.3 , 0.4 , 0.5 , 0.6 , 0.7 , 0.8 , 0.9 , 1.0 , 1.1 , 1.2 , 1.3 , 1.4 , 1.5 , 1.6 , 1.7 , 1.8 , 1.9 ,  2.0])
+      self.MOT['PROPELLER']['Tables']['J']         = np.array([0.0 , 0.1 , 0.2 , 0.3 , 0.4 , 0.5 , 0.6 , 0.7 , 0.8 , 0.9 , 1.0 , 1.1 , 1.2 , 1.3 , 1.4 , 1.5 , 1.6 , 1.7 , 1.8 , 1.9 ,  2.0, 2.5])
       self.MOT['PROPELLER']['Tables']['Alpha_deg'] = np.array([0.0 , 15.0 , 30.0 , 45.0 , 60.0 , 75.0 , 80.0 ,  85.0])
       self.MOT['PROPELLER']['Tables']['Pitch_deg'] = np.array([0.0 , 30.0])
       
 
-      self.MOT['PROPELLER']['Tables']['CT'] = np.array([[0.1592 , 0.1497 , 0.1417 , 0.1348 , 0.1281 , 0.1211 , 0.1143 , 0.1074 , 0.1008 , 0.0946 , 0.0877 , 0.0804 , 0.0729 , 0.0666 , 0.0587 , 0.0492 , 0.0380 , 0.0278 , 0.0187 , 0.0107 , 0.0034 ],
-                                                        [0.1592 , 0.1588 , 0.1562 , 0.1508 , 0.1435 , 0.1352 , 0.1266 , 0.1187 , 0.1127 , 0.1095 , 0.1055 , 0.1004 , 0.0940 , 0.0890 , 0.0833 , 0.0765 , 0.0676 , 0.0579 , 0.0468 , 0.0343 , 0.0209 ],
-                                                        [0.1592 , 0.1592 , 0.1576 , 0.1536 , 0.1490 , 0.1449 , 0.1421 , 0.1394 , 0.1373 , 0.1364 , 0.1355 , 0.1345 , 0.1331 , 0.1333 , 0.1325 , 0.1304 , 0.1268 , 0.1238 , 0.1209 , 0.1180 , 0.1151 ],
-                                                        [0.1592 , 0.1606 , 0.1614 , 0.1612 , 0.1606 , 0.1603 , 0.1611 , 0.1642 , 0.1698 , 0.1781 , 0.1856 , 0.1920 , 0.1976 , 0.2052 , 0.2109 , 0.2142 , 0.2145 , 0.2150 , 0.2157 , 0.2164 , 0.2172 ],
-                                                        [0.1592 , 0.1652 , 0.1709 , 0.1760 , 0.1815 , 0.1876 , 0.1951 , 0.2035 , 0.2135 , 0.2255 , 0.2370 , 0.2477 , 0.2573 , 0.2682 , 0.2791 , 0.2897 , 0.2995 , 0.3095 , 0.3196 , 0.3298 , 0.3400 ],
-                                                        [0.1592 , 0.1712 , 0.1826 , 0.1934 , 0.2053 , 0.2188 , 0.2342 , 0.2476 , 0.2596 , 0.2705 , 0.2830 , 0.2966 , 0.3108 , 0.3253 , 0.3390 , 0.3519 , 0.3636 , 0.3746 , 0.3844 , 0.3927 , 0.3998 ],
-                                                        [0.1592 , 0.1736 , 0.1872 , 0.2000 , 0.2140 , 0.2297 , 0.2472 , 0.2632 , 0.2783 , 0.2931 , 0.3096 , 0.3272 , 0.3454 , 0.3637 , 0.3808 , 0.3970 , 0.4127 , 0.4294 , 0.3096 , 0.3272 , 0.3454 ],
-                                                        [0.1592 , 0.1762 , 0.1930 , 0.2096 , 0.2256 , 0.2409 , 0.2558 , 0.2717 , 0.2891 , 0.3086 , 0.3284 , 0.3488 , 0.3693 , 0.3913 , 0.4140 , 0.4371 , 0.4607 , 0.4849 , 0.5099 , 0.5356 , 0.5618 ]])
+      self.MOT['PROPELLER']['Tables']['CT'] = np.array([[0.1592 , 0.1497 , 0.1417 , 0.1348 , 0.1281 , 0.1211 , 0.1143 , 0.1074 , 0.1008 , 0.0946 , 0.0877 , 0.0804 , 0.0729 , 0.0666 , 0.0587 , 0.0492 , 0.0380 , 0.0278 , 0.0187 , 0.0107 , 0.0034 , -0.0331],
+                                                        [0.1592 , 0.1588 , 0.1562 , 0.1508 , 0.1435 , 0.1352 , 0.1266 , 0.1187 , 0.1127 , 0.1095 , 0.1055 , 0.1004 , 0.0940 , 0.0890 , 0.0833 , 0.0765 , 0.0676 , 0.0579 , 0.0468 , 0.0343 , 0.0209 , -0.0461],
+                                                        [0.1592 , 0.1592 , 0.1576 , 0.1536 , 0.1490 , 0.1449 , 0.1421 , 0.1394 , 0.1373 , 0.1364 , 0.1355 , 0.1345 , 0.1331 , 0.1333 , 0.1325 , 0.1304 , 0.1268 , 0.1238 , 0.1209 , 0.1180 , 0.1151 , 0.1006],
+                                                        [0.1592 , 0.1606 , 0.1614 , 0.1612 , 0.1606 , 0.1603 , 0.1611 , 0.1642 , 0.1698 , 0.1781 , 0.1856 , 0.1920 , 0.1976 , 0.2052 , 0.2109 , 0.2142 , 0.2145 , 0.2150 , 0.2157 , 0.2164 , 0.2172 , 0.2212],
+                                                        [0.1592 , 0.1652 , 0.1709 , 0.1760 , 0.1815 , 0.1876 , 0.1951 , 0.2035 , 0.2135 , 0.2255 , 0.2370 , 0.2477 , 0.2573 , 0.2682 , 0.2791 , 0.2897 , 0.2995 , 0.3095 , 0.3196 , 0.3298 , 0.3400 , 0.3910],
+                                                        [0.1592 , 0.1712 , 0.1826 , 0.1934 , 0.2053 , 0.2188 , 0.2342 , 0.2476 , 0.2596 , 0.2705 , 0.2830 , 0.2966 , 0.3108 , 0.3253 , 0.3390 , 0.3519 , 0.3636 , 0.3746 , 0.3844 , 0.3927 , 0.3998 , 0.4353],
+                                                        [0.1592 , 0.1736 , 0.1872 , 0.2000 , 0.2140 , 0.2297 , 0.2472 , 0.2632 , 0.2783 , 0.2931 , 0.3096 , 0.3272 , 0.3454 , 0.3637 , 0.3808 , 0.3970 , 0.4127 , 0.4294 , 0.4461 , 0.4637 , 0.4819 , 0.5729],
+                                                        [0.1592 , 0.1762 , 0.1930 , 0.2096 , 0.2256 , 0.2409 , 0.2558 , 0.2717 , 0.2891 , 0.3086 , 0.3284 , 0.3488 , 0.3693 , 0.3913 , 0.4140 , 0.4371 , 0.4607 , 0.4849 , 0.5099 , 0.5356 , 0.5618 , 0.6928]])
       self.MOT['PROPELLER']['Tables']['CT'] = self.MOT['PROPELLER']['Tables']['CT'] * (1+self.UNC['Res']['MOT']['Gain']['CT'])
       self.MOT['PROPELLER']['Tables']['CTfcn'] = RectBivariateSpline(self.MOT['PROPELLER']['Tables']['Alpha_deg'],
                                                                      self.MOT['PROPELLER']['Tables']['J'],
                                                                      self.MOT['PROPELLER']['Tables']['CT'],
                                                                      kx=1, ky=1)
 
-      self.MOT['PROPELLER']['Tables']['CN'] = np.array([[0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 ],
-                                                        [0.0000 , 0.0007 , 0.0017 , 0.0029 , 0.0042 , 0.0056 , 0.0074 , 0.0096 , 0.0123 , 0.0152 , 0.0185 , 0.0221 , 0.0261 , 0.0309 , 0.0365 , 0.0429 , 0.0501 , 0.0580 , 0.0664 , 0.0749 , 0.0835 ],
-                                                        [0.0000 , 0.0008 , 0.0022 , 0.0044 , 0.0071 , 0.0103 , 0.0139 , 0.0180 , 0.0229 , 0.0285 , 0.0348 , 0.0419 , 0.0499 , 0.0588 , 0.0686 , 0.0795 , 0.0915 , 0.1045 , 0.1184 , 0.1332 , 0.1484 ],
-                                                        [0.0000 , 0.0021 , 0.0045 , 0.0076 , 0.0115 , 0.0160 , 0.0214 , 0.0277 , 0.0353 , 0.0443 , 0.0540 , 0.0645 , 0.0757 , 0.0878 , 0.1007 , 0.1143 , 0.1287 , 0.1441 , 0.1603 , 0.1774 , 0.1950 ],
-                                                        [0.0000 , 0.0034 , 0.0068 , 0.0105 , 0.0148 , 0.0202 , 0.0266 , 0.0346 , 0.0442 , 0.0555 , 0.0677 , 0.0805 , 0.0941 , 0.1086 , 0.1238 , 0.1396 , 0.1561 , 0.1736 , 0.1922 , 0.2118 , 0.2320 ],
-                                                        [0.0000 , 0.0023 , 0.0053 , 0.0093 , 0.0145 , 0.0208 , 0.0284 , 0.0375 , 0.0483 , 0.0605 , 0.0736 , 0.0876 , 0.1028 , 0.1195 , 0.1364 , 0.1532 , 0.1693 , 0.1856 , 0.2020 , 0.2181 , 0.2342 ],
-                                                        [0.0000 , 0.0033 , 0.0073 , 0.0122 , 0.0179 , 0.0242 , 0.0313 , 0.0399 , 0.0502 , 0.0620 , 0.0745 , 0.0876 , 0.1014 , 0.1162 , 0.1311 , 0.1460 , 0.1605 , 0.1753 , 0.0745 , 0.0876 , 0.1014 ],
-                                                        [0.0000 , 0.0029 , 0.0067 , 0.0113 , 0.0164 , 0.0218 , 0.0277 , 0.0349 , 0.0435 , 0.0533 , 0.0640 , 0.0757 , 0.0886 , 0.1027 , 0.1166 , 0.1298 , 0.1417 , 0.1534 , 0.1648 , 0.1760 , 0.1870 ]])
+      self.MOT['PROPELLER']['Tables']['CN'] = np.array([[0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000],
+                                                        [0.0000 , 0.0007 , 0.0017 , 0.0029 , 0.0042 , 0.0056 , 0.0074 , 0.0096 , 0.0123 , 0.0152 , 0.0185 , 0.0221 , 0.0261 , 0.0309 , 0.0365 , 0.0429 , 0.0501 , 0.0580 , 0.0664 , 0.0749 , 0.0835 , 0.1265],
+                                                        [0.0000 , 0.0008 , 0.0022 , 0.0044 , 0.0071 , 0.0103 , 0.0139 , 0.0180 , 0.0229 , 0.0285 , 0.0348 , 0.0419 , 0.0499 , 0.0588 , 0.0686 , 0.0795 , 0.0915 , 0.1045 , 0.1184 , 0.1332 , 0.1484 , 0.2244],
+                                                        [0.0000 , 0.0021 , 0.0045 , 0.0076 , 0.0115 , 0.0160 , 0.0214 , 0.0277 , 0.0353 , 0.0443 , 0.0540 , 0.0645 , 0.0757 , 0.0878 , 0.1007 , 0.1143 , 0.1287 , 0.1441 , 0.1603 , 0.1774 , 0.1950 , 0.2830],
+                                                        [0.0000 , 0.0034 , 0.0068 , 0.0105 , 0.0148 , 0.0202 , 0.0266 , 0.0346 , 0.0442 , 0.0555 , 0.0677 , 0.0805 , 0.0941 , 0.1086 , 0.1238 , 0.1396 , 0.1561 , 0.1736 , 0.1922 , 0.2118 , 0.2320 , 0.3330],
+                                                        [0.0000 , 0.0023 , 0.0053 , 0.0093 , 0.0145 , 0.0208 , 0.0284 , 0.0375 , 0.0483 , 0.0605 , 0.0736 , 0.0876 , 0.1028 , 0.1195 , 0.1364 , 0.1532 , 0.1693 , 0.1856 , 0.2020 , 0.2181 , 0.2342 , 0.3147],
+                                                        [0.0000 , 0.0033 , 0.0073 , 0.0122 , 0.0179 , 0.0242 , 0.0313 , 0.0399 , 0.0502 , 0.0620 , 0.0745 , 0.0876 , 0.1014 , 0.1162 , 0.1311 , 0.1460 , 0.1605 , 0.1753 , 0.1901 , 0.2032 , 0.2170 , 0.2860],
+                                                        [0.0000 , 0.0029 , 0.0067 , 0.0113 , 0.0164 , 0.0218 , 0.0277 , 0.0349 , 0.0435 , 0.0533 , 0.0640 , 0.0757 , 0.0886 , 0.1027 , 0.1166 , 0.1298 , 0.1417 , 0.1534 , 0.1648 , 0.1760 , 0.1870 , 0.2420]])
       self.MOT['PROPELLER']['Tables']['CN'] = self.MOT['PROPELLER']['Tables']['CN'] * (1+self.UNC['Res']['MOT']['Gain']['CN'])
       self.MOT['PROPELLER']['Tables']['CNfcn'] = RectBivariateSpline(self.MOT['PROPELLER']['Tables']['Alpha_deg'],
                                                                      self.MOT['PROPELLER']['Tables']['J'],
@@ -1379,14 +1401,14 @@ class Vahana_VertFlight(gym.Env):
                                                                      kx=1, ky=1)
       
 
-      self.MOT['PROPELLER']['Tables']['CP'] = np.array([[0.0439 , 0.0584 , 0.0706 , 0.0790 , 0.0846 , 0.0895 , 0.0936 , 0.0956 , 0.0958 , 0.0952 , 0.0934 , 0.0907 , 0.0875 , 0.0831 , 0.0775 , 0.0709 , 0.0640 , 0.0569 , 0.0495 , 0.0419 , 0.0340 ],
-                                                        [0.0439 , 0.0555 , 0.0664 , 0.0753 , 0.0831 , 0.0890 , 0.0932 , 0.0969 , 0.1004 , 0.1042 , 0.1061 , 0.1067 , 0.1064 , 0.1056 , 0.1040 , 0.1017 , 0.0994 , 0.0974 , 0.0958 , 0.0947 , 0.0939 ],
-                                                        [0.0439 , 0.0545 , 0.0657 , 0.0760 , 0.0845 , 0.0928 , 0.1013 , 0.1096 , 0.1179 , 0.1269 , 0.1340 , 0.1391 , 0.1426 , 0.1457 , 0.1480 , 0.1499 , 0.1514 , 0.1532 , 0.1555 , 0.1584 , 0.1617 ],
-                                                        [0.0439 , 0.0570 , 0.0694 , 0.0803 , 0.0910 , 0.1014 , 0.1119 , 0.1244 , 0.1389 , 0.1554 , 0.1710 , 0.1862 , 0.2012 , 0.2164 , 0.2295 , 0.2407 , 0.2499 , 0.2593 , 0.2694 , 0.2803 , 0.2919 ],
-                                                        [0.0439 , 0.0572 , 0.0687 , 0.0784 , 0.0901 , 0.1038 , 0.1194 , 0.1380 , 0.1599 , 0.1857 , 0.2107 , 0.2346 , 0.2570 , 0.2798 , 0.3027 , 0.3257 , 0.3493 , 0.3743 , 0.4010 , 0.4296 , 0.4594 ],
-                                                        [0.0439 , 0.0550 , 0.0657 , 0.0762 , 0.0908 , 0.1096 , 0.1324 , 0.1577 , 0.1851 , 0.2145 , 0.2433 , 0.2720 , 0.3006 , 0.3308 , 0.3622 , 0.3947 , 0.4278 , 0.4613 , 0.4949 , 0.5282 , 0.5613 ],
-                                                        [0.0439 , 0.0556 , 0.0673 , 0.0793 , 0.0960 , 0.1173 , 0.1429 , 0.1712 , 0.2019 , 0.2347 , 0.2680 , 0.3022 , 0.3375 , 0.3738 , 0.4073 , 0.4379 , 0.4653 , 0.4932 , 0.2680 , 0.3022 , 0.3375 ],
-                                                        [0.0439 , 0.0555 , 0.0681 , 0.0821 , 0.0998 , 0.1215 , 0.1473 , 0.1780 , 0.2120 , 0.2485 , 0.2831 , 0.3169 , 0.3510 , 0.3868 , 0.4226 , 0.4580 , 0.4927 , 0.5284 , 0.5652 , 0.6030 , 0.6414 ]])
+      self.MOT['PROPELLER']['Tables']['CP'] = np.array([[0.0439 , 0.0584 , 0.0706 , 0.0790 , 0.0846 , 0.0895 , 0.0936 , 0.0956 , 0.0958 , 0.0952 , 0.0934 , 0.0907 , 0.0875 , 0.0831 , 0.0775 , 0.0709 , 0.0640 , 0.0569 , 0.0495 , 0.0419 , 0.0340 , -0.0055],
+                                                        [0.0439 , 0.0555 , 0.0664 , 0.0753 , 0.0831 , 0.0890 , 0.0932 , 0.0969 , 0.1004 , 0.1042 , 0.1061 , 0.1067 , 0.1064 , 0.1056 , 0.1040 , 0.1017 , 0.0994 , 0.0974 , 0.0958 , 0.0947 , 0.0939 , 0.0899],
+                                                        [0.0439 , 0.0545 , 0.0657 , 0.0760 , 0.0845 , 0.0928 , 0.1013 , 0.1096 , 0.1179 , 0.1269 , 0.1340 , 0.1391 , 0.1426 , 0.1457 , 0.1480 , 0.1499 , 0.1514 , 0.1532 , 0.1555 , 0.1584 , 0.1617 , 0.1782],
+                                                        [0.0439 , 0.0570 , 0.0694 , 0.0803 , 0.0910 , 0.1014 , 0.1119 , 0.1244 , 0.1389 , 0.1554 , 0.1710 , 0.1862 , 0.2012 , 0.2164 , 0.2295 , 0.2407 , 0.2499 , 0.2593 , 0.2694 , 0.2803 , 0.2919 , 0.3499],
+                                                        [0.0439 , 0.0572 , 0.0687 , 0.0784 , 0.0901 , 0.1038 , 0.1194 , 0.1380 , 0.1599 , 0.1857 , 0.2107 , 0.2346 , 0.2570 , 0.2798 , 0.3027 , 0.3257 , 0.3493 , 0.3743 , 0.4010 , 0.4296 , 0.4594 , 0.6084],
+                                                        [0.0439 , 0.0550 , 0.0657 , 0.0762 , 0.0908 , 0.1096 , 0.1324 , 0.1577 , 0.1851 , 0.2145 , 0.2433 , 0.2720 , 0.3006 , 0.3308 , 0.3622 , 0.3947 , 0.4278 , 0.4613 , 0.4949 , 0.5282 , 0.5613 , 0.7268],
+                                                        [0.0439 , 0.0556 , 0.0673 , 0.0793 , 0.0960 , 0.1173 , 0.1429 , 0.1712 , 0.2019 , 0.2347 , 0.2680 , 0.3022 , 0.3375 , 0.3738 , 0.4073 , 0.4379 , 0.4653 , 0.4932 , 0.5211 , 0.5553 , 0.5906 , 0.7671],
+                                                        [0.0439 , 0.0555 , 0.0681 , 0.0821 , 0.0998 , 0.1215 , 0.1473 , 0.1780 , 0.2120 , 0.2485 , 0.2831 , 0.3169 , 0.3510 , 0.3868 , 0.4226 , 0.4580 , 0.4927 , 0.5284 , 0.5652 , 0.6030 , 0.6414 , 0.8334]])
       self.MOT['PROPELLER']['Tables']['CP'] = self.MOT['PROPELLER']['Tables']['CP'] * (1+self.UNC['Res']['MOT']['Gain']['CP'])
       self.MOT['PROPELLER']['Tables']['CPfcn'] = RectBivariateSpline(self.MOT['PROPELLER']['Tables']['Alpha_deg'],
                                                                      self.MOT['PROPELLER']['Tables']['J'],
