@@ -645,6 +645,8 @@ class Vahana_VertFlight(gym.Env):
                     else:
                         return np.array([EQM['VelLin_EarthAx_mps'][0] ,
                                         EQM['VelLin_EarthAx_mps'][2] , 
+                                        EQM['AccLin_EarthAx_mps2'][0] , 
+                                        EQM['AccLin_EarthAx_mps2'][2] , 
                                         EQM['EulerAngles_rad'][1] , 
                                         CONT['TiltDiff_p'] ,
                                         EQM['PosLin_EarthAx_m'][2] ])
