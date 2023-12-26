@@ -17,62 +17,73 @@ from AuxFunctions import SaveSelection
 
 # %% SIM OPTIONS
 
-CaseList = np.array([['01'  , '01' , 'NNarchitecture_Full_01', '_gam0-95_hid32-32','last'],
-                     ['02'  , '02' , 'NNarchitecture_Full_01', '_gam0-95_hid32-32','last'],
-                     ['03'  , '03' , 'NNarchitecture_Full_01', '_gam0-95_hid32-32','last'],
-                     ['04'  , '04' , 'NNarchitecture_Full_01', '_gam0-95_hid32-32','last'],
-                     ['05'  , '05' , 'NNarchitecture_Full_01', '_gam0-99_hid32-32','last'],
-                     ['06'  , '06' , 'NNarchitecture_Full_01', '_gam0-95_hid32-32','last'],
-                     ['07'  , '07' , 'NNarchitecture_Full_01', '_gam0-95'         , 4000 ],
-                     ['08'  , '08' , 'NNarchitecture_Full_01', '_gam0-95_hid16-16','last'],
-                     ['12'  , '12' , 'Final_01'              , ''                 ,1000],
-                     ['13'  , '13'    , 'Test_02'               , ''                 ,2000],
-                     ['14'  , '14' , 'Test_03'               , ''                 ,'last'],
-                     ['15'  , '15' , 'Test_01'               , '_gam0-99_hid64-64','last'],
-                     ['16'  , '16' , 'Test_01'               , '_gam0-95_hid64-64','last'],
-                     ['17'  , '17' , 'Test_01'               , '_gam0-95','last'],
-                     ['18a' , '18' , 'Test_01'               , '_gam0-99','last'],
-                     ['18b' , '18' , 'Test_02'               , '','last'],
-                     ['19'  , '18' , 'Test_02'               , '_gam0-99_max2000_hid64-64_selu','last'],
-                     ['20a' , '20' , 'Test_01'               , '_hid16-16_tanh','last'],
-                     ['20b' , '20' , 'Test_01'               , '_hid128-128_tanh','last'],
-                     ['20c' , '20' , 'Test_01'               , '_hid128-128_selu','last'],
-                     ['21a' , '21' , 'Test_02'               , '_hid64-64_selu','last'],
-                     ['21b' , '21' , 'Test_02'               , '_hid128-128_selu','last'],
-                     ['22a' , '22' , 'Test_01'               , '_hid16-16','last'],
-                     ['22b' , '22' , 'Test_01'               , '_hid64-64','last'],
-                     ['22c' , '22' , 'Test_02'               , '','last'],
-                     ['22d' , '22' , 'Test_03'               , '','last'],
-                     ['22e' , '22' , 'Test_04'               , '',1000],
-                     ['22f' , '22' , 'Test_05'               , '','last'],
-                     ['22g' , '22' , 'Test_07'               , '',3000],
-                     ['22h' , '22' , 'Test_08'               , '','last'],
-                     ['22i' , '22' , 'Test_09'               , '','last'],
-                     ['23'  , '23' , 'Test_01'               , '','last'],
-                     ['101a', '101', 'Test_01'               , '_gam0-99_hid64-64_selu','last'],
-                     ['101b', '101', 'Test_01'               , '_gam0-99_hid32-32_tanh','last'],
-                     ['102' , '102', 'Test_01'               , '','last'],
-                     ['103' , '103', 'Test_01'               , '','last'],
-                     ['104' , '104', 'Test_01'               , '','last'],
-                     ['105' , '105', 'Test_01'               , '','last'],
-                     ['106' , '106', 'Test_01'               , '','last'],
-                     ['107' , '107', 'Test_01'               , '','last'],
-                     ['108' , '108', 'Test_01'               , '','last'],
-                     ['109' , '109', 'Test_01'               , '','last'],
-                     ['201' , '201', 'Test_01'               , '','last'],
-                     ['301' , '301', 'Test_01'               , '','last'],
-                     ['302' , '302', 'Test_01'               , '',4000],
-                     ['303' , '303', 'Test_01'               , '','last'],
-                     ['304' , '304', 'Test_01'               , '','last'],
-                     ['401' , '401', 'Test_01'               , '',2000],
-                     ['xxx' , 'xxx', 'Test_01'               , '','last']])
+CaseList = np.array([['01'  , '01' , 's0' , 'NNarchitecture_Full_01', '_gam0-95_hid32-32','last'],
+                     ['02'  , '02' , 's0' , 'NNarchitecture_Full_01', '_gam0-95_hid32-32','last'],
+                     ['03'  , '03' , 's0' , 'NNarchitecture_Full_01', '_gam0-95_hid32-32','last'],
+                     ['04'  , '04' , 's0' , 'NNarchitecture_Full_01', '_gam0-95_hid32-32','last'],
+                     ['05'  , '05' , 's0' , 'NNarchitecture_Full_01', '_gam0-99_hid32-32','last'],
+                     ['06'  , '06' , 's0' , 'NNarchitecture_Full_01', '_gam0-95_hid32-32','last'],
+                     ['07'  , '07' , 's0' , 'NNarchitecture_Full_01', '_gam0-95'         , 4000 ],
+                     ['08'  , '08' , 's0' , 'NNarchitecture_Full_01', '_gam0-95_hid16-16','last'],
+                     ['12'  , '12' , 's0' , 'Final_01'              , ''                 ,1000],
+                     ['13'  , '13' , 's0' , 'Test_02'               , ''                 ,2000],
+                     ['14'  , '14' , 's0' , 'Test_03'               , ''                 ,'last'],
+                     ['15'  , '15' , 's0' , 'Test_01'               , '_gam0-99_hid64-64','last'],
+                     ['16'  , '16' , 's0' , 'Test_01'               , '_gam0-95_hid64-64','last'],
+                     ['17'  , '17' , 's0' , 'Test_01'               , '_gam0-95','last'],
+                     ['18a' , '18' , 's0' , 'Test_01'               , '_gam0-99','last'],
+                     ['18b' , '18' , 's0' , 'Test_02'               , '','last'],
+                     ['19'  , '18' , 's0' , 'Test_02'               , '_gam0-99_max2000_hid64-64_selu','last'],
+                     ['20a' , '20' , 's0' , 'Test_01'               , '_hid16-16_tanh','last'],
+                     ['20b' , '20' , 's0' , 'Test_01'               , '_hid128-128_tanh','last'],
+                     ['20c' , '20' , 's0' , 'Test_01'               , '_hid128-128_selu','last'],
+                     ['21a' , '21' , 's0' , 'Test_02'               , '_hid64-64_selu','last'],
+                     ['21b' , '21' , 's0' , 'Test_02'               , '_hid128-128_selu','last'],
+                     ['22a' , '22' , 's0' , 'Test_01'               , '_hid16-16','last'],
+                     ['22b' , '22' , 's0' , 'Test_01'               , '_hid64-64','last'],
+                     ['22c' , '22' , 's0' , 'Test_02'               , '','last'],
+                     ['22d' , '22' , 's0' , 'Test_03'               , '','last'],
+                     ['22e' , '22' , 's0' , 'Test_04'               , '',1000],
+                     ['22f' , '22' , 's0' , 'Test_05'               , '','last'],
+                     ['22g' , '22' , 's0' , 'Test_07'               , '',3000],
+                     ['22h' , '22' , 's0' , 'Test_08'               , '','last'],
+                     ['22i' , '22' , 's0' , 'Test_09'               , '','last'],
+                     ['23'  , '23' , 's0' , 'Test_01'               , '','last'],
+                     ['101a', '101', 's0' , 'Test_01'               , '_gam0-99_hid64-64_selu','last'],
+                     ['101b', '101', 's0' , 'Test_01'               , '_gam0-99_hid32-32_tanh','last'],
+                     ['102' , '102', 's0' , 'Test_01'               , '','last'],
+                     ['103' , '103', 's0' , 'Test_01'               , '','last'],
+                     ['104' , '104', 's0' , 'Test_01'               , '','last'],
+                     ['105' , '105', 's0' , 'Test_01'               , '','last'],
+                     ['106' , '106', 's0' , 'Test_01'               , '','last'],
+                     ['107' , '107', 's0' , 'Test_01'               , '','last'],
+                     ['108' , '108', 's0' , 'Test_01'               , '','last'],
+                     ['109' , '109', 's0' , 'Test_01'               , '','last'],
+                     ['201' , '201', 's0' , 'Test_01'               , '','last'],
+                     ['301' , '301', 's0' , 'Test_01'               , '','last'],
+                     ['302' , '302', 's0' , 'Test_01'               , '',4000],
+                     ['303' , '303', 's0' , 'Test_01'               , '','last'],
+                     ['304' , '304', 's0' , 'Test_01'               , '','last'],
+                     ['401' , '401', 's0' , 'Test_01'               , '','last'],
+                     ['402' , '402', 's0' , 'Test_01'               , '','last'],
+                     ['501' , '501', 's0' , 'Test_01'               , '','last'],
+                     ['502' , '502', 's0' , 'Test_01'               , '',4000],
+                     ['504' , '504', 's0' , 'Test_01'               , '',5000],
+                     ['505' , '505', 's0' , 'Test_01'               , '',4000],
+                     ['506' , '506', 's2' , 'Test_01'               , '','last'],
+                     ['511' , '511', 's0' , 'Test_01'               , '',8000],
+                     ['xxx' , 'xxx', 's0' , 'Test_01'               , '','last']])
 
-CaseNumber = '401'
-NNFolder   = CaseList[np.where(CaseList[:,0]==CaseNumber)[0][0],2]
-NNname     = CaseList[np.where(CaseList[:,0]==CaseNumber)[0][0],3]
+CaseNumber = '506'
 GridExper  = CaseList[np.where(CaseList[:,0]==CaseNumber)[0][0],1]
+Seed       = CaseList[np.where(CaseList[:,0]==CaseNumber)[0][0],2]
+NNFolder   = CaseList[np.where(CaseList[:,0]==CaseNumber)[0][0],3]
+NNname     = CaseList[np.where(CaseList[:,0]==CaseNumber)[0][0],4]
+train_iter = CaseList[np.where(CaseList[:,0]==CaseNumber)[0][0],5]
+train_iter = CaseList[np.where(CaseList[:,0]==CaseNumber)[0][0],5]
+
 Agent_Path = ('/home/dsalarc/Documents/DOUTORADO/Environments/VTOL/TransitionControl/PPO/GridExperiments_v' 
-              + GridExper + '/' + NNFolder + '/ppo-tf-bench_gym_vtol-vahana_vertflight-v0' + NNname + '/ppo-tf-bench_gym_vtol-vahana_vertflight-v0' + NNname + '_s0')
+              + GridExper + '/' + NNFolder + '/ppo-tf-bench_gym_vtol-vahana_vertflight-v0' + NNname + '/ppo-tf-bench_gym_vtol-vahana_vertflight-v0' + NNname + '_' + Seed)
 
 # Agent_Path = ('/home/dsalarc/Documents/DOUTORADO/Environments/VTOL/WTPPcontrol/PPO/GridExperiments_v' + str(CaseNumber) + '/Final_01/ppo-tf-bench_gym_vtol-vahana_vertflight-v0/ppo-tf-bench_gym_vtol-vahana_vertflight-v0_s0')
 
@@ -80,19 +91,18 @@ Agent_Path = ('/home/dsalarc/Documents/DOUTORADO/Environments/VTOL/TransitionCon
 
 Agent_Type = 'PPO'
 TrainType  = 'NN_01'
-train_iter = CaseList[np.where(CaseList[:,0]==CaseNumber)[0][0],4]
 try:
     train_iter = int(train_iter)
 except:
     pass
-ActionNum  = 10
+ActionNum  = 1
 
 
 # TestType = 'VariableTarget'
 
 EnvName    = 'gym_VTOL:Vahana_VertFlight-v0'
 TrimTime   = 0
-SimTime    = 60
+SimTime    = 30
 
 VZ_Ref = np.array([[0 , 5 , 100 , 1000  ],
                 [0 , 0  , 0 ,  0    ]])
@@ -149,7 +159,7 @@ TestEnv = gym.make(EnvName)
 
 # %% RESET INVIRONMENT
 
-obs = TestEnv.reset()
+obs = TestEnv.reset(TermTheta_deg = 45)
 
 reward = 0
 SaveVec = {}
