@@ -19,7 +19,7 @@ for env in env_dict:
         print("Remove {} from registry".format(env))
         del gym.envs.registration.registry.env_specs[env]
 
-SavedGainsFile = 'SavedGains_20231202_1147_Nelder-Mead.pkl'
+SavedGainsFile = 'SavedGains_20231222_0054_Nelder-Mead.pkl'
 
 # %% LOAD OLD FILE
 with open(SavedGainsFile, 'rb') as fp:
@@ -34,7 +34,7 @@ for gain in ['Kqp', 'Kqi', 'Kt', 'Kff']:
     
     
     smooth = signal.savgol_filter(NEW['GainsVec'][gain][:,2],
-                           5, # window size used for filtering
+                           3, # window size used for filtering
                            1) # order of fitted polynomial
     NEW['GainsVec'][gain][:,:] = np.transpose(np.tile(smooth,(np.size(NEW['GainsVec'][gain],1),1)))
 # %% PLOT COMPARISON

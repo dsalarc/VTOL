@@ -18,8 +18,15 @@ import control as ct
 import time
 import pickle
 
+try:
+    from IPython import get_ipython
+    get_ipython().magic('clear')
+except:
+    pass
+
 plt.close('all')
-    
+
+# %%LOAD MODEL    
 env_dict = gym.envs.registration.registry.env_specs.copy()
 for env in env_dict:
     if 'Vahana_VertFlight-v0' in env:
@@ -39,10 +46,11 @@ GainsVec = std['GainsVec']
 
 TestVec = {}
 TestVec['VX_mps'] = TrimVec['VX_mps']
-# TestVec['AX_mps2'] = TrimVec['AX_mps2'] #np.array([-5.0, 0, +5.0])
-# TestVec['VX_mps'] = np.array([40.0, 45.0, 50.0, 55.0])
+# TestVec['AX_mps2'] = TrimVec['AX_mps2']
+# TestVec['VX_mps'] = np.array([0.0, 10.0])
 # TestVec['AX_mps2'] = np.array([-5.0, 0])
-TestVec['AX_mps2'] = np.array([0])
+# TestVec['AX_mps2'] = np.array([0])
+TestVec['AX_mps2'] = np.array([-5.0, 0, +5.0])
 TestVec['CostVec'] = np.zeros((len(TestVec['VX_mps']) , len(TestVec['AX_mps2'])))
 
 line_type_vec = ['--' ,'-.' , '-' ,'-.' ,  '--']
@@ -57,12 +65,12 @@ for nv in range(len(TestVec['VX_mps'])):
         
         Gains = {}
         for kk in GainsVec.keys():
-            if len(TrimVec['AX_mps2']) == 1:
-                f = interp.interp1d(TrimVec['VX_mps'] , np.transpose(GainsVec[kk]))
-                Gains[kk] = f(VX_mps)[0]
-            else:
-                f = interp.interp2d(TrimVec['AX_mps2'], TrimVec['VX_mps'] , GainsVec[kk])
-                Gains[kk] = f(AX_mps2 , VX_mps)[0]
+            # if len(TrimVec['AX_mps2']) == 1:
+                f = interp.interp1d(TrimVec['VX_mps'] , GainsVec[kk])
+                Gains[kk] = f(VX_mps)
+            # else:
+            #     f = interp.interp2d(TrimVec['AX_mps2'], TrimVec['VX_mps'] , GainsVec[kk])
+            #     Gains[kk] = f(AX_mps2 , VX_mps)[0]
                     
         # %% GENERATE CLOSED LOOPS
         Aircraft, TrimData = gen_Aircraft(
@@ -84,7 +92,13 @@ for nv in range(len(TestVec['VX_mps'])):
         
         color_u1 = (TestVec['VX_mps'][nv] - np.min(TestVec['VX_mps'])) / (np.max(TestVec['VX_mps']) - np.min(TestVec['VX_mps']))
         color_u2 = np.abs(TestVec['AX_mps2'][nt]) / np.max(np.abs(TestVec['AX_mps2']))
-        PitchPlots(ClosedLoops , Criteria, ('%0.0f m/s |  %0.1f m/s2'%(VX_mps,AX_mps2)) ,color_rgb = ((1-color_u1),color_u2,color_u1), line_type = line_type_vec[nt])
+            
+        if ((nv == len(TestVec['VX_mps'])-1) and (nt == len(TestVec['AX_mps2'])-1)):
+            plot_criteria = True
+        else:
+            plot_criteria = False
+                
+        PitchPlots(ClosedLoops , Criteria, ('%0.0f m/s |  %0.1f m/s2'%(VX_mps,AX_mps2)) ,color_rgb = ((1-color_u1),color_u2,color_u1), line_type = line_type_vec[nt], plot_criteria = plot_criteria)
 
 plt.figure()
 for nt in range(len(TestVec['AX_mps2'])):
@@ -254,6 +268,5 @@ for n_t in range(len(TestVec['AX_mps2'])):
 
 
 
-# fig.set_size_inches(8, 5)
-fig.set_size_inches(14, 8)
-fig.tight_layout() 
+figManager = plt.get_current_fig_manager()
+figManager.window.showMaximized()

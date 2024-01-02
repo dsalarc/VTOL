@@ -168,14 +168,14 @@ def CalculateIndividualCosts(ClosedLoops):
     Criteria['openloop_pitchcmd_gainmargin']['weight_over'] = 0
     Criteria['openloop_pitchcmd_gainmargin']['weight_down'] = 1
     Criteria['openloop_pitchcmd_gainmargin']['weight']      = 10
-    Criteria['openloop_pitchcmd_gainmargin']['target']      = 6.0
+    Criteria['openloop_pitchcmd_gainmargin']['target']      = 8.0
     Criteria['openloop_pitchcmd_gainmargin']['type']        = 'prop'
     
     Criteria['openloop_pitchcmd_phasemargin'] = {}
     Criteria['openloop_pitchcmd_phasemargin']['weight_over'] = 0
     Criteria['openloop_pitchcmd_phasemargin']['weight_down'] = 1
     Criteria['openloop_pitchcmd_phasemargin']['weight']      = 10
-    Criteria['openloop_pitchcmd_phasemargin']['target']      = 45.0
+    Criteria['openloop_pitchcmd_phasemargin']['target']      = 60.0
     Criteria['openloop_pitchcmd_phasemargin']['type']        = 'prop'
     
     aux_out = ct.stability_margins(ClosedLoops['OpenLoop_pitchcmd'],returnall=True)
@@ -199,14 +199,14 @@ def CalculateIndividualCosts(ClosedLoops):
     Criteria['openloop_q_gainmargin']['weight_over'] = 0
     Criteria['openloop_q_gainmargin']['weight_down'] = 1
     Criteria['openloop_q_gainmargin']['weight']      = 10
-    Criteria['openloop_q_gainmargin']['target']      = 6.0
+    Criteria['openloop_q_gainmargin']['target']      = 8.0
     Criteria['openloop_q_gainmargin']['type']        = 'prop'
     
     Criteria['openloop_q_phasemargin'] = {}
     Criteria['openloop_q_phasemargin']['weight_over'] = 0
     Criteria['openloop_q_phasemargin']['weight_down'] = 1
     Criteria['openloop_q_phasemargin']['weight']      = 10
-    Criteria['openloop_q_phasemargin']['target']      = 45.0
+    Criteria['openloop_q_phasemargin']['target']      = 60.0
     Criteria['openloop_q_phasemargin']['type']        = 'prop'
     
     aux_out = ct.stability_margins(ClosedLoops['OpenLoop_q'],returnall=True)
@@ -230,14 +230,14 @@ def CalculateIndividualCosts(ClosedLoops):
     Criteria['openloop_theta_gainmargin']['weight_over'] = 0
     Criteria['openloop_theta_gainmargin']['weight_down'] = 1
     Criteria['openloop_theta_gainmargin']['weight']      = 10
-    Criteria['openloop_theta_gainmargin']['target']      = 6.0
+    Criteria['openloop_theta_gainmargin']['target']      = 8.0
     Criteria['openloop_theta_gainmargin']['type']        = 'prop'
     
     Criteria['openloop_theta_phasemargin'] = {}
     Criteria['openloop_theta_phasemargin']['weight_over'] = 0
     Criteria['openloop_theta_phasemargin']['weight_down'] = 1
     Criteria['openloop_theta_phasemargin']['weight']      = 10
-    Criteria['openloop_theta_phasemargin']['target']      = 45.0
+    Criteria['openloop_theta_phasemargin']['target']      = 60.0
     Criteria['openloop_theta_phasemargin']['type']        = 'prop'
     
     aux_out = ct.stability_margins(ClosedLoops['OpenLoop_theta'],returnall=True)

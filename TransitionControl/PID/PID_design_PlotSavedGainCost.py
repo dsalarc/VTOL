@@ -16,16 +16,16 @@ for env in env_dict:
         print("Remove {} from registry".format(env))
         del gym.envs.registration.registry.env_specs[env]
 
-with open('SavedGains_20231130_0125_TNC.pkl', 'rb') as fp:
-    TNC = pickle.load(fp)
-with open('SavedGains_20231201_0503_SLSQP.pkl', 'rb') as fp:
-    SLSQP = pickle.load(fp)
-with open('SavedGains_20231202_1147_Nelder-Mead.pkl', 'rb') as fp:
+# with open('SavedGains_20231220_0934_TNC.pkl', 'rb') as fp:
+#     TNC = pickle.load(fp)
+# with open('SavedGains_20231201_0503_SLSQP.pkl', 'rb') as fp:
+#     SLSQP = pickle.load(fp)
+with open('SavedGains_20231221_0203_Nelder-Mead.pkl', 'rb') as fp:
     NelderMead = pickle.load(fp)
-with open('SavedGains_20231202_1754_Powell.pkl', 'rb') as fp:
-    Powell = pickle.load(fp)
-with open('SavedGains_20231214_0139_L-BFGS-B.pkl', 'rb') as fp:
-    LBFGS = pickle.load(fp)
+# with open('SavedGains_20231220_2031_Powell.pkl', 'rb') as fp:
+#     Powell = pickle.load(fp)
+# with open('SavedGains_20231219_0226_L-BFGS-B.pkl', 'rb') as fp:
+#     LBFGS = pickle.load(fp)
 # %%  fdsgfds
 plt.figure()
 
