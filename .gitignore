@@ -146,3 +146,11 @@ TransitionControl/PID_transition_05s_v2.pdf
 *.pdf
 TransitionControl/PID/open_loop_q.txt
 gym-VTOL/gym_VTOL/envs/VTOL_env_old.py
+TransitionControl/PID/VerticalDesign/Bode_OpenLoop_throttlecmd.png
+TransitionControl/PID/VerticalDesign/Bode_OpenLoop_VZ.png
+TransitionControl/PID/VerticalDesign/Bode_OpenLoop_Z.png
+TransitionControl/PID/VerticalDesign/Bode_OpenLoop_throttlecmd.png
+TransitionControl/PID/VerticalDesign/Bode_OpenLoop_VZ.png
+TransitionControl/PID/VerticalDesign/Bode_OpenLoop_Z.png
+TransitionControl/PID/VerticalDesign/Step_Z.png
+TransitionControl/PID/VerticalDesign/Step_Z_NoZFeedback.png
