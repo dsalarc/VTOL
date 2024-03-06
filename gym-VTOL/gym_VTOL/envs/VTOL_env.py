@@ -468,6 +468,36 @@ class Vahana_VertFlight(gym.Env):
         self.OPT['UNC_seed'] = UNC_seed
         self.OPT['UNC_enable'] = UNC_enable
 
+        self.OPT['Seeds']            = {}
+        self.OPT['Seeds']['TurbU']   = 1
+        self.OPT['Seeds']['TurbV']   = 2
+        self.OPT['Seeds']['TurbW']   = 3
+
+        self.OPT['Training']          = {}
+        self.OPT['Training']['Turb']  = True
+        self.OPT['Training']['WindX'] = True
+
+        if self.OPT['Training']['Turb']:
+            if (reset_INPUT_VEC is None):
+                reset_INPUT_VEC = {}
+            TurbON = np.random.randint(1,4)
+            reset_INPUT_VEC['WIND_TurbON'] = np.array([[0      , 30    ],
+                                                       [TurbON , TurbON]])
+            # print("!!!! Turb: " + str(TurbON))
+
+        if self.OPT['Training']['WindX']:
+            if (reset_INPUT_VEC is None):
+                reset_INPUT_VEC = {}
+            WindX = np.random.random()*10
+            reset_INPUT_VEC['WIND_TowerX_mps'] = np.array([[0     , 30    ],
+                                                           [WindX , WindX]])
+            # print("!!!! WindX: {:0.1f}".format(WindX))    
+
+       # reset_INPUT_VEC['WIND_TowerX_mps'] = np.array([[0                      , 15                      , 20                      , 30  ],
+        #                                        [INP['WIND_TowerX_mps'] , INP['WIND_TowerX_mps']  , INP['WIND_TowerX_mps']  , INP['WIND_TowerX_mps']   ]])
+
+        
+
         # Initialize Contants  
         self.Term = {}
         self.Term['Theta_deg'] = TermTheta_deg
@@ -1238,9 +1268,9 @@ class Vahana_VertFlight(gym.Env):
       self.ATM['Const']['Vsound0_mps'] = np.sqrt(1.4*self.ATM['Const']['R']*(self.ATM['Const']['T0_K']))
 
       self.ATM['Turb'] = {}
-      self.ATM['Turb']['rdm_u'] = np.random.default_rng(1)
-      self.ATM['Turb']['rdm_v'] = np.random.default_rng(2)
-      self.ATM['Turb']['rdm_w'] = np.random.default_rng(3)
+      self.ATM['Turb']['rdm_u'] = np.random.default_rng(self.OPT['Seeds']['TurbU'])
+      self.ATM['Turb']['rdm_v'] = np.random.default_rng(self.OPT['Seeds']['TurbV'])
+      self.ATM['Turb']['rdm_w'] = np.random.default_rng(self.OPT['Seeds']['TurbW'])
       self.ATM['Turb']['y']     = 0
 
     def init_GEOM (self):
