@@ -2555,25 +2555,28 @@ class Vahana_VertFlight(gym.Env):
         self.REW['Value']['Tilt_W2']   = self.CONT['Tilt_deg'][1] #self.AERO['Wing2']['Alpha_deg']
         self.REW['Value']['Current']   = self.MOT['ASSEMBLY']['obj'][0].MOTOR.i_A + self.MOT['ASSEMBLY']['obj'][4].MOTOR.i_A
 
-        Reward = 0
-
+        AuxReward = {}
         for kk in self.REW['Target'].keys():
             Delta2Target = self.REW['Value'][kk] - self.REW['Target'][kk]
             abs_Delta2Target = np.abs(Delta2Target)
             
             if abs_Delta2Target < self.REW['DeadZone'][kk]:
-                AuxReward = 1 - self.REW['DeadZone']['Slope']  / self.REW['DeadZone'][kk] * abs_Delta2Target
+                AuxReward[kk] = 1 - self.REW['DeadZone']['Slope']  / self.REW['DeadZone'][kk] * abs_Delta2Target
             elif (Delta2Target < -self.REW['Adm_n'][kk]) or (Delta2Target > self.REW['Adm_p'][kk]):
-                AuxReward = 0
+                AuxReward[kk] = 0
             elif self.REW['Value'][kk] < np.abs(self.REW['Target'][kk]):
-                AuxReward = np.max((0 , (1 - self.REW['DeadZone']['Slope']) * 
+                AuxReward[kk] = np.max((0 , (1 - self.REW['DeadZone']['Slope']) * 
                                     ((self.REW['Adm_n'][kk] - abs_Delta2Target) / 
                                     (self.REW['Adm_n'][kk] - self.REW['DeadZone'][kk]))**self.REW['Order'][kk] ))
             else:
-                AuxReward = np.max((0 , (1 - self.REW['DeadZone']['Slope']) * 
+                AuxReward[kk] = np.max((0 , (1 - self.REW['DeadZone']['Slope']) * 
                                     ((self.REW['Adm_p'][kk] - abs_Delta2Target) / 
                                     (self.REW['Adm_p'][kk] - self.REW['DeadZone'][kk]))**self.REW['Order'][kk] ))
-            Reward += AuxReward * self.REW['Weight'][kk]
+        
+        AuxReward['Current'] = AuxReward['Current'] * AuxReward['Vx']
+        Reward = 0
+        for kk in self.REW['Target'].keys():
+           Reward += AuxReward[kk] * self.REW['Weight'][kk]
 
         return Reward    
 
