@@ -488,7 +488,7 @@ class Vahana_VertFlight(gym.Env):
         if ((self.OPT['Training']['WindX']) and ((reset_INPUT_VEC is None) or not ('WIND_TowerX_mps' in reset_INPUT_VEC))):
             if (reset_INPUT_VEC is None):
                 reset_INPUT_VEC = {}
-            WindX = np.random.random()*10
+            WindX = (np.random.random()*15 - 5)
             reset_INPUT_VEC['WIND_TowerX_mps'] = np.array([[0     , 30    ],
                                                            [WindX , WindX]])
             # print("!!!! WindX: {:0.1f}".format(WindX))    
