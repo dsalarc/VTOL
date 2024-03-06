@@ -477,21 +477,21 @@ class Vahana_VertFlight(gym.Env):
         self.OPT['Training']['Turb']  = True
         self.OPT['Training']['WindX'] = True
 
-        if self.OPT['Training']['Turb']:
+        if ((self.OPT['Training']['Turb']) and not ('WIND_TurbON' in reset_INPUT_VEC)):
             if (reset_INPUT_VEC is None):
                 reset_INPUT_VEC = {}
             TurbON = np.random.randint(1,4)
             reset_INPUT_VEC['WIND_TurbON'] = np.array([[0      , 30    ],
                                                        [TurbON , TurbON]])
-            # print("!!!! Turb: " + str(TurbON))
+            print("!!!! Turb: " + str(TurbON))
 
-        if self.OPT['Training']['WindX']:
+        if ((self.OPT['Training']['WindX']) and not ('WIND_TowerX_mps' in reset_INPUT_VEC)):
             if (reset_INPUT_VEC is None):
                 reset_INPUT_VEC = {}
             WindX = np.random.random()*10
             reset_INPUT_VEC['WIND_TowerX_mps'] = np.array([[0     , 30    ],
                                                            [WindX , WindX]])
-            # print("!!!! WindX: {:0.1f}".format(WindX))    
+            print("!!!! WindX: {:0.1f}".format(WindX))    
 
        # reset_INPUT_VEC['WIND_TowerX_mps'] = np.array([[0                      , 15                      , 20                      , 30  ],
         #                                        [INP['WIND_TowerX_mps'] , INP['WIND_TowerX_mps']  , INP['WIND_TowerX_mps']  , INP['WIND_TowerX_mps']   ]])
