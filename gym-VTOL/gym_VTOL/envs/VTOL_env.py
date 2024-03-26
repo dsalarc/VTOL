@@ -444,7 +444,7 @@ class Vahana_VertFlight(gym.Env):
     ############################################
     def reset(self,W = 0, Altitude_m = 100, Altitude_ref_m = 100, THETA = 0,  PHI = 0,  PSI = 0, PaxIn = np.array([1,1]),
                    VX_mps = 0, VX_ref_mps = 60, VZ_mps = 0, Tilt_deg = None, AX_mps2 = None, Throttle_u = None, Elevator_deg = 0, DispMessages = False, Linearize = False, TermTheta_deg = 10, StaFreezeList = [],
-                   UNC_seed = None , UNC_enable = 0, reset_INPUT_VEC = None, GroundHeight_m = 0):
+                   UNC_seed = None , UNC_enable = 0, reset_INPUT_VEC = None, GroundHeight_m = 0, Training_Turb = True, Training_WindX = True):
         self.CurrentStep = 0
         self.trimming = 0
 
@@ -474,29 +474,26 @@ class Vahana_VertFlight(gym.Env):
         self.OPT['Seeds']['TurbW']   = 3
 
         self.OPT['Training']          = {}
-        self.OPT['Training']['Turb']  = True
-        self.OPT['Training']['WindX'] = True
+        self.OPT['Training']['Turb']  = Training_Turb
+        self.OPT['Training']['WindX'] = Training_WindX
 
         if ((self.OPT['Training']['Turb']) and ((reset_INPUT_VEC is None) or not ('WIND_TurbON' in reset_INPUT_VEC))):
             if (reset_INPUT_VEC is None):
                 reset_INPUT_VEC = {}
-            TurbON = np.random.randint(1,4)
+            TurbON = 1 #np.random.randint(1,4)
             reset_INPUT_VEC['WIND_TurbON'] = np.array([[0      , 30    ],
                                                        [TurbON , TurbON]])
-            # print("!!!! Turb: " + str(TurbON))
-
+        if self.OPT['Training']['Turb']:
+            self.OPT['Seeds']['TurbU']   = np.random.randint(1,10000)
+            self.OPT['Seeds']['TurbV']   = np.random.randint(1,10000)
+            self.OPT['Seeds']['TurbW']   = np.random.randint(1,10000)
+        
         if ((self.OPT['Training']['WindX']) and ((reset_INPUT_VEC is None) or not ('WIND_TowerX_mps' in reset_INPUT_VEC))):
             if (reset_INPUT_VEC is None):
                 reset_INPUT_VEC = {}
-            WindX = (np.random.random()*15 - 5)
+            WindX = (np.random.random()*15)
             reset_INPUT_VEC['WIND_TowerX_mps'] = np.array([[0     , 30    ],
                                                            [WindX , WindX]])
-            # print("!!!! WindX: {:0.1f}".format(WindX))    
-
-       # reset_INPUT_VEC['WIND_TowerX_mps'] = np.array([[0                      , 15                      , 20                      , 30  ],
-        #                                        [INP['WIND_TowerX_mps'] , INP['WIND_TowerX_mps']  , INP['WIND_TowerX_mps']  , INP['WIND_TowerX_mps']   ]])
-
-        
 
         # Initialize Contants  
         self.Term = {}
@@ -1818,7 +1815,8 @@ class Vahana_VertFlight(gym.Env):
         self.ATM['HAGL_ft'] = self.ATM['HAGL_m'] * self.CONS['m2ft']
         # TOWER WIND - MIL-F-8785C / p.51
         TotalTowerWind_mps = np.sqrt(self.INP['WIND_TowerX_mps']**2 + self.INP['WIND_TowerY_mps']**2)
-        
+        TotalTowerWindTurb_mps = TotalTowerWind_mps
+        TotalTowerWind_mps = 0
         Z0 = 2.0 # considering 'other flight phase'
         
         if TotalTowerWind_mps > 0:
@@ -1842,7 +1840,7 @@ class Vahana_VertFlight(gym.Env):
             Lw = HAGL_limited_ft
 
             # Calculate standard deviations of u,v,w
-            sigma_w_mps = TotalTowerWind_mps * 0.1
+            sigma_w_mps = TotalTowerWindTurb_mps * 0.1
             sigma_u_mps = sigma_w_mps / ((0.177 + 0.000823*HAGL_limited_ft)**0.4)
             sigma_v_mps = sigma_u_mps
 
