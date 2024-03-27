@@ -150,13 +150,28 @@ def CalculateIndividualCosts(ClosedLoops):
     
     dcgain = ct.dcgain(ClosedLoops['VX2VX'])
     if np.isnan(dcgain):
-        T,yout = ct.step_response(ClosedLoops['VX2VX'],10)
+        T,yout = ct.step_response(ClosedLoops['VX2VX'],20)
         dcgain = yout[-1]
         
     Criteria['vx_steadystate']['res'] = dcgain
         
     Criteria['vx_steadystate']['cost'] = (np.max([Criteria['vx_steadystate']['res'] - Criteria['vx_steadystate']['target'],0]) * Criteria['vx_steadystate']['weight_over'] + 
                                            np.min([Criteria['vx_steadystate']['res'] - Criteria['vx_steadystate']['target'],0]) * -Criteria['vx_steadystate']['weight_down'])
+    # Theta Response
+    # Reduce initial Theta response
+    Criteria['max_theta'] = {}
+    Criteria['max_theta']['weight_over'] = 1
+    Criteria['max_theta']['weight_down'] = 0
+    Criteria['max_theta']['weight'] = 5
+    Criteria['max_theta']['target'] = 0
+    Criteria['max_theta']['type'] = 'abs'
+
+    T, yout = ct.step_response(ClosedLoops['Complete'] , T=15, input = ClosedLoops['Complete'].input_labels.index('Z_ref_m'))
+
+    max_the = np.max(np.abs(yout[ClosedLoops['Complete'].output_labels.index('Theta_deg')][0]))
+    Criteria['max_theta']['res'] = max_the
+    Criteria['max_theta']['cost'] = CalculateCost (Criteria['max_theta'])
+    
     # Throttle Response
     # Reduce initial throttle response, comparing to trim throttle
     Criteria['max_throttle'] = {}

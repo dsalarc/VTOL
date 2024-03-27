@@ -59,7 +59,7 @@ def gen_Plots(ClosedLoops , Criteria, PlotLabel, color_rgb = (0,0,1), line_type 
     plt.show()
     
     # %% VX CMD RESPONSE
-    T, yout = ct.step_response(ClosedLoops['Complete'] , T=15, input = 2)
+    T, yout = ct.step_response(ClosedLoops['Complete'] , T=20, input = 2)
     
     l = int(np.ceil(np.sqrt(len(yout))))
     c = int(np.ceil(len(yout) / l))
@@ -243,7 +243,7 @@ def gen_Plots(ClosedLoops , Criteria, PlotLabel, color_rgb = (0,0,1), line_type 
     
     fig7 = plt.figure('OpenLoop_Z_MarginPlot')
     plt.subplot(2,2,1)
-    plt.plot(w_radps , G_db)
+    plt.plot(w_radps , G_db, line_type, color = color_rgb)
     plt.plot(w_radps , (w_radps*0), 'k:')
     
     for i in range(len(GM_dB)):
@@ -261,7 +261,7 @@ def gen_Plots(ClosedLoops , Criteria, PlotLabel, color_rgb = (0,0,1), line_type 
     plt.ylabel('Gain [dB]')
     
     plt.subplot(2,2,3)
-    plt.plot(w_radps , P_deg, label = PlotLabel)
+    plt.plot(w_radps , P_deg, line_type, label = PlotLabel, color = color_rgb)
     plt.plot(w_radps , (w_radps*0-180), 'k:')
     plt.plot(w_radps , (w_radps*0+180), 'k:')
     for i in range(len(margins_res[1])):

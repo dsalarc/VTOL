@@ -100,7 +100,7 @@ def gen_AltController(Gains):
                        np.array([[-Gains['Kvzp'], -Gains['Kz']*(Gains['Kvzp']+Gains['Kvzff']), +Gains['Kvzp']+Gains['Kvzff'], +Gains['Kz']*(Gains['Kvzp']+Gains['Kvzff']), -Gains['Knzp'], 1],
                                  [   0          , -Gains['Kz']                               ,    1                         , +Gains['Kz']                               , 0             , 0],
                                  [   0          , 0                                          ,    0                         ,       0                                    , 0             , 0]]) , 
-                       inputs = ['VZ_mps', 'Z_m', 'VZ_ref_mps', 'Z_ref_m', 'AZi_mps2', 'ThrottleCmd_inp'] , 
+                       inputs = ['VZ_mps', 'Z_m', 'VZ_ref_mps', 'Z_ref_m', 'AZi_mps2', 'ThetaCmd_inp'] , 
                        outputs = ['ThetaCmd_deg', 'VZ_cmd_mps', 'VZ_err_int_m'],
                        name = 'AltController' )
     return Controller
