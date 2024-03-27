@@ -1290,7 +1290,10 @@ class Vahana_VertFlight(gym.Env):
       self.GEOM['Fus']['b_m']   = 0.90
       self.GEOM['Fus']['S_m2']  = np.pi * 0.45**2
       self.GEOM['Fus']['XYZ_m'] = np.array([2.05, 0.00, 0.00])
-                                
+      
+      self.GEOM['Wing2_Wing1'] = {}
+      self.GEOM['Wing2_Wing1']['XYZ_m']  = self.GEOM['Wing2']['XYZ_m'] - self.GEOM['Wing1']['XYZ_m']
+
     def init_MASS (self , PaxIn = 0):
       # MASS
       self.MASS['Pax']             = PaxIn
@@ -1830,8 +1833,12 @@ class Vahana_VertFlight(gym.Env):
         
         # TURBULENCE
         if self.trimming or (self.INP['WIND_TurbON'] < 0.5):
-            self.ATM['TurbBody_mps'] = np.zeros(3)
-
+            self.ATM['TurbBody_W1_mps'] = np.zeros(3)
+            self.ATM['TurbBody_W2_mps'] = np.zeros(3)
+            self.ATM['TurbBody_mps']    = np.zeros(3)
+            self.ATM['TurbBody_Vector'] = {}
+            self.ATM['TurbBody_Vector']['dist_from_W1_m'] = np.zeros(1)
+            self.ATM['TurbBody_Vector']['TurbBody_mps']   = np.zeros(3)
         else:
             HAGL_limited_ft = max(10,min(1000,self.ATM['HAGL_ft']))
 
@@ -1873,19 +1880,44 @@ class Vahana_VertFlight(gym.Env):
             xw_mps = self.ATM['Turb']['rdm_w'].normal(0,sigma_wn_w_ftps) * self.CONS['ft2m']
 
             # Calculate Turbulences by filtering
-            last_Turb_mps = self.ATM['TurbBody_mps'][:]
-            self.ATM['TurbBody_mps'][0] = (Au*last_Turb_mps[0] + 2*Bu*xu_mps)
-            self.ATM['TurbBody_mps'][1] = Au * last_Turb_mps[1] + 2*Bv * xv_mps
+            last_Turb_mps = self.ATM['TurbBody_W1_mps'][:]
+            self.ATM['TurbBody_W1_mps'][0] = (Au*last_Turb_mps[0] + 2*Bu*xu_mps)
+            self.ATM['TurbBody_W1_mps'][1] = Au * last_Turb_mps[1] + 2*Bv * xv_mps
             last_y = self.ATM['Turb']['y']
             self.ATM['Turb']['y'] = Aw * last_y + 2*Bw * xw_mps
-            self.ATM['TurbBody_mps'][2] = Aw * last_Turb_mps[2]  + Bw * (self.ATM['Turb']['y'] + last_y) + Cw * (self.ATM['Turb']['y'] - last_y)    
+            self.ATM['TurbBody_W1_mps'][2] = Aw * last_Turb_mps[2]  + Bw * (self.ATM['Turb']['y'] + last_y) + Cw * (self.ATM['Turb']['y'] - last_y)    
+            
+            self.ATM['TurbBody_Vector']['dist_from_W1_m'] = np.vstack((np.zeros(1), self.ATM['TurbBody_Vector']['dist_from_W1_m'] + max(1,max(TotalTowerWindTurb_mps,self.ATM['TAS_mps'])) * self.t_step))
+            if self.CurrentStep > 1:
+                self.ATM['TurbBody_Vector']['TurbBody_mps']   = np.vstack((self.ATM['TurbBody_W1_mps'], self.ATM['TurbBody_Vector']['TurbBody_mps']))
+            else:
+                # if first step, repeat the W1 array
+                self.ATM['TurbBody_Vector']['TurbBody_mps']   = np.vstack((self.ATM['TurbBody_W1_mps'], self.ATM['TurbBody_W1_mps']))
 
-        self.ATM['TurbEarth_mps'] = np.dot(self.EQM['LB2E'] , self.ATM['TurbBody_mps'])
+            while self.ATM['TurbBody_Vector']['dist_from_W1_m'][-1] > self.GEOM['Wing2_Wing1']['XYZ_m'][0]:
+                self.ATM['TurbBody_Vector']['dist_from_W1_m'] = self.ATM['TurbBody_Vector']['dist_from_W1_m'][0:-1]
+                self.ATM['TurbBody_Vector']['TurbBody_mps']   = self.ATM['TurbBody_Vector']['TurbBody_mps'][0:-1,:]
+
+            self.ATM['TurbBody_W2_mps'] = self.ATM['TurbBody_Vector']['TurbBody_mps'][-1,:]
+            self.ATM['TurbBody_mps']    = self.ATM['TurbBody_W1_mps'][:]
+            
+        self.ATM['TurbEarth_mps']    = np.dot(self.EQM['LB2E'] , self.ATM['TurbBody_mps'])
+        self.ATM['TurbEarth_W1_mps'] = np.dot(self.EQM['LB2E'] , self.ATM['TurbBody_W1_mps'])
+        self.ATM['TurbEarth_W2_mps'] = np.dot(self.EQM['LB2E'] , self.ATM['TurbBody_W2_mps'])
+
         # WIND VECTOR
-        WindVec_kt = np.array([self.ATM['WindX_kt'] + self.ATM['TowerWindLocalX_mps']*self.CONS['mps2kt'] + self.ATM['TurbEarth_mps'][0]*self.CONS['mps2kt'],
-                               self.ATM['WindY_kt'] + self.ATM['TowerWindLocalY_mps']*self.CONS['mps2kt'] + self.ATM['TurbEarth_mps'][1]*self.CONS['mps2kt'],
-                               self.ATM['WindZ_kt']                                                       + self.ATM['TurbEarth_mps'][2]*self.CONS['mps2kt']])
-        self.ATM['WindVec_mps'] = WindVec_kt * self.CONS['kt2mps']
+        WindVec_kt    = np.array([self.ATM['WindX_kt'] + self.ATM['TowerWindLocalX_mps']*self.CONS['mps2kt'] + self.ATM['TurbEarth_mps'][0]*self.CONS['mps2kt'],
+                                  self.ATM['WindY_kt'] + self.ATM['TowerWindLocalY_mps']*self.CONS['mps2kt'] + self.ATM['TurbEarth_mps'][1]*self.CONS['mps2kt'],
+                                  self.ATM['WindZ_kt']                                                       + self.ATM['TurbEarth_mps'][2]*self.CONS['mps2kt']])
+        WindVec_W1_kt = np.array([self.ATM['WindX_kt'] + self.ATM['TowerWindLocalX_mps']*self.CONS['mps2kt'] + self.ATM['TurbEarth_W1_mps'][0]*self.CONS['mps2kt'],
+                                  self.ATM['WindY_kt'] + self.ATM['TowerWindLocalY_mps']*self.CONS['mps2kt'] + self.ATM['TurbEarth_W1_mps'][1]*self.CONS['mps2kt'],
+                                  self.ATM['WindZ_kt']                                                       + self.ATM['TurbEarth_W1_mps'][2]*self.CONS['mps2kt']])
+        WindVec_W2_kt = np.array([self.ATM['WindX_kt'] + self.ATM['TowerWindLocalX_mps']*self.CONS['mps2kt'] + self.ATM['TurbEarth_W2_mps'][0]*self.CONS['mps2kt'],
+                                  self.ATM['WindY_kt'] + self.ATM['TowerWindLocalY_mps']*self.CONS['mps2kt'] + self.ATM['TurbEarth_W2_mps'][1]*self.CONS['mps2kt'],
+                                  self.ATM['WindZ_kt']                                                       + self.ATM['TurbEarth_W2_mps'][2]*self.CONS['mps2kt']])
+        self.ATM['WindVec_mps']    = WindVec_kt    * self.CONS['kt2mps']
+        self.ATM['WindVec_W1_mps'] = WindVec_W1_kt * self.CONS['kt2mps']
+        self.ATM['WindVec_W2_mps'] = WindVec_W2_kt * self.CONS['kt2mps']
 
         # INITIAL CALCULATIIONS
         
@@ -1903,6 +1935,8 @@ class Vahana_VertFlight(gym.Env):
         self.ATM['TAS2EAS']    = np.sqrt(self.ATM['rho_kgm3']/self.ATM['Const']['rho0_kgm3'])
                     
         self.ATM['Vaero']      = np.dot(self.EQM['LE2B'] , self.ATM['WindVec_mps']) + self.EQM['VelLin_BodyAx_mps']
+        self.ATM['Vaero_W1']   = np.dot(self.EQM['LE2B'] , self.ATM['WindVec_W1_mps']) + self.EQM['VelLin_BodyAx_mps']
+        self.ATM['Vaero_W2']   = np.dot(self.EQM['LE2B'] , self.ATM['WindVec_W2_mps']) + self.EQM['VelLin_BodyAx_mps']
         self.ATM['TAS_mps']    = np.linalg.norm(self.ATM['Vaero'])
 
         self.ATM['EAS_mps']    = self.ATM['TAS_mps'] * self.ATM['TAS2EAS']
@@ -1914,28 +1948,55 @@ class Vahana_VertFlight(gym.Env):
         self.ATM['CAS_mps']    = self.ATM['Const']['Vsound0_mps']*np.sqrt(5*((self.ATM['qc'] /self.ATM['Const']['P0_Pa']+1)**(2/7)-1))
 
         
-        if (abs(self.ATM['Vaero'][0]) < 1e-2 and not(self.trimming)):
-            u = 0
+        if (abs(self.ATM['Vaero_W1'][0]) < 1e-2 and not(self.trimming)):
+            u_W1 = 0
         else:
-            u = self.ATM['Vaero'][0]
+            u_W1 = self.ATM['Vaero_W1'][0]
             
-        if (abs(self.ATM['Vaero'][1]) < 1e-2 and not(self.trimming)):
-            v = 0
+        if (abs(self.ATM['Vaero_W1'][1]) < 1e-2 and not(self.trimming)):
+            v_W1 = 0
         else:
-            v = self.ATM['Vaero'][1]
+            v_W1 = self.ATM['Vaero_W1'][1]
             
-        if (abs(self.ATM['Vaero'][2]) < 1e-2 and not(self.trimming)):
-            w = 0
+        if (abs(self.ATM['Vaero_W1'][2]) < 1e-2 and not(self.trimming)):
+            w_W1 = 0
         else:
-            w = self.ATM['Vaero'][2]
-            
-        self.ATM['Alpha_rad'] = np.arctan2(w,u)
-        self.ATM['Alpha_deg'] = np.rad2deg(self.ATM['Alpha_rad'])
-       
-        Beta_aux  = np.rad2deg(
-                                np.arctan2(v*np.cos(np.deg2rad(self.ATM['Alpha_deg'] )),u))      
+            w_W1 = self.ATM['Vaero_W1'][2]
         
-        self.ATM['Beta_deg'] = Beta_aux * np.sign(self.cosd(Beta_aux))         #sign correction to consider backward flight (AOA = 180)
+
+
+        if (abs(self.ATM['Vaero_W2'][0]) < 1e-2 and not(self.trimming)):
+            u_W2 = 0
+        else:
+            u_W2 = self.ATM['Vaero_W2'][0]
+            
+        if (abs(self.ATM['Vaero_W2'][1]) < 1e-2 and not(self.trimming)):
+            v_W2 = 0
+        else:
+            v_W2 = self.ATM['Vaero_W2'][1]
+            
+        if (abs(self.ATM['Vaero_W2'][2]) < 1e-2 and not(self.trimming)):
+            w_W2 = 0
+        else:
+            w_W2 = self.ATM['Vaero_W2'][2]
+            
+        self.ATM['Alpha_rad'] = np.arctan2(w_W1,u_W1)
+        self.ATM['Alpha_deg'] = np.rad2deg(self.ATM['Alpha_rad'])
+            
+        self.ATM['Alpha_W1_rad'] = np.arctan2(w_W1,u_W1)
+        self.ATM['Alpha_W1_deg'] = np.rad2deg(self.ATM['Alpha_W1_rad'])
+            
+        self.ATM['Alpha_W2_rad'] = np.arctan2(w_W2,u_W2)
+        self.ATM['Alpha_W2_deg'] = np.rad2deg(self.ATM['Alpha_W2_rad'])
+       
+        Beta_W1_aux  = np.rad2deg(
+                                np.arctan2(v_W1*np.cos(np.deg2rad(self.ATM['Alpha_W1_deg'] )),u_W1))      
+        Beta_W2_aux  = np.rad2deg(
+                                np.arctan2(v_W2*np.cos(np.deg2rad(self.ATM['Alpha_W2_deg'] )),u_W2))      
+        
+        self.ATM['Beta_deg']    = Beta_W1_aux * np.sign(self.cosd(Beta_W1_aux))         #sign correction to consider backward flight (AOA = 180)
+        self.ATM['Beta_W1_deg'] = Beta_W1_aux * np.sign(self.cosd(Beta_W1_aux))         #sign correction to consider backward flight (AOA = 180)
+        self.ATM['Beta_W2_deg'] = Beta_W2_aux * np.sign(self.cosd(Beta_W2_aux))         #sign correction to consider backward flight (AOA = 180)
        
     # %% MOTOR MODEL
     def MOT_fcn(self):            
@@ -1952,8 +2013,14 @@ class Vahana_VertFlight(gym.Env):
         MOT_Vind      = np.zeros([self.MOT['n_motor'],3])
         MOT_VTotal_b  = np.zeros([self.MOT['n_motor'],3])
         MOT_Vind      = np.cross(self.EQM['VelRot_BodyAx_radps'],(self.MOT['Position_m'] - self.MASS['CG_m']))
-        MOT_VTotal_b  = np.add(self.ATM['Vaero'],MOT_Vind)
-        
+
+        aux1 = self.ATM['Vaero_W1']
+        aux2 = self.ATM['Vaero_W2']
+        for i in range(int(np.round(self.MOT['n_motor']/2-1))):
+            aux1 = np.vstack((aux1 , self.ATM['Vaero_W1']))
+            aux2 = np.vstack((aux2 , self.ATM['Vaero_W2']))
+        aux = np.vstack((aux1 , aux2))
+        MOT_VTotal_b  = np.add(aux ,MOT_Vind)
         
         # Calculate Total Airflow Velocities in propeller axis   
         LM2B = np.zeros([3,3,self.MOT['n_motor']])
@@ -2124,7 +2191,7 @@ class Vahana_VertFlight(gym.Env):
                                                          self.EQM['VelRot_BodyAx_radps'][1],
                                                          self.ATM['TAS_mps'],
                                                          self.AERO['Wing1']['Incidence_deg'],
-                                                         self.ATM['Alpha_deg'],
+                                                         self.ATM['Alpha_W1_deg'],
                                                          self.AERO['Wing1']['EPS_deg'])
         
         self.AERO['Wing1']['Beta_deg'] = CalcInducedBETA(self.GEOM['Wing1']['XYZ_m'][0],
@@ -2132,7 +2199,7 @@ class Vahana_VertFlight(gym.Env):
                                                          self.EQM['VelRot_BodyAx_radps'][2],
                                                          self.ATM['TAS_mps'],
                                                          0,
-                                                         self.ATM['Beta_deg'],
+                                                         self.ATM['Beta_W1_deg'],
                                                          0)
     
         
@@ -2169,7 +2236,7 @@ class Vahana_VertFlight(gym.Env):
                                                          self.EQM['VelRot_BodyAx_radps'][1],
                                                          self.ATM['TAS_mps'],
                                                          self.AERO['Wing2']['Incidence_deg'],
-                                                         self.ATM['Alpha_deg'],
+                                                         self.ATM['Alpha_W2_deg'],
                                                          self.AERO['Wing2']['EPS_deg'])
 
         self.AERO['Wing2']['Beta_deg'] = CalcInducedBETA(self.GEOM['Wing2']['XYZ_m'][0],
@@ -2177,7 +2244,7 @@ class Vahana_VertFlight(gym.Env):
                                                          self.EQM['VelRot_BodyAx_radps'][2],
                                                          self.ATM['TAS_mps'],
                                                          0,
-                                                         self.ATM['Beta_deg'],
+                                                         self.ATM['Beta_W2_deg'],
                                                          0)
 
         W2_Alpha_deg_aux, W2_sign_aux = AuxAOA(self.AERO['Wing2']['Alpha_deg'])
@@ -2228,7 +2295,7 @@ class Vahana_VertFlight(gym.Env):
         self.AERO['Elevon']['CNS_MRC']  = self.AERO['Elevon']['dCNSde_MRC'] * self.CONT['Elevon_deg'] * ElevonGain
         
         # Calculate Coefficcient in Body Local Axis
-        (CDB, CYB, CLB, CRB, CMB, CNB) = STAB2BODY (self.ATM['Alpha_rad'],
+        (CDB, CYB, CLB, CRB, CMB, CNB) = STAB2BODY (self.ATM['Alpha_W1_rad'],
                                                     self.AERO['Wing1']['CDS_25Local'],
                                                     self.AERO['Wing1']['CYS_25Local'],
                                                     self.AERO['Wing1']['CLS_25Local'],
@@ -2245,7 +2312,7 @@ class Vahana_VertFlight(gym.Env):
         self.AERO['Wing1']['CMB_25Local'] = CMB
         self.AERO['Wing1']['CNB_25Local'] = CNB
 
-        (CDB, CYB, CLB, CRB, CMB, CNB) = STAB2BODY (self.ATM['Alpha_rad'],
+        (CDB, CYB, CLB, CRB, CMB, CNB) = STAB2BODY (self.ATM['Alpha_W2_rad'],
                                                     self.AERO['Wing2']['CDS_25Local'],
                                                     self.AERO['Wing2']['CYS_25Local'],
                                                     self.AERO['Wing2']['CLS_25Local'],
@@ -2279,7 +2346,7 @@ class Vahana_VertFlight(gym.Env):
         self.AERO['Fus']['CMB_25Local'] = CMB
         self.AERO['Fus']['CNB_25Local'] = CNB
 
-        (CDB, CYB, CLB, CRB, CMB, CNB) = STAB2BODY (self.ATM['Alpha_rad'],
+        (CDB, CYB, CLB, CRB, CMB, CNB) = STAB2BODY (self.ATM['Alpha_W2_rad'],
                                                     self.AERO['Elevon']['CDS_MRC'],
                                                     self.AERO['Elevon']['CYS_MRC'],
                                                     self.AERO['Elevon']['CLS_MRC'],
