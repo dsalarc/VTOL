@@ -75,7 +75,7 @@ def CalculateIndividualCosts(ClosedLoops):
     Criteria['z_risetime80']['weight_over'] = 1
     Criteria['z_risetime80']['weight_down'] = -0.1
     Criteria['z_risetime80']['weight'] = 5
-    Criteria['z_risetime80']['target'] = 2.0
+    Criteria['z_risetime80']['target'] = 3.0
     
     T, yout = ct.step_response(ClosedLoops['PitchNotIncluded'] , T=10, input = ClosedLoops['PitchNotIncluded'].input_labels.index('Z_ref_m'))
     over_riseLim = T[yout[ClosedLoops['PitchNotIncluded'].output_labels.index('Z_m')][0] > 0.8]
@@ -166,14 +166,14 @@ def CalculateIndividualCosts(ClosedLoops):
     Criteria['openloop_throttlecmd_gainmargin']['weight_over'] = 0
     Criteria['openloop_throttlecmd_gainmargin']['weight_down'] = 1
     Criteria['openloop_throttlecmd_gainmargin']['weight']      = 10
-    Criteria['openloop_throttlecmd_gainmargin']['target']      = 6.0
+    Criteria['openloop_throttlecmd_gainmargin']['target']      = 8.0
     Criteria['openloop_throttlecmd_gainmargin']['type']        = 'prop'
     
     Criteria['openloop_throttlecmd_phasemargin'] = {}
     Criteria['openloop_throttlecmd_phasemargin']['weight_over'] = 0
     Criteria['openloop_throttlecmd_phasemargin']['weight_down'] = 1
     Criteria['openloop_throttlecmd_phasemargin']['weight']      = 10
-    Criteria['openloop_throttlecmd_phasemargin']['target']      = 45.0
+    Criteria['openloop_throttlecmd_phasemargin']['target']      = 60.0
     Criteria['openloop_throttlecmd_phasemargin']['type']        = 'prop'
     
     aux_out = ct.stability_margins(ClosedLoops['OpenLoop_throttlecmd'],returnall=True)
@@ -197,14 +197,14 @@ def CalculateIndividualCosts(ClosedLoops):
     Criteria['openloop_VZ_gainmargin']['weight_over'] = 0
     Criteria['openloop_VZ_gainmargin']['weight_down'] = 1
     Criteria['openloop_VZ_gainmargin']['weight']      = 10
-    Criteria['openloop_VZ_gainmargin']['target']      = 6.0
+    Criteria['openloop_VZ_gainmargin']['target']      = 8.0
     Criteria['openloop_VZ_gainmargin']['type']        = 'prop'
     
     Criteria['openloop_VZ_phasemargin'] = {}
     Criteria['openloop_VZ_phasemargin']['weight_over'] = 0
     Criteria['openloop_VZ_phasemargin']['weight_down'] = 1
     Criteria['openloop_VZ_phasemargin']['weight']      = 10
-    Criteria['openloop_VZ_phasemargin']['target']      = 45.0
+    Criteria['openloop_VZ_phasemargin']['target']      = 60.0
     Criteria['openloop_VZ_phasemargin']['type']        = 'prop'
     
     aux_out = ct.stability_margins(ClosedLoops['OpenLoop_VZ'],returnall=True)
@@ -228,14 +228,14 @@ def CalculateIndividualCosts(ClosedLoops):
     Criteria['openloop_Z_gainmargin']['weight_over'] = 0
     Criteria['openloop_Z_gainmargin']['weight_down'] = 1
     Criteria['openloop_Z_gainmargin']['weight']      = 10
-    Criteria['openloop_Z_gainmargin']['target']      = 6.0
+    Criteria['openloop_Z_gainmargin']['target']      = 8.0
     Criteria['openloop_Z_gainmargin']['type']        = 'prop'
     
     Criteria['openloop_Z_phasemargin'] = {}
     Criteria['openloop_Z_phasemargin']['weight_over'] = 0
     Criteria['openloop_Z_phasemargin']['weight_down'] = 1
     Criteria['openloop_Z_phasemargin']['weight']      = 10
-    Criteria['openloop_Z_phasemargin']['target']      = 45.0
+    Criteria['openloop_Z_phasemargin']['target']      = 60.0
     Criteria['openloop_Z_phasemargin']['type']        = 'prop'
     
     aux_out = ct.stability_margins(ClosedLoops['OpenLoop_Z'],returnall=True)

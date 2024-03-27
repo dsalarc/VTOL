@@ -8,9 +8,24 @@ Created on Mon Aug 21 22:53:18 2023
 import numpy as np
 import control as ct
 
-def gen_Aircraft (TestEnv , VX_mps = 0):
-    obs = TestEnv.reset(VX_mps = VX_mps, VZ_mps = 0.0, THETA = 0.0, DispMessages = False, Linearize = True,
+def gen_Aircraft (TestEnv , VX_mps = 0, AX_mps2 = None, Elevator_deg = None):
+    TestEnv.reset(VX_mps = VX_mps, VZ_mps = 0.0, AX_mps2 = AX_mps2, Elevator_deg = Elevator_deg, THETA = 0.0, DispMessages = False, Linearize = True,
                         TermTheta_deg = 45, StaFreezeList = [] , UNC_seed = None , UNC_enable = 0)
+    if (TestEnv.TrimData['Trimmed'] < 0.5) :
+        if AX_mps2 < 0:
+            if VX_mps < 31:
+                print('Not trimmed with required AX. Trimming with Tilt_deg = 90')
+                TestEnv.reset(VX_mps = VX_mps, VZ_mps = 0.0, Tilt_deg = 90, Elevator_deg = Elevator_deg, THETA = 0.0, DispMessages = False, Linearize = True,
+                        TermTheta_deg = 45, StaFreezeList = [] , UNC_seed = None , UNC_enable = 0)
+            else:
+                print('Not trimmed with required AX. Trimming with Throttle = 0')
+                TestEnv.reset(VX_mps = VX_mps, VZ_mps = 0.0, Throttle_u = -1.0, Elevator_deg = Elevator_deg, THETA = 0.0, DispMessages = False, Linearize = True,
+                        TermTheta_deg = 45, StaFreezeList = [] , UNC_seed = None , UNC_enable = 0)
+                
+    if (TestEnv.TrimData['Trimmed'] < 0.5):
+        print('VX[mps]: %0.0f, AX[mps2]: %0.1f : Not trimmed' %(VX_mps , AX_mps2))
+    else:
+        print('VX[mps]: %0.0f, AX[mps2]: %0.1f : Trimmed' %(VX_mps , AX_mps2))
 
     # %%
     Aircraft = {}
@@ -38,7 +53,7 @@ def gen_Aircraft (TestEnv , VX_mps = 0):
                                               outputs = TestEnv.TrimData['Linear']['OutNames'],
                                               name = 'Aircraft' )
     
-    return Aircraft
+    return Aircraft, TestEnv.TrimData
 
 def gen_EngActuator(wn_radps = 40, inp_name = 'inp_name', out_name = 'out_name' , act_name = 'sensor_name'):
     EngActuator = {}
