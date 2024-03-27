@@ -597,6 +597,7 @@ class Vahana_VertFlight(gym.Env):
       self.CONS['kt2mps'] = 0.514444
       self.CONS['mps2kt'] = 1 / self.CONS['kt2mps']     
       self.CONS['m2ft']   = 3.28084
+      self.CONS['ft2m']   = 1 / self.CONS['m2ft']
       self.CONS['g_mps2'] = 9.806
        
       self.init_UNC()
@@ -1835,41 +1836,41 @@ class Vahana_VertFlight(gym.Env):
             HAGL_limited_ft = max(10,min(1000,self.ATM['HAGL_ft']))
 
             # Calculate Turbulence Length Scales
-            Lu = HAGL_limited_ft / ((0.177 + 0.000823 * HAGL_limited_ft)**1.2)
-            Lv = Lu
-            Lw = HAGL_limited_ft
+            Lu_ft = HAGL_limited_ft / ((0.177 + 0.000823 * HAGL_limited_ft)**1.2)
+            Lv_ft = Lu_ft
+            Lw_ft = HAGL_limited_ft
 
             # Calculate standard deviations of u,v,w
-            sigma_w_mps = TotalTowerWindTurb_mps * 0.1
-            sigma_u_mps = sigma_w_mps / ((0.177 + 0.000823*HAGL_limited_ft)**0.4)
-            sigma_v_mps = sigma_u_mps
+            sigma_w_ftps = (TotalTowerWindTurb_mps * self.CONS['mps2kt']) * 0.1
+            sigma_u_ftps = sigma_w_ftps / ((0.177 + 0.000823*HAGL_limited_ft)**0.4)
+            sigma_v_ftps = sigma_u_ftps
 
             # Space Step
-            Dx = max(1,self.ATM['TAS_mps']) * self.t_step
+            Dx_ft = max(1,self.ATM['TAS_mps'])*self.CONS['m2ft'] * self.t_step
 
             # Aux Pars
-            Ru = Dx / (2*Lu)
+            Ru = Dx_ft / (2*Lu_ft)
             Au = (1-Ru)/(1+Ru)
             Bu = Ru / (1+Ru)
 
-            Rv = Dx / (2*Lv)
+            Rv = Dx_ft / (2*Lv_ft)
             Av = (1-Rv)/(1+Rv)
             Bv = Rv / (1+Rv)
 
-            Rw = Dx / (2*Lw)
+            Rw = Dx_ft / (2*Lw_ft)
             Aw = (1-Rw)/(1+Rw)
             Bw = Rw / (1+Rw)
             Cw = 3**0.5 / (1+Rw)
 
             # unfiltered Std Deviation
-            sigma_wn_u_mps = sigma_u_mps *(2*Lu / Dx)**0.5
-            sigma_wn_v_mps = sigma_v_mps *(2*Lv / Dx)**0.5
-            sigma_wn_w_mps = sigma_w_mps *(Lw / Dx)**0.5
+            sigma_wn_u_ftps = sigma_u_ftps *(2*Lu_ft / Dx_ft)**0.5
+            sigma_wn_v_ftps = sigma_v_ftps *(2*Lv_ft / Dx_ft)**0.5
+            sigma_wn_w_ftps = sigma_w_ftps *(Lw_ft / Dx_ft)**0.5
 
-            # Get rando functions
-            xu_mps = self.ATM['Turb']['rdm_u'].normal(0,sigma_wn_u_mps)
-            xv_mps = self.ATM['Turb']['rdm_v'].normal(0,sigma_wn_v_mps)
-            xw_mps = self.ATM['Turb']['rdm_w'].normal(0,sigma_wn_w_mps)
+            # Get random functions
+            xu_mps = self.ATM['Turb']['rdm_u'].normal(0,sigma_wn_u_ftps) * self.CONS['ft2m']
+            xv_mps = self.ATM['Turb']['rdm_v'].normal(0,sigma_wn_v_ftps) * self.CONS['ft2m']
+            xw_mps = self.ATM['Turb']['rdm_w'].normal(0,sigma_wn_w_ftps) * self.CONS['ft2m']
 
             # Calculate Turbulences by filtering
             last_Turb_mps = self.ATM['TurbBody_mps'][:]
