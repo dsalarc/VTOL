@@ -32,6 +32,31 @@ for gain in OLD['GainsVec'].keys():
     NEW['GainsVec'][gain] = signal.savgol_filter(OLD['GainsVec'][gain],
                            3, # window size used for filtering
                            1) # order of fitted polynomial
+    
+SmoothList = [['Kvzi', 55, 0],
+              ['Kvzi', 65, 0],
+              ['Kvzff', 55, 0],
+              ['Kvxp', 50, 0],
+              ['Kvxp', 65, 0],
+              ['Kvxp', 60, 0],
+              ['Kz', 50, (45,70)],
+              ['Kz', 55, (45,70)],
+              ['Kz', 60, (45,70)],
+              ['Kz', 65, (45,70)]]
+
+for i in range(np.size(SmoothList, 0)):
+    j = np.where(NEW['TrimVec']['VX_mps'] == SmoothList[i][1])[0][0]
+    if SmoothList[i][2] == 0:
+        x1 = j-1
+        x2 = j+1
+    else:
+        x1 = np.where(NEW['TrimVec']['VX_mps'] == SmoothList[i][2][0])[0][0]
+        x2 = np.where(NEW['TrimVec']['VX_mps'] == SmoothList[i][2][1])[0][0]
+        
+    NEW['GainsVec'][SmoothList[i][0]][j] = ((NEW['GainsVec'][SmoothList[i][0]][x2] - NEW['GainsVec'][SmoothList[i][0]][x1]) / 
+                                           (NEW['TrimVec']['VX_mps'][x2] - NEW['TrimVec']['VX_mps'][x1]) * 
+                                           (NEW['TrimVec']['VX_mps'][j] - NEW['TrimVec']['VX_mps'][x1]) + 
+                                            NEW['GainsVec'][SmoothList[i][0]][x1])
 # %% PLOT COMPARISON
 plt.close('all')
 

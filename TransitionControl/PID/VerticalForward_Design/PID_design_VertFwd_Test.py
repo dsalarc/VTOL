@@ -54,6 +54,7 @@ VertFwd_gains['VX_mps'] = aux['TrimVec']['VX_mps'][:]
 
 # %% TEST VECTOR
 TestVec = {}
+# TestVec['VX_mps'] = np.array([45.0])
 TestVec['VX_mps'] = TrimVec['VX_mps']
 TestVec['AX_mps2'] = np.array([0.0])
 TestVec['CostVec'] = np.zeros((len(TestVec['VX_mps']) , len(TestVec['AX_mps2'])))
@@ -68,8 +69,8 @@ elif len(TestVec['AX_mps2']) == 1:
 else:
     raise Exception('Adjust line_type_vec')
 
-# SaveAircraft = []
-# SaveTrim = []
+SaveAircraftPitch = []
+SaveTrim = []
 
 # %% GENERAL FUNCTIONS
 
@@ -118,6 +119,9 @@ for nv in range(len(TestVec['VX_mps'])):
         AircraftPitch['SS'] = aux['AltitudeIncluded'].copy();
         AircraftPitch['SS'].name = 'AircraftPitch'
         
+        SaveAircraftPitch.append(AircraftPitch)
+        SaveTrim.append(TrimData)    
+        
         # Generate Full Closed Loop Model
         ClosedLoops = gen_ClosedLoops(AircraftPitch , AltController, SpeedController, EngActuator, Sensor_vx , Sensor_vz , Sensor_z, Sensor_ax, Sensor_az)
         Criteria    = CalculateIndividualCosts(ClosedLoops)
@@ -126,33 +130,59 @@ for nv in range(len(TestVec['VX_mps'])):
         TestVec['CostVec'][nv, nt] = TotalCost
         
         color_u1 = (TestVec['VX_mps'][nv] - np.min(TestVec['VX_mps'])) / (np.max(TestVec['VX_mps']) - np.min(TestVec['VX_mps']))
-        color_u2 = np.abs(TestVec['AX_mps2'][nt]) / np.max(np.abs(TestVec['AX_mps2']))
+        if len(TestVec['AX_mps2']) == 1:
+            color_u2 = 0
+        else:
+            color_u2 = np.abs(TestVec['AX_mps2'][nt]) / np.max(np.abs(TestVec['AX_mps2']))
             
         if ((nv == len(TestVec['VX_mps'])-1) and (nt == len(TestVec['AX_mps2'])-1)):
             plot_criteria = True
+            plot_legend = True
         else:
             plot_criteria = False
+            plot_legend = False
                 
-        gen_Plots(ClosedLoops, Criteria, ('%0.1f m/s / AX %0.1f m/s2' %(TestVec['VX_mps'][nv],TestVec['AX_mps2'][nt])), color_rgb = ((1-color_u1),color_u2,color_u1), line_type = line_type_vec[nt], plot_criteria = plot_criteria)
+        gen_Plots(ClosedLoops, Criteria, ('%0.1f m/s' %(TestVec['VX_mps'][nv])), color_rgb = ((1-color_u1),color_u2,color_u1), line_type = line_type_vec[nt], plot_criteria = plot_criteria, plot_legend = plot_legend)
 
 # %% COST PLOT
-plt.figure()
+fig = plt.figure()
+plt.rcParams.update({'font.size': 10})
+
+plt_l = int(np.ceil(np.sqrt(len(VertFwd_gains.keys()))))
+plt_c = int(np.ceil(len(VertFwd_gains.keys()) / plt_l))
+
+color = '-ob'
 for nt in range(len(TestVec['AX_mps2'])):
-    plt.plot(TestVec['VX_mps'] , TestVec['CostVec'][:, nt] )
+    plt_n = 0
+    for kk in VertFwd_gains.keys():
+        if kk != 'VX_mps':
+            plt_n += 1
+            plt.subplot(plt_l, plt_c, plt_n)
+            plt.grid('on')
+            plt.xlim([np.min(TestVec['VX_mps']),np.max(TestVec['VX_mps'])])
+            plt.plot(TestVec['VX_mps'] , VertFwd_gains[kk],color, linewidth = 2)
+            plt.xlabel('CAS [m/s]')
+            plt.ylabel(kk)
+            plt.xticks(np.arange(45, 71, 5))
+
+        
+plt_n += 1
+plt.subplot(plt_l, plt_c, plt_n)
 plt.grid('on')
-plt.xlabel('VX [m/s]')
+plt.xlim([np.min(TestVec['VX_mps']),np.max(TestVec['VX_mps'])])
+plt.plot(TestVec['VX_mps'] , TestVec['CostVec'],color, linewidth = 2)
+plt.xlabel('CAS [m/s]')
+plt.xticks(np.arange(45, 71, 5))
 plt.ylabel('Cost')
+fig.set_size_inches(12, 6)
+fig.tight_layout(w_pad=0, h_pad=0.0,rect = (0,0,1,0.95))
+plt.savefig('FinalGains_FixedWingController.pdf', dpi=fig.dpi)
 
-# %% PLOT TEST POINTS
-
+# %% RESHAPE SAVED DATA
 
 SaveTrim = np.reshape(SaveTrim,(len(TestVec['VX_mps']) , len(TestVec['AX_mps2'])))
 
-plt_l = 3
-plt_c = 4
-
-plt.rcParams.update({'font.size': 10})
-fig = plt.figure()
+# %% PLOT TEST POINTS
 TrimRes = {}
 
 TrimRes['Trimmed']       = np.zeros((len(TestVec['VX_mps']) , len(TestVec['AX_mps2'])))
@@ -178,6 +208,7 @@ TrimRes['Reward']        = np.zeros((len(TestVec['VX_mps']) , len(TestVec['AX_mp
 TrimRes['W1_CLS']        = np.zeros((len(TestVec['VX_mps']) , len(TestVec['AX_mps2'])))
 TrimRes['W2_CLS']        = np.zeros((len(TestVec['VX_mps']) , len(TestVec['AX_mps2'])))
 TrimRes['AX_mps2']        = np.zeros((len(TestVec['VX_mps']) , len(TestVec['AX_mps2'])))
+
 
 for n_t in range(len(TestVec['AX_mps2'])):
     for n_sp in range(len(TestVec['VX_mps'])):
@@ -210,7 +241,14 @@ for n_t in range(len(TestVec['AX_mps2'])):
         TrimRes['AX_mps2'][n_sp,n_t]        = c*SaveTrim[n_sp,n_t]['info']['EQM']['AccLin_EarthAx_mps2'][0]
 
 
-colors = ['r', 'm', 'k', 'c', 'b']
+colors = ['-or', '-om', '-ok', '-oc', '-ob']
+colors = ['-ob']
+fig = plt.figure()
+plt.rcParams.update({'font.size': 10})
+
+plt_l = 3
+plt_c = 4
+
 for n_t in range(len(TestVec['AX_mps2'])):
     color = colors[n_t]
     plt_n = 1
@@ -219,90 +257,102 @@ for n_t in range(len(TestVec['AX_mps2'])):
     plt.grid('on')
     plt.xlim([np.min(TestVec['VX_mps']),np.max(TestVec['VX_mps'])])
     plt.plot(TestVec['VX_mps'] , TrimRes['W1_Tilt_deg'][:,n_t],color, linewidth = 2, label = 'AX: %0.1f m/s'%TestVec['AX_mps2'][n_t])
-    plt.ylim([0, 90])
-    plt.yticks(np.arange(0,120,30))
-    plt.xlabel('Inertial X Speed [m/s]')
+    plt.ylim([0, 15])
+    plt.yticks(np.arange(0,15.1,3))
+    plt.xlabel('CAS [m/s]')
     plt.ylabel('Wing Tilt [deg]')
-    plt.legend()
+    plt.xticks(np.arange(45, 71, 5))
+    # plt.legend()
 
     plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
     plt.grid('on')
     plt.xlim([np.min(TestVec['VX_mps']),np.max(TestVec['VX_mps'])])
     plt.plot(TestVec['VX_mps'] , TrimRes['Throttle'][:,n_t],color, linewidth = 2)
     plt.ylim([-1, +1])
-    plt.xlabel('Inertial X Speed [m/s]')
+    plt.xlabel('CAS [m/s]')
     plt.ylabel('Throttle Action')
+    plt.xticks(np.arange(45, 71, 5))
 
     plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
     plt.grid('on')
     plt.xlim([np.min(TestVec['VX_mps']),np.max(TestVec['VX_mps'])])
     plt.plot(TestVec['VX_mps'] , TrimRes['PitchThrottle'][:,n_t],color, linewidth = 2)
-    plt.ylim([-0.10, 0.05])
-    plt.xlabel('Inertial X Speed [m/s]')
+    plt.ylim([-0.05, 0.05])
+    plt.xlabel('CAS [m/s]')
     plt.ylabel('PitchThrottle [p]')
+    plt.xticks(np.arange(45, 71, 5))
 
     plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
     plt.grid('on')
     plt.xlim([np.min(TestVec['VX_mps']),np.max(TestVec['VX_mps'])])
     plt.plot(TestVec['VX_mps'] , TrimRes['Elevon3'][:,n_t],color, linewidth = 2)
     plt.ylim([-15, 15])
-    plt.xlabel('Inertial X Speed [m/s]')
+    plt.yticks(np.arange(-15,15.1,5))
+    plt.xlabel('CAS [m/s]')
     plt.ylabel('Elevon [deg]')
-    
+    plt.xticks(np.arange(45, 71, 5))
+   
     plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
     plt.grid('on')
     plt.xlim([np.min(TestVec['VX_mps']),np.max(TestVec['VX_mps'])])
     plt.plot(TestVec['VX_mps'] , TrimRes['Thrust_1'][:,n_t],color, linewidth = 2)
-    plt.ylim([0, 1250])
-    plt.xlabel('Inertial X Speed [m/s]')
-    plt.ylabel('Thrust - Front Engines [N]')
-
+    plt.ylim([0, 150])
+    plt.xlabel('CAS [m/s]')
+    plt.ylabel('Thrust [N] \n Front Engines')
+    plt.xticks(np.arange(45, 71, 5))
+   
     plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
     plt.grid('on')
     plt.xlim([np.min(TestVec['VX_mps']),np.max(TestVec['VX_mps'])])
     plt.plot(TestVec['VX_mps'] , TrimRes['Thrust_5'][:,n_t],color, linewidth = 2)
-    plt.ylim([0, 1250])
-    plt.xlabel('Inertial X Speed [m/s]')
-    plt.ylabel('Thrust - Back Engines [N]')
+    plt.ylim([0, 150])
+    plt.xlabel('CAS [m/s]')
+    plt.ylabel('Thrust [N] \n Back Engines')
 
     plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
     plt.grid('on')
     plt.xlim([np.min(TestVec['VX_mps']),np.max(TestVec['VX_mps'])])
     plt.plot(TestVec['VX_mps'] , TrimRes['RPM_1'][:,n_t],color, linewidth = 2)
     plt.ylim([0, 3000])
-    plt.xlabel('Inertial X Speed [m/s]')
-    plt.ylabel('RPM - Front Engines')
-
+    plt.xlabel('CAS [m/s]')
+    plt.ylabel('RPM \n Front Engines')
+    plt.xticks(np.arange(45, 71, 5))
+   
     plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
     plt.grid('on')
     plt.xlim([np.min(TestVec['VX_mps']),np.max(TestVec['VX_mps'])])
     plt.plot(TestVec['VX_mps'] , TrimRes['RPM_5'][:,n_t],color, linewidth = 2)
     plt.ylim([0, 3000])
-    plt.xlabel('Inertial X Speed [m/s]')
-    plt.ylabel('RPM - Back Engines')
-
+    plt.xlabel('CAS [m/s]')
+    plt.ylabel('RPM \n Back Engines')
+    plt.xticks(np.arange(45, 71, 5))
+   
     plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
     plt.grid('on')
     plt.xlim([np.min(TestVec['VX_mps']),np.max(TestVec['VX_mps'])])
     plt.plot(TestVec['VX_mps'] , TrimRes['Throttle1_p'][:,n_t],color, linewidth = 2)
-    plt.xlabel('Inertial X Speed [m/s]')
-    plt.ylabel('Throttle - Front Engines [p]')
-
+    plt.xlabel('CAS [m/s]')
+    plt.ylabel('Throttle [p] \n Front Engines')
+    plt.xticks(np.arange(45, 71, 5))
+   
     plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
     plt.grid('on')
     plt.xlim([np.min(TestVec['VX_mps']),np.max(TestVec['VX_mps'])])
     plt.plot(TestVec['VX_mps'] , TrimRes['Throttle5_p'][:,n_t],color, linewidth = 2)
-    plt.xlabel('Inertial X Speed [m/s]')
-    plt.ylabel('Throttle - Back Engines [p]')
+    plt.xlabel('CAS [m/s]')
+    plt.ylabel('Throttle [p] \n Back Engines')
+    plt.xticks(np.arange(45, 71, 5))
+   
+    # plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
+    # plt.grid('on')
+    # plt.xlim([np.min(TestVec['VX_mps']),np.max(TestVec['VX_mps'])])
+    # plt.plot(TestVec['VX_mps'] , TrimRes['AX_mps2'][:,n_t],color, linewidth = 2)
+    # plt.xlabel('Inertial X Speed [m/s]')
+    # plt.ylabel('Inertial X Acceleration [m/s2]')
+    # plt.xticks(np.arange(45, 71, 5))
+   
 
-    plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
-    plt.grid('on')
-    plt.xlim([np.min(TestVec['VX_mps']),np.max(TestVec['VX_mps'])])
-    plt.plot(TestVec['VX_mps'] , TrimRes['AX_mps2'][:,n_t],color, linewidth = 2)
-    plt.xlabel('Inertial X Speed [m/s]')
-    plt.ylabel('Inertial X Acceleration [m/s2]')
 
-
-
-figManager = plt.get_current_fig_manager()
-figManager.window.showMaximized()
+fig.set_size_inches(12, 6)
+fig.tight_layout(w_pad=0, h_pad=0.0,rect = (0,0,1,0.95))
+plt.savefig('LinearController_DesignPoints_FixedWing.pdf', dpi=fig.dpi)
