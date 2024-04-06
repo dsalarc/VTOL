@@ -71,10 +71,20 @@ CaseList = np.array([['01'  , '01' , 's0' , 'NNarchitecture_Full_01', '_gam0-95_
                      ['504' , '504', 's0' , 'Test_01'               , '',5000],
                      ['505' , '505', 's0' , 'Test_01'               , '',4000],
                      ['506' , '506', 's2' , 'Test_01'               , '','last'],
-                     ['511' , '511', 's0' , 'Test_01'               , '',8000],
+                     ['511' , '511', 's4' , 'Test_01'               , '','last'],
+                     ['521' , '521', 's1' , 'Test_01'               , '','last'],
+                     ['531' , '531', 's4' , 'Test_01'               , '','last'],
+                     ['541' , '541', 's2' , 'Test_01'               , '','last'],
+                     ['551' , '551', 's2' , 'Test_01'               , '','last'],
+                     ['601' , '601', 's0' , 'Test_01'               , '','last'],
+                     ['603' , '603', 's5' , 'Test_01'               , '','last'],
+                     ['701' , '701', 's5' , 'Test_01'               , '','last'],
                      ['xxx' , 'xxx', 's0' , 'Test_01'               , '','last']])
 
-CaseNumber = '506'
+CaseNumber = '701'
+INP = {}
+INP['WIND_TurbON'] = 0
+INP['WIND_TowerX_mps'] = 0
 GridExper  = CaseList[np.where(CaseList[:,0]==CaseNumber)[0][0],1]
 Seed       = CaseList[np.where(CaseList[:,0]==CaseNumber)[0][0],2]
 NNFolder   = CaseList[np.where(CaseList[:,0]==CaseNumber)[0][0],3]
@@ -117,6 +127,12 @@ Phi_Ref = np.array([[0 , 1000  ],
 Psi_Ref = np.array([[0 , 1000  ],
                     [0 , 0     ]])
 
+reset_INPUT_VEC = {}
+reset_INPUT_VEC['WIND_TowerX_mps'] = np.array([[0                      , 15                      , 20                      , 30  ],
+                                               [INP['WIND_TowerX_mps'] , INP['WIND_TowerX_mps']  , INP['WIND_TowerX_mps']  , INP['WIND_TowerX_mps']   ]])
+reset_INPUT_VEC['WIND_TurbON']     = np.array([[0                  , 15                  , 20                  , 30  ],
+                                               [INP['WIND_TurbON'] , INP['WIND_TurbON']  , INP['WIND_TurbON']  , INP['WIND_TurbON']   ]])
+
 def MovingAverage(arr , window_size = 1):
       
     # Initialize an empty list to store moving averages
@@ -145,6 +161,7 @@ def MovingAverage(arr , window_size = 1):
 
 _, GA = load_policy_and_env(Agent_Path,deterministic=True,itr=train_iter)
 
+
 # env_dict = gym.envs.registration.registry.env_specs.copy()
 # for env in env_dict:
 #     if 'Vahana_VertFlight-v0' in env:
@@ -159,7 +176,8 @@ TestEnv = gym.make(EnvName)
 
 # %% RESET INVIRONMENT
 
-obs = TestEnv.reset(TermTheta_deg = 45)
+obs = TestEnv.reset(TermTheta_deg = 45, reset_INPUT_VEC = reset_INPUT_VEC, Training_Turb = False, Training_WindX = False)
+# obs = TestEnv.reset(TermTheta_deg = 45)
 
 reward = 0
 SaveVec = {}
@@ -237,9 +255,9 @@ print(' ')
 # exec(open("./Test_VTOL_GeneralPlot.py").read())
 exec(open("./Test_VTOL_PIDPlot3.py").read())
 try:
-    fig.savefig(Agent_Path + '/Simulation_' + train_iter + '.pdf', bbox_inches='tight')
+    fig.savefig(Agent_Path + '/Simulation_' + train_iter + '_' + Seed + '_Turb' + str(INP['WIND_TurbON']) + '_WindX' + str(INP['WIND_TowerX_mps']) + '_NumAct' + str(ActionNum) + '.pdf', bbox_inches='tight')
 except:
-    fig.savefig(Agent_Path + '/Simulation_' + str(train_iter) + '.pdf', bbox_inches='tight')
+    fig.savefig(Agent_Path + '/Simulation_' + str(train_iter) + '_' + Seed + 'Turb' + str(INP['WIND_TurbON']) + '_WindX' + str(INP['WIND_TowerX_mps']) + '_NumAct' + str(ActionNum) + '.pdf', bbox_inches='tight')
 
 print(' ')
 print("AgentPath: " + Agent_Path) 

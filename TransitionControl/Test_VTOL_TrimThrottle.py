@@ -18,50 +18,47 @@ TrimVec['VX_mps'] = np.arange(0.0, 65+0.1, 5.0)  #np.array([0 , 5, 10, 20, 28, 3
 # TrimVec['VX_mps'] = np.array([ 10.0, 20.0, 29.0, 30.0, 40.0, 50.0])
 # TrimVec['VX_mps'] = np.array([ 10.0, 25.0])
 # TrimVec['VX_mps'] = np.array([55, 60])
-TrimVec['Tilt'] = np.array([10, 11, 12, 13, 14, 15, 17, 19, 20 , 25 , 30 , 35 , 40 , 45 , 50 , 60 , 70 , 80 , 90])
 TrimVec['VX_mps'] = np.arange(60, 60.1, 1)  #np.array([0 , 5, 10, 20, 28, 30, 32, 35, 40, 42, 45, 50, 55, 58, 60, 62, 65])
-TrimVec['Tilt'] =  np.array([5.3, 5.4, 5.5, 5.51, 5.52])
-TrimVec['Tilt'] =  np.arange(5.5, 5.55, 0.01)
-TrimVec['Tilt'] =  np.arange(5.53, 5.54, 0.001)
+TrimVec['Throttle'] =  np.arange(-1.0, 1.05, 0.1)
 
 TrimRes = {}
-TrimRes['Trimmed']       = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Tilt'])))
-TrimRes['W1_Tilt_deg']   = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Tilt'])))
-TrimRes['W2_Tilt_deg']   = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Tilt'])))
-TrimRes['PitchThrottle'] = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Tilt'])))
-TrimRes['Elev2_u']       = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Tilt'])))
-TrimRes['Throttle']      = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Tilt'])))
-TrimRes['Thrust_1']      = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Tilt'])))
-TrimRes['Thrust_5']      = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Tilt'])))
-TrimRes['RPM_1']         = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Tilt'])))
-TrimRes['RPM_5']         = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Tilt'])))
-TrimRes['CT_1']          = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Tilt'])))
-TrimRes['CT_5']          = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Tilt'])))
-TrimRes['J_1']          = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Tilt'])))
-TrimRes['J_5']          = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Tilt'])))
-TrimRes['Elevon3']       = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Tilt'])))
-TrimRes['Elevon4']       = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Tilt'])))
-TrimRes['i1_A']          = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Tilt'])))
-TrimRes['i2_A']          = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Tilt'])))
-TrimRes['V1_V']          = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Tilt'])))
-TrimRes['V2_V']          = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Tilt'])))
-TrimRes['Throttle1_p']   = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Tilt'])))
-TrimRes['Throttle5_p']   = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Tilt'])))
-TrimRes['Reward']        = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Tilt'])))
-TrimRes['W1_CLS']        = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Tilt'])))
-TrimRes['W2_CLS']        = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Tilt'])))
-TrimRes['W1_CDS']        = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Tilt'])))
-TrimRes['W2_CDS']        = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Tilt'])))
-TrimRes['AX_mps']        = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Tilt'])))
-TrimRes['AZ_mps']        = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Tilt'])))
-TrimRes['dq_dElev']      = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Tilt'])))
-TrimRes['dq_dPThr']      = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Tilt'])))
-TrimRes['dq_dq']         = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Tilt'])))
-TrimRes['dq_dW']         = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Tilt'])))
-TrimRes['test']          = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Tilt'])))
-TrimRes['W1_Alpha_deg']          = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Tilt'])))
-TrimRes['W2_Alpha_deg']          = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Tilt'])))
-TrimRes['Actions']       = np.zeros((5,len(TrimVec['VX_mps']) , len(TrimVec['Tilt'])))
+TrimRes['Trimmed']       = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Throttle'])))
+TrimRes['W1_Tilt_deg']   = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Throttle'])))
+TrimRes['W2_Tilt_deg']   = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Throttle'])))
+TrimRes['PitchThrottle'] = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Throttle'])))
+TrimRes['Elev2_u']       = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Throttle'])))
+TrimRes['Throttle']      = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Throttle'])))
+TrimRes['Thrust_1']      = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Throttle'])))
+TrimRes['Thrust_5']      = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Throttle'])))
+TrimRes['RPM_1']         = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Throttle'])))
+TrimRes['RPM_5']         = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Throttle'])))
+TrimRes['CT_1']          = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Throttle'])))
+TrimRes['CT_5']          = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Throttle'])))
+TrimRes['J_1']          = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Throttle'])))
+TrimRes['J_5']          = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Throttle'])))
+TrimRes['Elevon3']       = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Throttle'])))
+TrimRes['Elevon4']       = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Throttle'])))
+TrimRes['i1_A']          = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Throttle'])))
+TrimRes['i2_A']          = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Throttle'])))
+TrimRes['V1_V']          = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Throttle'])))
+TrimRes['V2_V']          = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Throttle'])))
+TrimRes['Throttle1_p']   = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Throttle'])))
+TrimRes['Throttle5_p']   = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Throttle'])))
+TrimRes['Reward']        = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Throttle'])))
+TrimRes['W1_CLS']        = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Throttle'])))
+TrimRes['W2_CLS']        = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Throttle'])))
+TrimRes['W1_CDS']        = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Throttle'])))
+TrimRes['W2_CDS']        = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Throttle'])))
+TrimRes['AX_mps']        = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Throttle'])))
+TrimRes['AZ_mps']        = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Throttle'])))
+TrimRes['dq_dElev']      = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Throttle'])))
+TrimRes['dq_dPThr']      = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Throttle'])))
+TrimRes['dq_dq']         = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Throttle'])))
+TrimRes['dq_dW']         = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Throttle'])))
+TrimRes['test']          = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Throttle'])))
+TrimRes['W1_Alpha_deg']          = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Throttle'])))
+TrimRes['W2_Alpha_deg']          = np.zeros((len(TrimVec['VX_mps']) , len(TrimVec['Throttle'])))
+TrimRes['Actions']       = np.zeros((5,len(TrimVec['VX_mps']) , len(TrimVec['Throttle'])))
 
 # %% START ENV
 env_dict = gym.envs.registration.registry.env_specs.copy()
@@ -75,16 +72,16 @@ TestEnv = gym.make('gym_VTOL:Vahana_VertFlight-v0')
 
 # %% RUN SIM
 t_ini = time.time()
-for n_t in range(len(TrimVec['Tilt'])):
-    Tilt_deg = TrimVec['Tilt'][n_t]
+for n_t in range(len(TrimVec['Throttle'])):
+    Throttle_u = TrimVec['Throttle'][n_t]
     for n_sp in range(len(TrimVec['VX_mps'])):
         VX_mps = TrimVec['VX_mps'][n_sp]
-        print("\nTrimming " + str(Tilt_deg) + " deg / " + str(VX_mps) + " m/s")
-        obs = TestEnv.reset(VX_mps = VX_mps, VZ_mps = 0.0, THETA = 0.0, Linearize = True, DispMessages = True, Elevator_deg = None)
+        print("\nTrimming " + str(Throttle_u) + "  / " + str(VX_mps) + " m/s")
+        # obs = TestEnv.reset(VX_mps = VX_mps, VZ_mps = 0.0, THETA = 0.0, Linearize = True, DispMessages = True, Elevator_deg = None)
         # obs = TestEnv.reset(VX_mps = VX_mps, VZ_mps = 0.0, THETA = 0.0, Linearize = True, DispMessages = True)
         # obs = TestEnv.reset(VX_mps = VX_mps, VZ_mps = 0.0, THETA = 0.0, Tilt_deg = None    , Linearize = True, DispMessages = True, Elevator_deg = 0)
         # obs = TestEnv.reset(VX_mps = VX_mps, VZ_mps = 0.0, THETA = 0.0, Tilt_deg = None    , Linearize = True, DispMessages = True, Elevator_deg = None)
-        # obs = TestEnv.reset(VX_mps = VX_mps, VZ_mps = 0.0, THETA = 0.0, Tilt_deg = Tilt_deg, Linearize = True, DispMessages = True, Elevator_deg = None)
+        obs = TestEnv.reset(VX_mps = VX_mps, VZ_mps = 0.0, THETA = 0.0, Throttle_u = Throttle_u, Linearize = True, DispMessages = True, Elevator_deg = None)
     
         TrimRes['Trimmed'][n_sp,n_t]       = TestEnv.TrimData['Trimmed']
         TrimRes['W1_Tilt_deg'][n_sp,n_t]   = TestEnv.TrimData['info']['AERO']['Wing1']['Incidence_deg']
@@ -149,7 +146,7 @@ fig = plt.figure()
 colors = ['r', 'm', 'k', 'c', 'b']
 colors = ['m', 'k', 'c', 'b']
 
-for n_t in range(len(TrimVec['Tilt'])):
+for n_t in range(len(TrimVec['Throttle'])):
     color = colors[np.mod(n_t,len(colors))]
     plt_n = 1
     
@@ -161,7 +158,7 @@ for n_t in range(len(TrimVec['Tilt'])):
     plt.plot(TrimVec['VX_mps'][TrimRes['Trimmed'][:,n_t]==1] , TrimRes['W1_Tilt_deg'][TrimRes['Trimmed'][:,n_t]==1,n_t],'ob', markerfacecolor = 'b', linewidth = 2,label='W1 Tilt')
     plt.plot(TrimVec['VX_mps'][TrimRes['Trimmed'][:,n_t]==0] , TrimRes['W1_Tilt_deg'][TrimRes['Trimmed'][:,n_t]==0,n_t],'or', markerfacecolor = 'r', linewidth = 2,label='W1 Tilt')
     # plt.legend(loc='best')
-    plt.ylim([0, 90])
+    # plt.ylim([0, 90])
     plt.yticks(np.arange(0,120,30))
     plt.xlabel('Inertial X Speed [m/s]')
     plt.ylabel('Wing Tilt [deg]')
@@ -353,23 +350,23 @@ for n_sp in range(len(TrimVec['VX_mps'])):
     
     plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
     plt.grid('on')
-    plt.xlim([np.min(TrimVec['Tilt']),np.max(TrimVec['Tilt'])])
-    plt.plot(TrimVec['Tilt'] , TrimRes['W1_Tilt_deg'][n_sp,:],color +'-', linewidth = 2, label='W1 Tilt')
-    # plt.plot(TrimVec['Tilt'] , TrimRes['W2_Tilt_deg'],color +'--', linewidth = 2,label='W2 Tilt')
-    plt.plot(TrimVec['Tilt'][TrimRes['Trimmed'][n_sp,:]==1] , TrimRes['W1_Tilt_deg'][n_sp,TrimRes['Trimmed'][n_sp,:]==1],'ob', markerfacecolor = 'b', linewidth = 2,label='W1 Tilt')
-    plt.plot(TrimVec['Tilt'][TrimRes['Trimmed'][n_sp,:]==0] , TrimRes['W1_Tilt_deg'][n_sp,TrimRes['Trimmed'][n_sp,:]==0],'or', markerfacecolor = 'r', linewidth = 2,label='W1 Tilt')
+    plt.xlim([np.min(TrimVec['Throttle']),np.max(TrimVec['Throttle'])])
+    plt.plot(TrimVec['Throttle'] , TrimRes['W1_Tilt_deg'][n_sp,:],color +'-', linewidth = 2, label='W1 Tilt')
+    # plt.plot(TrimVec['Throttle'] , TrimRes['W2_Tilt_deg'],color +'--', linewidth = 2,label='W2 Tilt')
+    plt.plot(TrimVec['Throttle'][TrimRes['Trimmed'][n_sp,:]==1] , TrimRes['W1_Tilt_deg'][n_sp,TrimRes['Trimmed'][n_sp,:]==1],'ob', markerfacecolor = 'b', linewidth = 2,label='W1 Tilt')
+    plt.plot(TrimVec['Throttle'][TrimRes['Trimmed'][n_sp,:]==0] , TrimRes['W1_Tilt_deg'][n_sp,TrimRes['Trimmed'][n_sp,:]==0],'or', markerfacecolor = 'r', linewidth = 2,label='W1 Tilt')
     # plt.legend(loc='best')
     # plt.ylim([0, 90])
-    plt.yticks(np.arange(0,120,30))
+    # plt.yticks(np.arange(0,120,30))
     plt.xlabel('Tilt [deg]')
     plt.ylabel('Wing Tilt [deg]')
 
     plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
     plt.grid('on')
-    plt.xlim([np.min(TrimVec['Tilt']),np.max(TrimVec['Tilt'])])
-    plt.plot(TrimVec['Tilt'] , TrimRes['Throttle'][n_sp,:],color +'-', linewidth = 2,label='W1 Throtte')
-    plt.plot(TrimVec['Tilt'][TrimRes['Trimmed'][n_sp,:]==1] , TrimRes['Throttle'][n_sp,TrimRes['Trimmed'][n_sp,:]==1],'ob', markerfacecolor = 'b', linewidth = 2,label='W1 Throtte')
-    plt.plot(TrimVec['Tilt'][TrimRes['Trimmed'][n_sp,:]==0] , TrimRes['Throttle'][n_sp,TrimRes['Trimmed'][n_sp,:]==0],'or', markerfacecolor = 'r', linewidth = 2,label='W1 Throtte')
+    plt.xlim([np.min(TrimVec['Throttle']),np.max(TrimVec['Throttle'])])
+    plt.plot(TrimVec['Throttle'] , TrimRes['Throttle'][n_sp,:],color +'-', linewidth = 2,label='W1 Throtte')
+    plt.plot(TrimVec['Throttle'][TrimRes['Trimmed'][n_sp,:]==1] , TrimRes['Throttle'][n_sp,TrimRes['Trimmed'][n_sp,:]==1],'ob', markerfacecolor = 'b', linewidth = 2,label='W1 Throtte')
+    plt.plot(TrimVec['Throttle'][TrimRes['Trimmed'][n_sp,:]==0] , TrimRes['Throttle'][n_sp,TrimRes['Trimmed'][n_sp,:]==0],'or', markerfacecolor = 'r', linewidth = 2,label='W1 Throtte')
     # plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
     plt.ylim([-1, +1])
     plt.xlabel('Tilt [deg]')
@@ -377,8 +374,8 @@ for n_sp in range(len(TrimVec['VX_mps'])):
 
     plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
     plt.grid('on')
-    plt.xlim([np.min(TrimVec['Tilt']),np.max(TrimVec['Tilt'])])
-    plt.plot(TrimVec['Tilt'] , TrimRes['PitchThrottle'][n_sp,:],color +'-', linewidth = 2,label='W1 Tilt')
+    plt.xlim([np.min(TrimVec['Throttle']),np.max(TrimVec['Throttle'])])
+    plt.plot(TrimVec['Throttle'] , TrimRes['PitchThrottle'][n_sp,:],color +'-', linewidth = 2,label='W1 Tilt')
     # plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
     plt.ylim([-0.10, 0.05])
     plt.xlabel('Tilt [deg]')
@@ -386,9 +383,9 @@ for n_sp in range(len(TrimVec['VX_mps'])):
 
     plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
     plt.grid('on')
-    plt.xlim([np.min(TrimVec['Tilt']),np.max(TrimVec['Tilt'])])
-    plt.plot(TrimVec['Tilt'] , TrimRes['Thrust_1'][n_sp,:],color +'-', linewidth = 2,label='Motor 1')
-    plt.plot(TrimVec['Tilt'] , TrimRes['Thrust_5'][n_sp,:],color +'--', linewidth = 2,label='Motor 5')
+    plt.xlim([np.min(TrimVec['Throttle']),np.max(TrimVec['Throttle'])])
+    plt.plot(TrimVec['Throttle'] , TrimRes['Thrust_1'][n_sp,:],color +'-', linewidth = 2,label='Motor 1')
+    plt.plot(TrimVec['Throttle'] , TrimRes['Thrust_5'][n_sp,:],color +'--', linewidth = 2,label='Motor 5')
     # plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
     # plt.legend(loc='best')
     # plt.ylim([0, 1250])
@@ -397,9 +394,9 @@ for n_sp in range(len(TrimVec['VX_mps'])):
 
     plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
     plt.grid('on')
-    plt.xlim([np.min(TrimVec['Tilt']),np.max(TrimVec['Tilt'])])
-    plt.plot(TrimVec['Tilt'] , TrimRes['RPM_1'][n_sp,:],color +'-', linewidth = 2,label='Motor 1')
-    plt.plot(TrimVec['Tilt'] , TrimRes['RPM_5'][n_sp,:],color +'--', linewidth = 2,label='Motor 5')
+    plt.xlim([np.min(TrimVec['Throttle']),np.max(TrimVec['Throttle'])])
+    plt.plot(TrimVec['Throttle'] , TrimRes['RPM_1'][n_sp,:],color +'-', linewidth = 2,label='Motor 1')
+    plt.plot(TrimVec['Throttle'] , TrimRes['RPM_5'][n_sp,:],color +'--', linewidth = 2,label='Motor 5')
     # plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
     # plt.legend(loc='best')
     # plt.ylim([1000, 3000])
@@ -408,9 +405,9 @@ for n_sp in range(len(TrimVec['VX_mps'])):
 
     plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
     plt.grid('on')
-    plt.xlim([np.min(TrimVec['Tilt']),np.max(TrimVec['Tilt'])])
-    plt.plot(TrimVec['Tilt'] , TrimRes['CT_1'][n_sp,:],color +'-', linewidth = 2,label='Motor 1')
-    plt.plot(TrimVec['Tilt'] , TrimRes['CT_5'][n_sp,:],color +'--', linewidth = 2,label='Motor 5')
+    plt.xlim([np.min(TrimVec['Throttle']),np.max(TrimVec['Throttle'])])
+    plt.plot(TrimVec['Throttle'] , TrimRes['CT_1'][n_sp,:],color +'-', linewidth = 2,label='Motor 1')
+    plt.plot(TrimVec['Throttle'] , TrimRes['CT_5'][n_sp,:],color +'--', linewidth = 2,label='Motor 5')
     # plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
     # plt.legend(loc='best')
     # plt.ylim([1000, 3000])
@@ -419,9 +416,9 @@ for n_sp in range(len(TrimVec['VX_mps'])):
 
     plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
     plt.grid('on')
-    plt.xlim([np.min(TrimVec['Tilt']),np.max(TrimVec['Tilt'])])
-    plt.plot(TrimVec['Tilt'] , TrimRes['J_1'][n_sp,:],color +'-', linewidth = 2,label='Motor 1')
-    plt.plot(TrimVec['Tilt'] , TrimRes['J_5'][n_sp,:],color +'--', linewidth = 2,label='Motor 5')
+    plt.xlim([np.min(TrimVec['Throttle']),np.max(TrimVec['Throttle'])])
+    plt.plot(TrimVec['Throttle'] , TrimRes['J_1'][n_sp,:],color +'-', linewidth = 2,label='Motor 1')
+    plt.plot(TrimVec['Throttle'] , TrimRes['J_5'][n_sp,:],color +'--', linewidth = 2,label='Motor 5')
     # plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
     # plt.legend(loc='best')
     # plt.ylim([1000, 3000])
@@ -430,9 +427,9 @@ for n_sp in range(len(TrimVec['VX_mps'])):
 
     plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
     plt.grid('on')
-    plt.xlim([np.min(TrimVec['Tilt']),np.max(TrimVec['Tilt'])])
-    plt.plot(TrimVec['Tilt'] , TrimRes['Elevon3'][n_sp,:],color +'-', linewidth = 2,label='Elevon 3')
-    plt.plot(TrimVec['Tilt'] , TrimRes['Elevon4'][n_sp,:],color +'--', linewidth = 2,label='Elevon 4')
+    plt.xlim([np.min(TrimVec['Throttle']),np.max(TrimVec['Throttle'])])
+    plt.plot(TrimVec['Throttle'] , TrimRes['Elevon3'][n_sp,:],color +'-', linewidth = 2,label='Elevon 3')
+    plt.plot(TrimVec['Throttle'] , TrimRes['Elevon4'][n_sp,:],color +'--', linewidth = 2,label='Elevon 4')
     # plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
     plt.legend(loc='best')
     plt.ylim([-15, 15])
@@ -441,9 +438,9 @@ for n_sp in range(len(TrimVec['VX_mps'])):
 
     plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
     plt.grid('on')
-    plt.xlim([np.min(TrimVec['Tilt']),np.max(TrimVec['Tilt'])])
-    plt.plot(TrimVec['Tilt'] , TrimRes['i1_A'][n_sp,:],color +'-', linewidth = 2,label='Motor 1')
-    plt.plot(TrimVec['Tilt'] , TrimRes['i2_A'][n_sp,:],color +'--', linewidth = 2,label='Motor 5')
+    plt.xlim([np.min(TrimVec['Throttle']),np.max(TrimVec['Throttle'])])
+    plt.plot(TrimVec['Throttle'] , TrimRes['i1_A'][n_sp,:],color +'-', linewidth = 2,label='Motor 1')
+    plt.plot(TrimVec['Throttle'] , TrimRes['i2_A'][n_sp,:],color +'--', linewidth = 2,label='Motor 5')
     # plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
     plt.legend(loc='best')
     plt.ylim([0, 180])
@@ -452,8 +449,8 @@ for n_sp in range(len(TrimVec['VX_mps'])):
 
     plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
     plt.grid('on')
-    plt.xlim([np.min(TrimVec['Tilt']),np.max(TrimVec['Tilt'])])
-    plt.plot(TrimVec['Tilt'] , TrimRes['AX_mps'][n_sp,:],color +'-', linewidth = 2)
+    plt.xlim([np.min(TrimVec['Throttle']),np.max(TrimVec['Throttle'])])
+    plt.plot(TrimVec['Throttle'] , TrimRes['AX_mps'][n_sp,:],color +'-', linewidth = 2)
     plt.legend(loc='best')
     # plt.ylim([100, 150])
     plt.xlabel('Tilt [deg]')
@@ -461,8 +458,8 @@ for n_sp in range(len(TrimVec['VX_mps'])):
 
     plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
     plt.grid('on')
-    plt.xlim([np.min(TrimVec['Tilt']),np.max(TrimVec['Tilt'])])
-    plt.plot(TrimVec['Tilt'] , TrimRes['AZ_mps'][n_sp,:],color +'-', linewidth = 2)
+    plt.xlim([np.min(TrimVec['Throttle']),np.max(TrimVec['Throttle'])])
+    plt.plot(TrimVec['Throttle'] , TrimRes['AZ_mps'][n_sp,:],color +'-', linewidth = 2)
     plt.legend(loc='best')
     # plt.ylim([100, 150])
     plt.xlabel('Tilt [deg]')
