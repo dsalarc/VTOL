@@ -444,7 +444,7 @@ class Vahana_VertFlight(gym.Env):
     ############################################
     def reset(self,W = 0, Altitude_m = 100, Altitude_ref_m = 100, THETA = 0,  PHI = 0,  PSI = 0, PaxIn = np.array([1,1]),
                    VX_mps = 0, VX_ref_mps = 60, VZ_mps = 0, Tilt_deg = None, AX_mps2 = None, Throttle_u = None, Elevator_deg = 0, DispMessages = False, Linearize = False, TermTheta_deg = 10, StaFreezeList = [],
-                   UNC_seed = None , UNC_enable = 0, reset_INPUT_VEC = None, GroundHeight_m = 0, Training_Turb = True, Training_WindX = True):
+                   UNC_seed = None , UNC_enable = True, reset_INPUT_VEC = None, GroundHeight_m = 0, Training_Trim = False, Training_Turb = False, Training_WindX = False):
         self.CurrentStep = 0
         self.trimming = 0
 
@@ -545,7 +545,7 @@ class Vahana_VertFlight(gym.Env):
             Action_W2_Elevator = Elevator_deg/(self.CONT['ElevRange_deg'][2]/2)
             TrimData = self.trim(TrimVX_mps = VX_mps, TrimVZ_mps = VZ_mps, TrimTilt_deg = Tilt_deg, TrimAX_mps2 = AX_mps2, TrimThrottle_u = Throttle_u, TrimTheta_deg = THETA, TrimZ_m = -Altitude_m,
                                     PitchController = 'PitchThrottle' , 
-                                    FixedAction = np.array(['W2_Elevator',Action_W2_Elevator]), Linearize = Linearize)
+                                    FixedAction = np.array(['W2_Elevator',Action_W2_Elevator]), Linearize = Linearize , Training_Trim = Training_Trim)
         else:
             TrimData = self.trim(TrimVX_mps = VX_mps, TrimVZ_mps = VZ_mps, TrimTilt_deg = Tilt_deg, TrimAX_mps2 = AX_mps2, TrimThrottle_u = Throttle_u, TrimTheta_deg = THETA, TrimZ_m = -Altitude_m, 
                                 PitchController = 'W2_Elevator', Linearize = Linearize)
@@ -562,7 +562,7 @@ class Vahana_VertFlight(gym.Env):
             if np.sign(TrimData['Action'][self.action_names.index('W2_Elevator')]) == np.sign(TrimData['Action'][self.action_names.index('PitchThrottle')]):
                 TrimData = self.trim(TrimVX_mps = VX_mps, TrimVZ_mps = VZ_mps, TrimTilt_deg = Tilt_deg, TrimAX_mps2 = AX_mps2, TrimThrottle_u = Throttle_u, TrimTheta_deg = THETA, TrimZ_m = -Altitude_m, 
                                     PitchController = 'PitchThrottle' , 
-                                    FixedAction = np.array(['W2_Elevator',-Action_W2_Elevator]), Linearize = Linearize)
+                                    FixedAction = np.array(['W2_Elevator',-Action_W2_Elevator]), Linearize = Linearize , Training_Trim = Training_Trim)
 
 
         self.TrimData = TrimData
@@ -611,7 +611,7 @@ class Vahana_VertFlight(gym.Env):
       self.init_SENS()
       self.VARS['INP'] = self.init_INP(reset_INPUT_VEC = reset_INPUT_VEC)
     
-    def trim(self, TrimVX_mps = 0, TrimVZ_mps = 0, TrimTilt_deg = None, TrimAX_mps2 = None, TrimThrottle_u = None, TrimTheta_deg = 0, TrimZ_m = 0, PitchController = 'PitchThrottle',FixedAction = np.array([]), Linearize = False):
+    def trim(self, TrimVX_mps = 0, TrimVZ_mps = 0, TrimTilt_deg = None, TrimAX_mps2 = None, TrimThrottle_u = None, TrimTheta_deg = 0, TrimZ_m = 0, PitchController = 'PitchThrottle',FixedAction = np.array([]), Linearize = False, Training_Trim = False):
         TrimData = {}
         TrimData['Trimmed'] = 0
        
@@ -1152,101 +1152,101 @@ class Vahana_VertFlight(gym.Env):
         self.REW['DeadZone']['Slope'] = 0.01
 
     def init_UNC (self):
-      # 1) define the Std Deviation of the deviations and uncertanties
-      
-       self.UNC['StdDev'] = {}
-       self.UNC['StdDev']['ATM'] = {}
-       self.UNC['StdDev']['ATM']['Bias'] = {}
-       self.UNC['StdDev']['ATM']['Bias']['WindX_kt'] = 10*0
-       self.UNC['StdDev']['ATM']['Bias']['WindY_kt'] = 10*0
-       self.UNC['StdDev']['ATM']['Bias']['WindZ_kt'] = 10*0
-       self.UNC['StdDev']['ATM']['Bias']['dISA_C']   = 10*0
-            
-      
-       self.UNC['StdDev']['AERO'] = {}
-       self.UNC['StdDev']['AERO']['Gain'] = {}
-       self.UNC['StdDev']['AERO']['Bias'] = {}
-       self.UNC['StdDev']['AERO']['Gain']['CLa'] = 0.03
-       self.UNC['StdDev']['AERO']['Gain']['ElevEff'] = 0.10
-       self.UNC['StdDev']['AERO']['Bias']['CM0'] = 0.05
-      
-       self.UNC['StdDev']['MASS'] = {}
-       self.UNC['StdDev']['MASS']['Gain'] = {}
-       self.UNC['StdDev']['MASS']['Bias'] = {}
-       self.UNC['StdDev']['MASS']['Bias']['CGX_cma'] = 0.02
-       self.UNC['StdDev']['MASS']['Gain']['Weight'] = 0.05
-      
-       self.UNC['StdDev']['MOT'] = {}
-       self.UNC['StdDev']['MOT']['Gain'] = {}
-       self.UNC['StdDev']['MOT']['Bias'] = {}
-       self.UNC['StdDev']['MOT']['Gain']['CT'] = 0.05
-       self.UNC['StdDev']['MOT']['Gain']['CN'] = 0.10
-       self.UNC['StdDev']['MOT']['Gain']['CP'] = 0.05
-       self.UNC['StdDev']['MOT']['Gain']['Bandwidth'] = 0.05
-       self.UNC['StdDev']['MOT']['Gain']['Kv'] = 0.05
-       self.UNC['StdDev']['MOT']['Gain']['Kq'] = 0.05
-      
-       self.UNC['StdDev']['CONT'] = {}
-       self.UNC['StdDev']['CONT']['Gain'] = {}
-       self.UNC['StdDev']['CONT']['Bias'] = {}
-       self.UNC['StdDev']['CONT']['Gain']['WingTilt_Bandwidth'] = 0.05
-       self.UNC['StdDev']['CONT']['Gain']['WingTilt_Rate'] = 0.05
-       self.UNC['StdDev']['CONT']['Gain']['Elevon_Bandwidth'] = 0.05
-       self.UNC['StdDev']['CONT']['Gain']['Elevon_Rate'] = 0.05
-    
-       self.UNC['StdDev']['SENS'] = {}
-       self.UNC['StdDev']['SENS']['Gain'] = {}
-       self.UNC['StdDev']['SENS']['Bias'] = {}
-       self.UNC['StdDev']['SENS']['Gain']['IMU_Bandwidth'] = 0.05
-       self.UNC['StdDev']['SENS']['Gain']['ADS_Bandwidth'] = 0.05
-       self.UNC['StdDev']['SENS']['Gain']['IMU_Delay'] = 0
-       self.UNC['StdDev']['SENS']['Gain']['ADS_Delay'] = 0.05
-       self.UNC['StdDev']['SENS']['Gain']['IMU_P']     = 0.03
-       self.UNC['StdDev']['SENS']['Gain']['IMU_Q']     = 0.03
-       self.UNC['StdDev']['SENS']['Gain']['IMU_R']     = 0.03
-       self.UNC['StdDev']['SENS']['Bias']['IMU_P']     = 0.01 * 0
-       self.UNC['StdDev']['SENS']['Bias']['IMU_Q']     = 0.01 * 0
-       self.UNC['StdDev']['SENS']['Bias']['IMU_R']     = 0.01 * 0
-       self.UNC['StdDev']['SENS']['Gain']['IMU_Phi']   = 0.03
-       self.UNC['StdDev']['SENS']['Gain']['IMU_Theta'] = 0.03
-       self.UNC['StdDev']['SENS']['Gain']['IMU_Psi']   = 0.03
-       self.UNC['StdDev']['SENS']['Bias']['IMU_Phi']   = 0.01
-       self.UNC['StdDev']['SENS']['Bias']['IMU_Theta'] = 0.01
-       self.UNC['StdDev']['SENS']['Bias']['IMU_Psi']   = 0.01
-       self.UNC['StdDev']['SENS']['Gain']['IMU_NX']    = 0.05
-       self.UNC['StdDev']['SENS']['Gain']['IMU_NY']    = 0.05
-       self.UNC['StdDev']['SENS']['Gain']['IMU_NZ']    = 0.05
-       self.UNC['StdDev']['SENS']['Bias']['IMU_NX']    = 0.1 * 0
-       self.UNC['StdDev']['SENS']['Bias']['IMU_NY']    = 0.1 * 0
-       self.UNC['StdDev']['SENS']['Bias']['IMU_NZ']    = 0.1 * 0
-       self.UNC['StdDev']['SENS']['Gain']['ADS_CAS']   = 0.05
-      
-      # 2) Calculate the real deviation, based on StdDeviation
-       if self.OPT['UNC_seed'] is None:
-           self.UNC['seed'] = np.random.randint(1,100000)
-       else:
-           self.UNC['seed'] = self.OPT['UNC_seed']
-          
-       self.UNC['Res'] = self.UNC['StdDev'].copy()
-        
-       def GetUncVal(InpDict, rdm, Enable):
-           if type(InpDict) is dict:
-               OutDict = {}
-               for k in InpDict.keys():
-                    OutDict[k] = GetUncVal(InpDict[k], rdm, Enable)
-                    # For Debug
-                    # if type(OutDict[k]) is not dict:
-                    #     print(k + ": " + str(OutDict[k]))
-               return OutDict
-           else:
-                if Enable:
-                   return np.max((-3*InpDict, np.min((3*InpDict,rdm.normal() * InpDict)) ))
-                else:
-                   return 0
-        
-       rdm = np.random.default_rng(self.UNC['seed'])
-       self.UNC['Res'] = GetUncVal(self.UNC['Res'], rdm, self.OPT['UNC_enable'])
+
+        # 1) define the Std Deviation of the deviations and uncertanties
+        self.UNC['StdDev'] = {}
+        self.UNC['StdDev']['ATM'] = {}
+        self.UNC['StdDev']['ATM']['Bias'] = {}
+        self.UNC['StdDev']['ATM']['Bias']['WindX_kt'] = 10*0
+        self.UNC['StdDev']['ATM']['Bias']['WindY_kt'] = 10*0
+        self.UNC['StdDev']['ATM']['Bias']['WindZ_kt'] = 10*0
+        self.UNC['StdDev']['ATM']['Bias']['dISA_C']   = 10*0
+             
+       
+        self.UNC['StdDev']['AERO'] = {}
+        self.UNC['StdDev']['AERO']['Gain'] = {}
+        self.UNC['StdDev']['AERO']['Bias'] = {}
+        self.UNC['StdDev']['AERO']['Gain']['CLa']     = 0* 0.03
+        self.UNC['StdDev']['AERO']['Gain']['ElevEff'] = 0* 0.10
+        self.UNC['StdDev']['AERO']['Bias']['CM0']     = 0* 0.05
+       
+        self.UNC['StdDev']['MASS'] = {}
+        self.UNC['StdDev']['MASS']['Gain'] = {}
+        self.UNC['StdDev']['MASS']['Bias'] = {}
+        self.UNC['StdDev']['MASS']['Bias']['CGX_cma'] = 0* 0.02
+        self.UNC['StdDev']['MASS']['Gain']['Weight']  = 0* 0.05
+       
+        self.UNC['StdDev']['MOT'] = {}
+        self.UNC['StdDev']['MOT']['Gain'] = {}
+        self.UNC['StdDev']['MOT']['Bias'] = {}
+        self.UNC['StdDev']['MOT']['Gain']['CT']        = 0* 0.05
+        self.UNC['StdDev']['MOT']['Gain']['CN']        = 0* 0.10
+        self.UNC['StdDev']['MOT']['Gain']['CP']        = 0* 0.05
+        self.UNC['StdDev']['MOT']['Gain']['Bandwidth'] = 0* 0.05
+        self.UNC['StdDev']['MOT']['Gain']['Kv']        = 0* 0.05
+        self.UNC['StdDev']['MOT']['Gain']['Kq']        = 0* 0.05
+       
+        self.UNC['StdDev']['CONT'] = {}
+        self.UNC['StdDev']['CONT']['Gain'] = {}
+        self.UNC['StdDev']['CONT']['Bias'] = {}
+        self.UNC['StdDev']['CONT']['Gain']['WingTilt_Bandwidth'] = 0* 0.05
+        self.UNC['StdDev']['CONT']['Gain']['WingTilt_Rate']      = 0.10
+        self.UNC['StdDev']['CONT']['Gain']['Elevon_Bandwidth']   = 0* 0.05
+        self.UNC['StdDev']['CONT']['Gain']['Elevon_Rate']        = 0* 0.05
      
+        self.UNC['StdDev']['SENS'] = {}
+        self.UNC['StdDev']['SENS']['Gain'] = {}
+        self.UNC['StdDev']['SENS']['Bias'] = {}
+        self.UNC['StdDev']['SENS']['Gain']['IMU_Bandwidth'] = 0* 0.05
+        self.UNC['StdDev']['SENS']['Gain']['ADS_Bandwidth'] = 0* 0.05
+        self.UNC['StdDev']['SENS']['Gain']['IMU_Delay']     = 0* 0
+        self.UNC['StdDev']['SENS']['Gain']['ADS_Delay']     = 0* 0.05
+        self.UNC['StdDev']['SENS']['Gain']['IMU_P']         = 0* 0.03
+        self.UNC['StdDev']['SENS']['Gain']['IMU_Q']         = 0* 0.03
+        self.UNC['StdDev']['SENS']['Gain']['IMU_R']         = 0* 0.03
+        self.UNC['StdDev']['SENS']['Bias']['IMU_P']         = 0* 0.01 * 0
+        self.UNC['StdDev']['SENS']['Bias']['IMU_Q']         = 0* 0.01 * 0
+        self.UNC['StdDev']['SENS']['Bias']['IMU_R']         = 0* 0.01 * 0
+        self.UNC['StdDev']['SENS']['Gain']['IMU_Phi']       = 0* 0.03
+        self.UNC['StdDev']['SENS']['Gain']['IMU_Theta']     = 0* 0.03
+        self.UNC['StdDev']['SENS']['Gain']['IMU_Psi']       = 0* 0.03
+        self.UNC['StdDev']['SENS']['Bias']['IMU_Phi']       = 0* 0.01
+        self.UNC['StdDev']['SENS']['Bias']['IMU_Theta']     = 0* 0.01
+        self.UNC['StdDev']['SENS']['Bias']['IMU_Psi']       = 0* 0.01
+        self.UNC['StdDev']['SENS']['Gain']['IMU_NX']        = 0* 0.05
+        self.UNC['StdDev']['SENS']['Gain']['IMU_NY']        = 0* 0.05
+        self.UNC['StdDev']['SENS']['Gain']['IMU_NZ']        = 0* 0.05
+        self.UNC['StdDev']['SENS']['Bias']['IMU_NX']        = 0* 0.1 * 0
+        self.UNC['StdDev']['SENS']['Bias']['IMU_NY']        = 0* 0.1 * 0
+        self.UNC['StdDev']['SENS']['Bias']['IMU_NZ']        = 0* 0.1 * 0
+        self.UNC['StdDev']['SENS']['Gain']['ADS_CAS']       = 0* 0.05
+       
+        # 2) Calculate the real deviation, based on StdDeviation
+        if self.OPT['UNC_seed'] is None:
+            self.UNC['seed'] = np.random.randint(1,100000)
+        else:
+            self.UNC['seed'] = self.OPT['UNC_seed']
+           
+        self.UNC['Res'] = self.UNC['StdDev'].copy()
+         
+        def GetUncVal(InpDict, rdm, Enable):
+            if type(InpDict) is dict:
+                OutDict = {}
+                for k in InpDict.keys():
+                     OutDict[k] = GetUncVal(InpDict[k], rdm, Enable)
+                     # For Debug
+                     # if type(OutDict[k]) is not dict:
+                     #     print(k + ": " + str(OutDict[k]))
+                return OutDict
+            else:
+                 if Enable:
+                    return np.max((-3*InpDict, np.min((3*InpDict,rdm.normal() * InpDict)) ))
+                 else:
+                    return 0
+         
+        rdm = np.random.default_rng(self.UNC['seed'])
+        self.UNC['Res'] = GetUncVal(self.UNC['Res'], rdm, self.OPT['UNC_enable'])
+      
     def init_ATM (self):
       # ATM
       self.ATM['dISA_C'] = self.UNC['Res']['ATM']['Bias']['dISA_C']
