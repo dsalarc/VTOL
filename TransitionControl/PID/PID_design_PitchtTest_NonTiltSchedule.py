@@ -35,11 +35,11 @@ for env in env_dict:
         
 TestEnv = gym.make('gym_VTOL:Vahana_VertFlight-v0')
 
-with open('SavedGains_20231222_1134_Nelder-Mead.pkl', 'rb') as fp:
-    std = pickle.load(fp)
-    
-# with open('SavedGains_20231219_2313_Nelder-Mead_smooth.pkl', 'rb') as fp:
+# with open('SavedGains_20231222_1134_Nelder-Mead.pkl', 'rb') as fp:
 #     std = pickle.load(fp)
+    
+with open('SavedGains_20231222_1134_Nelder-Mead_smooth.pkl', 'rb') as fp:
+    std = pickle.load(fp)
 
 TrimVec = std['TrimVec']
 GainsVec = std['GainsVec']
@@ -50,7 +50,7 @@ TestVec['VX_mps'] = TrimVec['VX_mps']
 # TestVec['VX_mps'] = np.array([0.0, 10.0])
 # TestVec['AX_mps2'] = np.array([-5.0, 0])
 # TestVec['AX_mps2'] = np.array([0])
-TestVec['AX_mps2'] = np.array([-5.0, 0, +5.0])
+TestVec['AX_mps2'] = np.array([0, +5.0])
 TestVec['CostVec'] = np.zeros((len(TestVec['VX_mps']) , len(TestVec['AX_mps2'])))
 
 line_type_vec = ['--' ,'-.' , '-' ,'-.' ,  '--']

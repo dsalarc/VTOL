@@ -31,7 +31,7 @@ TestEnv = gym.make('gym_VTOL:Vahana_VertFlight-v0')
 with open('SavedGains_20231222_1134_Nelder-Mead.pkl', 'rb') as fp:
     std = pickle.load(fp)
     
-# with open('SavedGains_20231219_2313_Nelder-Mead_smooth.pkl', 'rb') as fp:
+# with open('SavedGains_20231222_1134_Nelder-Mead_smooth.pkl', 'rb') as fp:
 #     std = pickle.load(fp)
 
 TrimVec = std['TrimVec']

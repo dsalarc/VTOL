@@ -30,7 +30,7 @@ def PitchPlots(ClosedLoops , Criteria, PlotLabel, color_rgb = (0,0,1), line_type
     plt.suptitle('Theta Command Step')
     figManager = plt.get_current_fig_manager()
     figManager.window.showMaximized()
-    fig1.savefig('Step_Theta.png', bbox_inches='tight')
+    fig1.savefig('LinearResponse_PitchController_Thetastep.png', bbox_inches='tight')
     plt.show()
 
   
@@ -55,7 +55,7 @@ def PitchPlots(ClosedLoops , Criteria, PlotLabel, color_rgb = (0,0,1), line_type
     plt.suptitle('Q Command Step (No theta feedback')
     figManager = plt.get_current_fig_manager()
     figManager.window.showMaximized()
-    fig2.savefig('Step_Q_NoThetaFeedback.png', bbox_inches='tight')
+    fig2.savefig('LinearResponse_PitchController_Qstep.png', bbox_inches='tight')
     plt.show()
 
     # %% THETA RESPONSE TO THROTTLE INPUT
@@ -79,7 +79,7 @@ def PitchPlots(ClosedLoops , Criteria, PlotLabel, color_rgb = (0,0,1), line_type
     plt.suptitle('Throttle Disturbance')
     figManager = plt.get_current_fig_manager()
     figManager.window.showMaximized()
-    fig3.savefig('Throttle_Disturbance.png', bbox_inches='tight')
+    fig3.savefig('LinearResponse_PitchController_ThrottleInp.png', bbox_inches='tight')
     plt.show()
 
    
@@ -150,7 +150,7 @@ def PitchPlots(ClosedLoops , Criteria, PlotLabel, color_rgb = (0,0,1), line_type
     plt.suptitle('Open Loop PitchCmd Margin')
     figManager = plt.get_current_fig_manager()
     figManager.window.showMaximized()
-    fig5.savefig('Bode_OpenLoop_PitchCmd.png', bbox_inches='tight')
+    fig5.savefig('LinearResponse_PitchController_Bode_OpenLoop_pitchcmd.png', bbox_inches='tight')
     plt.show()
 
     # %% OPEN LOOP THETA MARGIN PLOT
@@ -222,7 +222,7 @@ def PitchPlots(ClosedLoops , Criteria, PlotLabel, color_rgb = (0,0,1), line_type
     plt.suptitle('Open Loop PitchCmd Margin')
     figManager = plt.get_current_fig_manager()
     figManager.window.showMaximized()
-    fig6.savefig('Bode_OpenLoop_Theta.png', bbox_inches='tight')
+    fig6.savefig('LinearResponse_PitchController_Bode_OpenLoop_Theta.png', bbox_inches='tight')
     plt.show()
 
     # %% OPEN LOOP Q MARGIN PLOT
@@ -295,5 +295,5 @@ def PitchPlots(ClosedLoops , Criteria, PlotLabel, color_rgb = (0,0,1), line_type
     plt.suptitle('Open Loop Q Margin')
     figManager = plt.get_current_fig_manager()
     figManager.window.showMaximized()
-    fig7.savefig('Bode_OpenLoop_Q.png', bbox_inches='tight')
+    fig7.savefig('LinearResponse_PitchController_Bode_OpenLoop_Q.png', bbox_inches='tight')
     plt.show()
