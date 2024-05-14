@@ -444,7 +444,7 @@ class Vahana_VertFlight(gym.Env):
     ############################################
     def reset(self,W = 0, Altitude_m = 100, Altitude_ref_m = 100, THETA = 0,  PHI = 0,  PSI = 0, PaxIn = np.array([1,1]),
                    VX_mps = 0, VX_ref_mps = 60, VZ_mps = 0, Tilt_deg = None, AX_mps2 = None, Throttle_u = None, Elevator_deg = 0, DispMessages = False, Linearize = False, TermTheta_deg = 10, StaFreezeList = [],
-                   UNC_seed = None , UNC_enable = True, reset_INPUT_VEC = None, GroundHeight_m = 0, Training_Trim = False, Training_Turb = False, Training_WindX = False):
+                   UNC_seed = None , UNC_enable = False, reset_INPUT_VEC = None, GroundHeight_m = 0, Training_Trim = True, Training_Turb = False, Training_WindX = False):
         self.CurrentStep = 0
         self.trimming = 0
 
@@ -548,7 +548,7 @@ class Vahana_VertFlight(gym.Env):
                                     FixedAction = np.array(['W2_Elevator',Action_W2_Elevator]), Linearize = Linearize , Training_Trim = Training_Trim)
         else:
             TrimData = self.trim(TrimVX_mps = VX_mps, TrimVZ_mps = VZ_mps, TrimTilt_deg = Tilt_deg, TrimAX_mps2 = AX_mps2, TrimThrottle_u = Throttle_u, TrimTheta_deg = THETA, TrimZ_m = -Altitude_m, 
-                                PitchController = 'W2_Elevator', Linearize = Linearize)
+                                PitchController = 'W2_Elevator', FixedAction = np.array(['PitchThrottle',0]), Linearize = Linearize)
 
             # If not trimmed with elevator only, or deflection above 10deg, trim with Pitch Throttle
             if (TrimData['Trimmed'] == 0) or (any(abs(TrimData['info']['CONT']['Elevon_deg'])>10)):
@@ -622,13 +622,13 @@ class Vahana_VertFlight(gym.Env):
                              'W1_Elevator','W2_Elevator',
                              'W1_Aileron','W2_Aileron']
         '''
-        IniAction = np.array([[0          ,  5         ,  10        ,  20        ,  30        ,  35         ,  40        ,  42        ,  45        ,  50        ,  55        ,  58         ,  60        ,  62        ,  65       ],
-                              [-1.476e-01 , -1.463e-01 , -1.404e-01 , -1.436e-01 , -2.426e-01 , -2.997e-01  , -3.432e-01 , -3.869e-01 , -7.493e-01 , -7.054e-01 , -6.547e-01 , -6.217e-01  , -5.986e-01 , -5.744e-01 , -5.362e-01],
-                              [-5.889e-02*0 , -5.795e-02*0 , -5.498e-02*0 , -4.025e-02*0 , -1.200e-02*0 ,  0.000e+00  ,  0.000e+00 ,  0.000e+00 ,  0.000e+00 ,  0.000e+00 ,  0.000e+00 ,  0.000e+00  ,  0.000e+00 ,  0.000e+00 ,  0.000e+00],
-                              [ 1.000e+00 ,  9.618e-01 ,  8.481e-01 ,  4.325e-01 , -4.394e-02 , -2.334e-01  , -3.780e-01 , -4.387e-01 , -7.860e-01 , -8.266e-01 , -8.572e-01 , -8.717e-01  , -8.801e-01 , -8.878e-01 , -8.979e-01],
-                              [ 1.000e+00 ,  9.618e-01 ,  8.481e-01 ,  4.325e-01 , -4.394e-02 , -2.334e-01  , -3.780e-01 , -4.387e-01 , -7.860e-01 , -8.266e-01 , -8.572e-01 , -8.717e-01  , -8.801e-01 , -8.878e-01 , -8.979e-01],
-                              [ 6.667e-01 ,  6.667e-01 ,  6.667e-01 ,  6.667e-01 ,  3.025e-01 ,  6.959e-02  , -2.063e-02 , -2.047e-01 , -1.192e-01 , -1.149e-01 , -1.064e-01 , -1.027e-01  , -1.008e-01 , -0.987e-01 , -9.643e-02]])
-        
+        IniAction = np.array([[0       ,  5      ,  10     ,  15     ,  20     ,  25     ,  30     ,  35      ,  40     ,  45     ,  50     ,  55     ,  60     ],
+                              [-0.1394136025198653, -0.1381 , -0.13219, -0.12536, -0.13413, -0.17176, -0.2268 ,  -0.28351, -0.33455, -0.71862, -0.6317 , -0.55448, -0.46905],
+                              [-0.0594558853012779, -0.05853, -0.0556 , -0.04995, -0.04106, -0.02964, -0.01748,  -0.00662,  0.00329,  0.03886,  0.03179,  0.03106,  0.0312 ],
+                              [ 1.     ,  0.96257,  0.85094,  0.67095,  0.44191,  0.19745, -0.02898,  -0.21892, -0.36954, -0.78848, -0.82975, -0.86038, -0.88346],
+                              [ 1.     ,  0.96257,  0.85094,  0.67095,  0.44191,  0.19745, -0.02898,  -0.21892, -0.36954, -0.78848, -0.82975, -0.86038, -0.88346],
+                              [ 0.     ,  0.     ,  0.     ,  0.     ,  0.     ,  0.     ,  0.     ,   0.     ,  0.     ,  0.     ,  0.     ,  0.     ,  0.     ]])
+                              
         # Define function to get Outputs of interest
         def GetOutputFreeze(EQM, CONT, ATM, GetNames = False, DefaultOutputs = True):
             if DefaultOutputs:
@@ -816,7 +816,7 @@ class Vahana_VertFlight(gym.Env):
        
         # Perform One Step    
         self.EQM['sta'] = TrimState
-        self.step(TrimAction)
+        info = self.step(TrimAction)
         
         TrimStaDot = self.EQM['sta_dot'][n_StateDotFreeze]
         TrimOutput = GetOutputFreeze(self.EQM, self.CONT, self.ATM)
@@ -826,7 +826,11 @@ class Vahana_VertFlight(gym.Env):
 
         iter_n = 1
         n_NoImprovement = 0
-        ContinueTrim = True
+        if Training_Trim:
+            ContinueTrim = False
+        else:
+            ContinueTrim = True
+
 
 
         while ContinueTrim:
@@ -1190,7 +1194,7 @@ class Vahana_VertFlight(gym.Env):
         self.UNC['StdDev']['CONT']['Gain'] = {}
         self.UNC['StdDev']['CONT']['Bias'] = {}
         self.UNC['StdDev']['CONT']['Gain']['WingTilt_Bandwidth'] = 0* 0.05
-        self.UNC['StdDev']['CONT']['Gain']['WingTilt_Rate']      = 0.10
+        self.UNC['StdDev']['CONT']['Gain']['WingTilt_Rate']      = 0* 0.10
         self.UNC['StdDev']['CONT']['Gain']['Elevon_Bandwidth']   = 0* 0.05
         self.UNC['StdDev']['CONT']['Gain']['Elevon_Rate']        = 0* 0.05
      
@@ -1820,7 +1824,7 @@ class Vahana_VertFlight(gym.Env):
         # TOWER WIND - MIL-F-8785C / p.51
         TotalTowerWind_mps = np.sqrt(self.INP['WIND_TowerX_mps']**2 + self.INP['WIND_TowerY_mps']**2)
         TotalTowerWindTurb_mps = TotalTowerWind_mps
-        TotalTowerWind_mps = 0
+        # TotalTowerWind_mps = 0
         Z0 = 2.0 # considering 'other flight phase'
         
         if TotalTowerWind_mps > 0:
