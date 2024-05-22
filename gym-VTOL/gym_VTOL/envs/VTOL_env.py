@@ -392,6 +392,7 @@ class Vahana_VertFlight(gym.Env):
         self.n_states = 12
         self.t_step = 0.01
         self.UseLateralActions = False
+        self.UseTiltAction = False
         
         # Define action and observation space
         '''
@@ -442,9 +443,12 @@ class Vahana_VertFlight(gym.Env):
     ############################################
     ############## RESET FUNCTION ##############
     ############################################
+    # def reset(self,W = 0, Altitude_m = 100, Altitude_ref_m = 100, THETA = 0,  PHI = 0,  PSI = 0, PaxIn = np.array([1,1]),
+    #                VX_mps = 0, VX_ref_mps = 60, VZ_mps = 0, Tilt_deg = None, AX_mps2 = None, Throttle_u = None, Elevator_deg = 0, DispMessages = False, Linearize = False, TermTheta_deg = 10, StaFreezeList = [],
+    #                UNC_seed = None , UNC_enable = True, reset_INPUT_VEC = None, GroundHeight_m = 0, Training_Trim = True, Training_Turb = False, Training_WindX = False, Training_HoverTime = None):
     def reset(self,W = 0, Altitude_m = 100, Altitude_ref_m = 100, THETA = 0,  PHI = 0,  PSI = 0, PaxIn = np.array([1,1]),
                    VX_mps = 0, VX_ref_mps = 60, VZ_mps = 0, Tilt_deg = None, AX_mps2 = None, Throttle_u = None, Elevator_deg = 0, DispMessages = False, Linearize = False, TermTheta_deg = 10, StaFreezeList = [],
-                   UNC_seed = None , UNC_enable = False, reset_INPUT_VEC = None, GroundHeight_m = 0, Training_Trim = True, Training_Turb = False, Training_WindX = False):
+                   UNC_seed = None , UNC_enable = False, reset_INPUT_VEC = None, GroundHeight_m = 0, Training_Trim = True, Training_Turb = False, Training_WindX = False, Training_HoverTime = None):
         self.CurrentStep = 0
         self.trimming = 0
 
@@ -465,8 +469,8 @@ class Vahana_VertFlight(gym.Env):
         self.OPT['Enable_W']         = 1
         self.OPT['DispMessages']     = DispMessages
         self.OPT['StaFreezeList']    = StaFreezeList
-        self.OPT['UNC_seed'] = UNC_seed
-        self.OPT['UNC_enable'] = UNC_enable
+        self.OPT['UNC_seed']         = UNC_seed
+        self.OPT['UNC_enable']       = UNC_enable
 
         self.OPT['Seeds']            = {}
         self.OPT['Seeds']['TurbU']   = 1
@@ -494,6 +498,11 @@ class Vahana_VertFlight(gym.Env):
             WindX = (np.random.random()*15)
             reset_INPUT_VEC['WIND_TowerX_mps'] = np.array([[0     , 30    ],
                                                            [WindX , WindX]])
+        if (Training_HoverTime is None):
+            Training_HoverTime = np.random.rand()*5
+        else:
+            Training_HoverTime = 0
+        self.OPT['Training']['HoverSteps'] = int(np.round(Training_HoverTime / 0.01))
 
         # Initialize Contants  
         self.Term = {}
@@ -1023,11 +1032,12 @@ class Vahana_VertFlight(gym.Env):
             # self.MaxState = np.array([1   , 1  , 1       , 1    , 1      , 1  , 1   , 1        , 1         , 1])
 
             Vx_error_mps = self.SENS['VX_mps'] - self.CONT['ref']['VX_mps'] 
+            dVz_mp2 = self.SENS['NZ_mps2'] + self.CONS['g_mps2']
             Z_error_m    = self.SENS['Z_m'] - self.CONT['ref']['Z_m']
 
             obs_vec       = np.array([self.SENS['VX_mps']      , self.SENS['NX_mps2'], Vx_error_mps ,  
                                         self.SENS['Z_m']       , Z_error_m , 
-                                        self.SENS['VZ_mps']    , self.SENS['NZ_mps2'], 
+                                        self.SENS['VZ_mps']    , dVz_mp2, 
                                         self.SENS['Theta_rad'] , self.SENS['Q_radps'],
                                         self.SENS['CAS_mps']])
            
@@ -1126,13 +1136,13 @@ class Vahana_VertFlight(gym.Env):
         self.REW['Order']['Current']  = 3
 
         self.REW['Weight'] = {}
-        self.REW['Weight']['Vx']       = 0.40
+        self.REW['Weight']['Vx']       = 0.40*0
         self.REW['Weight']['Vz']       = 0.15
         self.REW['Weight']['Z']        = 0.15
         self.REW['Weight']['Theta']    = 0.15
         self.REW['Weight']['Q']        = 0.15
-        self.REW['Weight']['Tilt_W1']  = 0.20
-        self.REW['Weight']['Tilt_W2']  = 0.20
+        self.REW['Weight']['Tilt_W1']  = 0.20*0
+        self.REW['Weight']['Tilt_W2']  = 0.20*0
         self.REW['Weight']['Current']  = 0.10
 
         w_sum = 0
@@ -1194,7 +1204,7 @@ class Vahana_VertFlight(gym.Env):
         self.UNC['StdDev']['CONT']['Gain'] = {}
         self.UNC['StdDev']['CONT']['Bias'] = {}
         self.UNC['StdDev']['CONT']['Gain']['WingTilt_Bandwidth'] = 0* 0.05
-        self.UNC['StdDev']['CONT']['Gain']['WingTilt_Rate']      = 0* 0.10
+        self.UNC['StdDev']['CONT']['Gain']['WingTilt_Rate']      = np.array([0.10 , 3, 1])
         self.UNC['StdDev']['CONT']['Gain']['Elevon_Bandwidth']   = 0* 0.05
         self.UNC['StdDev']['CONT']['Gain']['Elevon_Rate']        = 0* 0.05
      
@@ -1243,9 +1253,22 @@ class Vahana_VertFlight(gym.Env):
                      #     print(k + ": " + str(OutDict[k]))
                 return OutDict
             else:
-                 if Enable:
-                    return np.max((-3*InpDict, np.min((3*InpDict,rdm.normal() * InpDict)) ))
-                 else:
+                if Enable:
+                    if np.size(InpDict) < 2:
+                        StdDev = InpDict
+                        MaxStdDev = 3
+                        DevType = 0
+                    else:
+                        StdDev = InpDict[0]
+                        MaxStdDev = InpDict[1]
+                        if np.size(InpDict) > 2:
+                            DevType = InpDict[2]
+                    
+                    if (DevType == 0):
+                        return np.max((-MaxStdDev*StdDev, np.min((MaxStdDev*StdDev,rdm.normal() * StdDev)) ))
+                    else:
+                        return (rdm.uniform(low = -MaxStdDev*StdDev, high =  +MaxStdDev*StdDev))
+                else:
                     return 0
          
         rdm = np.random.default_rng(self.UNC['seed'])
@@ -1824,7 +1847,7 @@ class Vahana_VertFlight(gym.Env):
         # TOWER WIND - MIL-F-8785C / p.51
         TotalTowerWind_mps = np.sqrt(self.INP['WIND_TowerX_mps']**2 + self.INP['WIND_TowerY_mps']**2)
         TotalTowerWindTurb_mps = TotalTowerWind_mps
-        # TotalTowerWind_mps = 0
+        TotalTowerWind_mps = 0
         Z0 = 2.0 # considering 'other flight phase'
         
         if TotalTowerWind_mps > 0:
@@ -2534,8 +2557,16 @@ class Vahana_VertFlight(gym.Env):
 
         self.CONT['Throttle_p'] = ControlMixer(VerticalControlAllocation(u_Vert),PitchControlAllocation(u_Pitc),RollControlAllocation(u_Roll),YawControlAllocation(u_Yaw))
         
-        TILT_vec = (np.array([action_vec[self.action_names.index('W1_Tilt')],
-                              action_vec[self.action_names.index('W2_Tilt')]])+1)/2        
+        if ((not(self.trimming)) and (not(self.UseTiltAction))):
+            if (self.CurrentStep >= self.OPT['Training']['HoverSteps']):
+                TILT_vec = (np.array([-0.88346,-0.88346])+1)/2 
+            else:
+                TILT_vec = (np.array([+1.0    ,+1.0    ])+1)/2 
+
+        else:
+            TILT_vec = (np.array([action_vec[self.action_names.index('W1_Tilt')],
+                                action_vec[self.action_names.index('W2_Tilt')]])+1)/2        
+            
         self.CONT['Tilt_p']   = TILT_vec
         TiltCmd_deg = (self.CONT['MinTilt_deg'] + self.CONT['TiltRange_deg'] * self.CONT['Tilt_p'])  
        
