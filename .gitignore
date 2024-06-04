@@ -154,3 +154,4 @@ TransitionControl/PID/VerticalDesign/Bode_OpenLoop_VZ.png
 TransitionControl/PID/VerticalDesign/Bode_OpenLoop_Z.png
 TransitionControl/PID/VerticalDesign/Step_Z.png
 TransitionControl/PID/VerticalDesign/Step_Z_NoZFeedback.png
+gym-VTOL/gym_VTOL/envs/VTOL_env_debugTime.py

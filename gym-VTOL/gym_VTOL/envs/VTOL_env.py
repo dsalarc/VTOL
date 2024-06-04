@@ -447,8 +447,10 @@ class Vahana_VertFlight(gym.Env):
     #                VX_mps = 0, VX_ref_mps = 60, VZ_mps = 0, Tilt_deg = None, AX_mps2 = None, Throttle_u = None, Elevator_deg = 0, DispMessages = False, Linearize = False, TermTheta_deg = 10, StaFreezeList = [],
     #                UNC_seed = None , UNC_enable = True, reset_INPUT_VEC = None, GroundHeight_m = 0, Training_Trim = True, Training_Turb = False, Training_WindX = False, Training_HoverTime = None):
     def reset(self,W = 0, Altitude_m = 100, Altitude_ref_m = 100, THETA = 0,  PHI = 0,  PSI = 0, PaxIn = np.array([1,1]),
-                   VX_mps = 0, VX_ref_mps = 60, VZ_mps = 0, Tilt_deg = None, AX_mps2 = None, Throttle_u = None, Elevator_deg = 0, DispMessages = False, Linearize = False, TermTheta_deg = 10, StaFreezeList = [],
-                   UNC_seed = None , UNC_enable = False, reset_INPUT_VEC = None, GroundHeight_m = 0, Training_Trim = True, Training_Turb = False, Training_WindX = False, Training_HoverTime = None):
+                   VX_mps = 0, VX_ref_mps = 60, VZ_mps = 0, Tilt_deg = None, AX_mps2 = None, Throttle_u = None, Elevator_deg = 0, 
+                   DispMessages = False, Linearize = False, TermTheta_deg = 10, StaFreezeList = [],
+                   UNC_seed = None , UNC_enable = False, reset_INPUT_VEC = None, GroundHeight_m = 0, Training_Trim = True, 
+                   Training_Turb = False, Training_WindX = False, Training_HoverTime = 0):
         self.CurrentStep = 0
         self.trimming = 0
 
@@ -501,7 +503,7 @@ class Vahana_VertFlight(gym.Env):
         if (Training_HoverTime is None):
             Training_HoverTime = np.random.rand()*5
         else:
-            Training_HoverTime = 0
+            Training_HoverTime = Training_HoverTime
         self.OPT['Training']['HoverSteps'] = int(np.round(Training_HoverTime / 0.01))
 
         # Initialize Contants  
@@ -1136,7 +1138,7 @@ class Vahana_VertFlight(gym.Env):
         self.REW['Order']['Current']  = 3
 
         self.REW['Weight'] = {}
-        self.REW['Weight']['Vx']       = 0.40*0
+        self.REW['Weight']['Vx']       = 0.40
         self.REW['Weight']['Vz']       = 0.15
         self.REW['Weight']['Z']        = 0.15
         self.REW['Weight']['Theta']    = 0.15
@@ -2559,7 +2561,7 @@ class Vahana_VertFlight(gym.Env):
         
         if ((not(self.trimming)) and (not(self.UseTiltAction))):
             if (self.CurrentStep >= self.OPT['Training']['HoverSteps']):
-                TILT_vec = (np.array([-0.88346,-0.88346])+1)/2 
+                TILT_vec = np.array([3.0 , 10.5])/90
             else:
                 TILT_vec = (np.array([+1.0    ,+1.0    ])+1)/2 
 
