@@ -155,3 +155,7 @@ TransitionControl/PID/VerticalDesign/Bode_OpenLoop_Z.png
 TransitionControl/PID/VerticalDesign/Step_Z.png
 TransitionControl/PID/VerticalDesign/Step_Z_NoZFeedback.png
 gym-VTOL/gym_VTOL/envs/VTOL_env_debugTime.py
+gym-VTOL/gym_VTOL/envs/VTOL_env_2000.py
+gym-VTOL/gym_VTOL/envs/VTOL_env_2001.py
+gym-VTOL/gym_VTOL/envs/VTOL_env_current.py
+gym-VTOL/gym_VTOL/envs/VTOL_env_faster.py

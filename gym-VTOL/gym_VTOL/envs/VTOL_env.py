@@ -450,7 +450,7 @@ class Vahana_VertFlight(gym.Env):
                    VX_mps = 0, VX_ref_mps = 60, VZ_mps = 0, Tilt_deg = None, AX_mps2 = None, Throttle_u = None, Elevator_deg = 0, 
                    DispMessages = False, Linearize = False, TermTheta_deg = 10, StaFreezeList = [],
                    UNC_seed = None , UNC_enable = False, reset_INPUT_VEC = None, GroundHeight_m = 0, Training_Trim = True, 
-                   Training_Turb = False, Training_WindX = False, Training_HoverTime = 0):
+                   Training_Turb = False, Training_WindX = False, Training_AllEngines = False, Training_HoverTime = 0):
         self.CurrentStep = 0
         self.trimming = 0
 
@@ -479,9 +479,10 @@ class Vahana_VertFlight(gym.Env):
         self.OPT['Seeds']['TurbV']   = 2
         self.OPT['Seeds']['TurbW']   = 3
 
-        self.OPT['Training']          = {}
-        self.OPT['Training']['Turb']  = Training_Turb
-        self.OPT['Training']['WindX'] = Training_WindX
+        self.OPT['Training']               = {}
+        self.OPT['Training']['Turb']       = Training_Turb
+        self.OPT['Training']['WindX']      = Training_WindX
+        self.OPT['Training']['AllEngines'] = Training_AllEngines
 
         if ((self.OPT['Training']['Turb']) and ((reset_INPUT_VEC is None) or not ('WIND_TurbON' in reset_INPUT_VEC))):
             if (reset_INPUT_VEC is None):
@@ -1420,162 +1421,175 @@ class Vahana_VertFlight(gym.Env):
       self.AERO['Elevon']['dCMSde_MRC']  = np.array([+0.042829 , +0.042829 , -0.055021 , -0.055021]) * (1 + self.UNC['Res']['AERO']['Gain']['ElevEff'])
       self.AERO['Elevon']['dCNSde_MRC']  = np.array([+0.000000 , +0.000000 , +0.000000 , +0.000000])
 
-    
+      
     def init_MOT (self): 
-      self.MOT['ESC'] = {}
-      self.MOT['MOTOR'] = {}
-      self.MOT['ASSEMBLY'] = {}
+        self.MOT['ESC'] = {}
+        self.MOT['MOTOR'] = {}
+        self.MOT['ASSEMBLY'] = {}
+        
+        # MOTOR
+        x1 = 0.05
+        x2 = 3.15
+        y1 = 1.3
+        y2 = 3.0
+        z1  = 0
+        z2 = 1.5
       
-      # MOTOR
-      x1 = 0.05
-      x2 = 3.15
-      y1 = 1.3
-      y2 = 3.0
-      z1  = 0
-      z2 = 1.5
-    
-      self.MOT['Position_m'] = np.array([[x1,-y2,z1],
-                                         [x1,-y1,z1],
-                                         [x1,+y1,z1],
-                                         [x1,+y2,z1],
-                                         [x2,-y2,z2],
-                                         [x2,-y1,z2],
-                                         [x2,+y1,z2],
-                                         [x2,+y2,z2]])
-      self.MOT['n_motor'] = np.shape(self.MOT['Position_m'])[0]
-      
-      self.MOT['PROPELLER'] = {}
-      self.MOT['PROPELLER']['MaxRPM']        = np.ones(self.MOT['n_motor']) * 3000
-      self.MOT['PROPELLER']['MinRPM']        = np.ones(self.MOT['n_motor']) * 0.01
-      self.MOT['PROPELLER']['RPMRange']      = self.MOT['PROPELLER']['MaxRPM'] - self.MOT['PROPELLER']['MinRPM'] 
-      self.MOT['PROPELLER']['Diameter_m']    = np.ones(self.MOT['n_motor']) * 1.5
-      self.MOT['RotationSense'] = np.array([+1,-1,+1,-1,
-                                                         -1,+1,-1,+1])  
-      
-      # CT e CP - Vide planilha
-      self.MOT['PROPELLER']['Tables'] = {}
-      self.MOT['PROPELLER']['Tables']['J']         = np.array([0.0 , 0.1 , 0.2 , 0.3 , 0.4 , 0.5 , 0.6 , 0.7 , 0.8 , 0.9 , 1.0 , 1.1 , 1.2 , 1.3 , 1.4 , 1.5 , 1.6 , 1.7 , 1.8 , 1.9 ,  2.0, 2.5])
-      self.MOT['PROPELLER']['Tables']['Alpha_deg'] = np.array([0.0 , 15.0 , 30.0 , 45.0 , 60.0 , 75.0 , 80.0 ,  85.0])
-      self.MOT['PROPELLER']['Tables']['Pitch_deg'] = np.array([0.0 , 30.0])
-      
+        self.MOT['Position_m'] = np.array([[x1,-y2,z1],
+                                           [x1,-y1,z1],
+                                           [x1,+y1,z1],
+                                           [x1,+y2,z1],
+                                           [x2,-y2,z2],
+                                           [x2,-y1,z2],
+                                           [x2,+y1,z2],
+                                           [x2,+y2,z2]])
+        self.MOT['n_motor'] = np.shape(self.MOT['Position_m'])[0]
+        
+        self.MOT['PROPELLER'] = {}
+        self.MOT['PROPELLER']['MaxRPM']        = np.ones(self.MOT['n_motor']) * 3000
+        self.MOT['PROPELLER']['MinRPM']        = np.ones(self.MOT['n_motor']) * 0.01
+        self.MOT['PROPELLER']['RPMRange']      = self.MOT['PROPELLER']['MaxRPM'] - self.MOT['PROPELLER']['MinRPM'] 
+        self.MOT['PROPELLER']['Diameter_m']    = np.ones(self.MOT['n_motor']) * 1.5
+        self.MOT['RotationSense'] = np.array([+1,-1,+1,-1,
+                                                           -1,+1,-1,+1])  
+        
+        # CT e CP - Vide planilha
+        self.MOT['PROPELLER']['Tables'] = {}
+        self.MOT['PROPELLER']['Tables']['J']         = np.array([0.0 , 0.1 , 0.2 , 0.3 , 0.4 , 0.5 , 0.6 , 0.7 , 0.8 , 0.9 , 1.0 , 1.1 , 1.2 , 1.3 , 1.4 , 1.5 , 1.6 , 1.7 , 1.8 , 1.9 ,  2.0, 2.5])
+        self.MOT['PROPELLER']['Tables']['Alpha_deg'] = np.array([0.0 , 15.0 , 30.0 , 45.0 , 60.0 , 75.0 , 80.0 ,  85.0])
+        self.MOT['PROPELLER']['Tables']['Pitch_deg'] = np.array([0.0 , 30.0])
+        
+  
+        self.MOT['PROPELLER']['Tables']['CT'] = np.array([[0.1592 , 0.1497 , 0.1417 , 0.1348 , 0.1281 , 0.1211 , 0.1143 , 0.1074 , 0.1008 , 0.0946 , 0.0877 , 0.0804 , 0.0729 , 0.0666 , 0.0587 , 0.0492 , 0.0380 , 0.0278 , 0.0187 , 0.0107 , 0.0034 , -0.0331],
+                                                          [0.1592 , 0.1588 , 0.1562 , 0.1508 , 0.1435 , 0.1352 , 0.1266 , 0.1187 , 0.1127 , 0.1095 , 0.1055 , 0.1004 , 0.0940 , 0.0890 , 0.0833 , 0.0765 , 0.0676 , 0.0579 , 0.0468 , 0.0343 , 0.0209 , -0.0461],
+                                                          [0.1592 , 0.1592 , 0.1576 , 0.1536 , 0.1490 , 0.1449 , 0.1421 , 0.1394 , 0.1373 , 0.1364 , 0.1355 , 0.1345 , 0.1331 , 0.1333 , 0.1325 , 0.1304 , 0.1268 , 0.1238 , 0.1209 , 0.1180 , 0.1151 , 0.1006],
+                                                          [0.1592 , 0.1606 , 0.1614 , 0.1612 , 0.1606 , 0.1603 , 0.1611 , 0.1642 , 0.1698 , 0.1781 , 0.1856 , 0.1920 , 0.1976 , 0.2052 , 0.2109 , 0.2142 , 0.2145 , 0.2150 , 0.2157 , 0.2164 , 0.2172 , 0.2212],
+                                                          [0.1592 , 0.1652 , 0.1709 , 0.1760 , 0.1815 , 0.1876 , 0.1951 , 0.2035 , 0.2135 , 0.2255 , 0.2370 , 0.2477 , 0.2573 , 0.2682 , 0.2791 , 0.2897 , 0.2995 , 0.3095 , 0.3196 , 0.3298 , 0.3400 , 0.3910],
+                                                          [0.1592 , 0.1712 , 0.1826 , 0.1934 , 0.2053 , 0.2188 , 0.2342 , 0.2476 , 0.2596 , 0.2705 , 0.2830 , 0.2966 , 0.3108 , 0.3253 , 0.3390 , 0.3519 , 0.3636 , 0.3746 , 0.3844 , 0.3927 , 0.3998 , 0.4353],
+                                                          [0.1592 , 0.1736 , 0.1872 , 0.2000 , 0.2140 , 0.2297 , 0.2472 , 0.2632 , 0.2783 , 0.2931 , 0.3096 , 0.3272 , 0.3454 , 0.3637 , 0.3808 , 0.3970 , 0.4127 , 0.4294 , 0.4461 , 0.4637 , 0.4819 , 0.5729],
+                                                          [0.1592 , 0.1762 , 0.1930 , 0.2096 , 0.2256 , 0.2409 , 0.2558 , 0.2717 , 0.2891 , 0.3086 , 0.3284 , 0.3488 , 0.3693 , 0.3913 , 0.4140 , 0.4371 , 0.4607 , 0.4849 , 0.5099 , 0.5356 , 0.5618 , 0.6928]])
+        self.MOT['PROPELLER']['Tables']['CT'] = self.MOT['PROPELLER']['Tables']['CT'] * (1+self.UNC['Res']['MOT']['Gain']['CT'])
+        self.MOT['PROPELLER']['Tables']['CTfcn'] = RectBivariateSpline(self.MOT['PROPELLER']['Tables']['Alpha_deg'],
+                                                                       self.MOT['PROPELLER']['Tables']['J'],
+                                                                       self.MOT['PROPELLER']['Tables']['CT'],
+                                                                       kx=1, ky=1)
+  
+        self.MOT['PROPELLER']['Tables']['CN'] = np.array([[0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000],
+                                                          [0.0000 , 0.0007 , 0.0017 , 0.0029 , 0.0042 , 0.0056 , 0.0074 , 0.0096 , 0.0123 , 0.0152 , 0.0185 , 0.0221 , 0.0261 , 0.0309 , 0.0365 , 0.0429 , 0.0501 , 0.0580 , 0.0664 , 0.0749 , 0.0835 , 0.1265],
+                                                          [0.0000 , 0.0008 , 0.0022 , 0.0044 , 0.0071 , 0.0103 , 0.0139 , 0.0180 , 0.0229 , 0.0285 , 0.0348 , 0.0419 , 0.0499 , 0.0588 , 0.0686 , 0.0795 , 0.0915 , 0.1045 , 0.1184 , 0.1332 , 0.1484 , 0.2244],
+                                                          [0.0000 , 0.0021 , 0.0045 , 0.0076 , 0.0115 , 0.0160 , 0.0214 , 0.0277 , 0.0353 , 0.0443 , 0.0540 , 0.0645 , 0.0757 , 0.0878 , 0.1007 , 0.1143 , 0.1287 , 0.1441 , 0.1603 , 0.1774 , 0.1950 , 0.2830],
+                                                          [0.0000 , 0.0034 , 0.0068 , 0.0105 , 0.0148 , 0.0202 , 0.0266 , 0.0346 , 0.0442 , 0.0555 , 0.0677 , 0.0805 , 0.0941 , 0.1086 , 0.1238 , 0.1396 , 0.1561 , 0.1736 , 0.1922 , 0.2118 , 0.2320 , 0.3330],
+                                                          [0.0000 , 0.0023 , 0.0053 , 0.0093 , 0.0145 , 0.0208 , 0.0284 , 0.0375 , 0.0483 , 0.0605 , 0.0736 , 0.0876 , 0.1028 , 0.1195 , 0.1364 , 0.1532 , 0.1693 , 0.1856 , 0.2020 , 0.2181 , 0.2342 , 0.3147],
+                                                          [0.0000 , 0.0033 , 0.0073 , 0.0122 , 0.0179 , 0.0242 , 0.0313 , 0.0399 , 0.0502 , 0.0620 , 0.0745 , 0.0876 , 0.1014 , 0.1162 , 0.1311 , 0.1460 , 0.1605 , 0.1753 , 0.1901 , 0.2032 , 0.2170 , 0.2860],
+                                                          [0.0000 , 0.0029 , 0.0067 , 0.0113 , 0.0164 , 0.0218 , 0.0277 , 0.0349 , 0.0435 , 0.0533 , 0.0640 , 0.0757 , 0.0886 , 0.1027 , 0.1166 , 0.1298 , 0.1417 , 0.1534 , 0.1648 , 0.1760 , 0.1870 , 0.2420]])
+        self.MOT['PROPELLER']['Tables']['CN'] = self.MOT['PROPELLER']['Tables']['CN'] * (1+self.UNC['Res']['MOT']['Gain']['CN'])
+        self.MOT['PROPELLER']['Tables']['CNfcn'] = RectBivariateSpline(self.MOT['PROPELLER']['Tables']['Alpha_deg'],
+                                                                       self.MOT['PROPELLER']['Tables']['J'],
+                                                                       self.MOT['PROPELLER']['Tables']['CN'],
+                                                                       kx=1, ky=1)
+        
+  
+        self.MOT['PROPELLER']['Tables']['CP'] = np.array([[0.0439 , 0.0584 , 0.0706 , 0.0790 , 0.0846 , 0.0895 , 0.0936 , 0.0956 , 0.0958 , 0.0952 , 0.0934 , 0.0907 , 0.0875 , 0.0831 , 0.0775 , 0.0709 , 0.0640 , 0.0569 , 0.0495 , 0.0419 , 0.0340 , -0.0055],
+                                                          [0.0439 , 0.0555 , 0.0664 , 0.0753 , 0.0831 , 0.0890 , 0.0932 , 0.0969 , 0.1004 , 0.1042 , 0.1061 , 0.1067 , 0.1064 , 0.1056 , 0.1040 , 0.1017 , 0.0994 , 0.0974 , 0.0958 , 0.0947 , 0.0939 , 0.0899],
+                                                          [0.0439 , 0.0545 , 0.0657 , 0.0760 , 0.0845 , 0.0928 , 0.1013 , 0.1096 , 0.1179 , 0.1269 , 0.1340 , 0.1391 , 0.1426 , 0.1457 , 0.1480 , 0.1499 , 0.1514 , 0.1532 , 0.1555 , 0.1584 , 0.1617 , 0.1782],
+                                                          [0.0439 , 0.0570 , 0.0694 , 0.0803 , 0.0910 , 0.1014 , 0.1119 , 0.1244 , 0.1389 , 0.1554 , 0.1710 , 0.1862 , 0.2012 , 0.2164 , 0.2295 , 0.2407 , 0.2499 , 0.2593 , 0.2694 , 0.2803 , 0.2919 , 0.3499],
+                                                          [0.0439 , 0.0572 , 0.0687 , 0.0784 , 0.0901 , 0.1038 , 0.1194 , 0.1380 , 0.1599 , 0.1857 , 0.2107 , 0.2346 , 0.2570 , 0.2798 , 0.3027 , 0.3257 , 0.3493 , 0.3743 , 0.4010 , 0.4296 , 0.4594 , 0.6084],
+                                                          [0.0439 , 0.0550 , 0.0657 , 0.0762 , 0.0908 , 0.1096 , 0.1324 , 0.1577 , 0.1851 , 0.2145 , 0.2433 , 0.2720 , 0.3006 , 0.3308 , 0.3622 , 0.3947 , 0.4278 , 0.4613 , 0.4949 , 0.5282 , 0.5613 , 0.7268],
+                                                          [0.0439 , 0.0556 , 0.0673 , 0.0793 , 0.0960 , 0.1173 , 0.1429 , 0.1712 , 0.2019 , 0.2347 , 0.2680 , 0.3022 , 0.3375 , 0.3738 , 0.4073 , 0.4379 , 0.4653 , 0.4932 , 0.5211 , 0.5553 , 0.5906 , 0.7671],
+                                                          [0.0439 , 0.0555 , 0.0681 , 0.0821 , 0.0998 , 0.1215 , 0.1473 , 0.1780 , 0.2120 , 0.2485 , 0.2831 , 0.3169 , 0.3510 , 0.3868 , 0.4226 , 0.4580 , 0.4927 , 0.5284 , 0.5652 , 0.6030 , 0.6414 , 0.8334]])
+        self.MOT['PROPELLER']['Tables']['CP'] = self.MOT['PROPELLER']['Tables']['CP'] * (1+self.UNC['Res']['MOT']['Gain']['CP'])
+        self.MOT['PROPELLER']['Tables']['CPfcn'] = RectBivariateSpline(self.MOT['PROPELLER']['Tables']['Alpha_deg'],
+                                                                       self.MOT['PROPELLER']['Tables']['J'],
+                                                                       self.MOT['PROPELLER']['Tables']['CP'],
+                                                                       kx=1, ky=1)
+        self.MOT['PROPELLER']['M_kg']       = np.ones(self.MOT['n_motor']) * 0.526
+        self.MOT['PROPELLER']['I_kgm2']     = self.MOT['PROPELLER']['M_kg']  * self.MOT['PROPELLER']['Diameter_m']**2 / 12
+  
+        self.MOT['TiltSurf_link']  = np.array([0,0,0,0,1,1,1,1])                 #ID of surface which the motor is linked. Every motor will rotate the same amount
+        
+        self.MOT['Bandwidth_radps'] = 40 * (1+self.UNC['Res']['MOT']['Gain']['Bandwidth'])
+        self.MOT['Beta'] = np.exp(-self.MOT['Bandwidth_radps']*self.t_step)
+        
+  
+        self.MOT['MaxV_V']      = 450
+        self.MOT['imax_A']      = 500 #maximum constant is 250
+        self.MOT['i0_A']        = 0
+        self.MOT['R_ohm']       = 15*1e-3
+        self.MOT['Kq_A_Nm']     = 1/0.75  * (1+self.UNC['Res']['MOT']['Gain']['Kq'])
+        self.MOT['Kv_rpm_V']    = 6.53    * (1+self.UNC['Res']['MOT']['Gain']['Kv'])
+        self.MOT['dt']          = 0.001
+        
+        # Init Objects        
+        self.MOT['ESC']['obj'] = []
+        self.MOT['MOTOR']['obj'] = []
+        self.MOT['PROPELLER']['obj'] = []
+        self.MOT['ASSEMBLY']['obj'] = []
+  
+        for i in range(self.MOT['n_motor']):
+            self.MOT['ESC']['obj'].append(MotorESC(KP = 0.5, KI = 50, KD = 0, MaxV_V = self.MOT['MaxV_V'], ESC_dt = self.MOT['dt']))
+            self.MOT['MOTOR']['obj'].append(ElectricalMotor(Kq_A_Nm = self.MOT['Kq_A_Nm'], Kv_rpm_V = self.MOT['Kv_rpm_V'], i0_A = self.MOT['i0_A'], R_ohm = self.MOT['R_ohm'], imax_A = self.MOT['imax_A']))
+            self.MOT['PROPELLER']['obj'].append(Propeller(Tables = self.MOT['PROPELLER']['Tables'],
+                                                          I_kgm2 = self.MOT['PROPELLER']['I_kgm2'][i],
+                                                          Diam_m = self.MOT['PROPELLER']['Diameter_m'][i],
+                                                          Sim_dt = self.MOT['dt']))
+            self.MOT['ASSEMBLY']['obj'].append(MotorAssembly(self.MOT['ESC']['obj'][i],
+                                                             self.MOT['MOTOR']['obj'][i], 
+                                                             self.MOT['PROPELLER']['obj'][i],
+                                                             self.t_step, self.MOT['dt']))     
 
-      self.MOT['PROPELLER']['Tables']['CT'] = np.array([[0.1592 , 0.1497 , 0.1417 , 0.1348 , 0.1281 , 0.1211 , 0.1143 , 0.1074 , 0.1008 , 0.0946 , 0.0877 , 0.0804 , 0.0729 , 0.0666 , 0.0587 , 0.0492 , 0.0380 , 0.0278 , 0.0187 , 0.0107 , 0.0034 , -0.0331],
-                                                        [0.1592 , 0.1588 , 0.1562 , 0.1508 , 0.1435 , 0.1352 , 0.1266 , 0.1187 , 0.1127 , 0.1095 , 0.1055 , 0.1004 , 0.0940 , 0.0890 , 0.0833 , 0.0765 , 0.0676 , 0.0579 , 0.0468 , 0.0343 , 0.0209 , -0.0461],
-                                                        [0.1592 , 0.1592 , 0.1576 , 0.1536 , 0.1490 , 0.1449 , 0.1421 , 0.1394 , 0.1373 , 0.1364 , 0.1355 , 0.1345 , 0.1331 , 0.1333 , 0.1325 , 0.1304 , 0.1268 , 0.1238 , 0.1209 , 0.1180 , 0.1151 , 0.1006],
-                                                        [0.1592 , 0.1606 , 0.1614 , 0.1612 , 0.1606 , 0.1603 , 0.1611 , 0.1642 , 0.1698 , 0.1781 , 0.1856 , 0.1920 , 0.1976 , 0.2052 , 0.2109 , 0.2142 , 0.2145 , 0.2150 , 0.2157 , 0.2164 , 0.2172 , 0.2212],
-                                                        [0.1592 , 0.1652 , 0.1709 , 0.1760 , 0.1815 , 0.1876 , 0.1951 , 0.2035 , 0.2135 , 0.2255 , 0.2370 , 0.2477 , 0.2573 , 0.2682 , 0.2791 , 0.2897 , 0.2995 , 0.3095 , 0.3196 , 0.3298 , 0.3400 , 0.3910],
-                                                        [0.1592 , 0.1712 , 0.1826 , 0.1934 , 0.2053 , 0.2188 , 0.2342 , 0.2476 , 0.2596 , 0.2705 , 0.2830 , 0.2966 , 0.3108 , 0.3253 , 0.3390 , 0.3519 , 0.3636 , 0.3746 , 0.3844 , 0.3927 , 0.3998 , 0.4353],
-                                                        [0.1592 , 0.1736 , 0.1872 , 0.2000 , 0.2140 , 0.2297 , 0.2472 , 0.2632 , 0.2783 , 0.2931 , 0.3096 , 0.3272 , 0.3454 , 0.3637 , 0.3808 , 0.3970 , 0.4127 , 0.4294 , 0.4461 , 0.4637 , 0.4819 , 0.5729],
-                                                        [0.1592 , 0.1762 , 0.1930 , 0.2096 , 0.2256 , 0.2409 , 0.2558 , 0.2717 , 0.2891 , 0.3086 , 0.3284 , 0.3488 , 0.3693 , 0.3913 , 0.4140 , 0.4371 , 0.4607 , 0.4849 , 0.5099 , 0.5356 , 0.5618 , 0.6928]])
-      self.MOT['PROPELLER']['Tables']['CT'] = self.MOT['PROPELLER']['Tables']['CT'] * (1+self.UNC['Res']['MOT']['Gain']['CT'])
-      self.MOT['PROPELLER']['Tables']['CTfcn'] = RectBivariateSpline(self.MOT['PROPELLER']['Tables']['Alpha_deg'],
-                                                                     self.MOT['PROPELLER']['Tables']['J'],
-                                                                     self.MOT['PROPELLER']['Tables']['CT'],
-                                                                     kx=1, ky=1)
+        if self.OPT['Training']['AllEngines']:
+            self.MOT['SimRange'] = range(self.MOT['n_motor'])
+            self.MOT['Equiv_n'] = range(self.MOT['n_motor'])
+        else:
+            self.MOT['SimRange'] = [0,4]    
+            self.MOT['Equiv_n'] = [0, 0, 0, 0, 4, 4, 4, 4]
 
-      self.MOT['PROPELLER']['Tables']['CN'] = np.array([[0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000 , 0.0000],
-                                                        [0.0000 , 0.0007 , 0.0017 , 0.0029 , 0.0042 , 0.0056 , 0.0074 , 0.0096 , 0.0123 , 0.0152 , 0.0185 , 0.0221 , 0.0261 , 0.0309 , 0.0365 , 0.0429 , 0.0501 , 0.0580 , 0.0664 , 0.0749 , 0.0835 , 0.1265],
-                                                        [0.0000 , 0.0008 , 0.0022 , 0.0044 , 0.0071 , 0.0103 , 0.0139 , 0.0180 , 0.0229 , 0.0285 , 0.0348 , 0.0419 , 0.0499 , 0.0588 , 0.0686 , 0.0795 , 0.0915 , 0.1045 , 0.1184 , 0.1332 , 0.1484 , 0.2244],
-                                                        [0.0000 , 0.0021 , 0.0045 , 0.0076 , 0.0115 , 0.0160 , 0.0214 , 0.0277 , 0.0353 , 0.0443 , 0.0540 , 0.0645 , 0.0757 , 0.0878 , 0.1007 , 0.1143 , 0.1287 , 0.1441 , 0.1603 , 0.1774 , 0.1950 , 0.2830],
-                                                        [0.0000 , 0.0034 , 0.0068 , 0.0105 , 0.0148 , 0.0202 , 0.0266 , 0.0346 , 0.0442 , 0.0555 , 0.0677 , 0.0805 , 0.0941 , 0.1086 , 0.1238 , 0.1396 , 0.1561 , 0.1736 , 0.1922 , 0.2118 , 0.2320 , 0.3330],
-                                                        [0.0000 , 0.0023 , 0.0053 , 0.0093 , 0.0145 , 0.0208 , 0.0284 , 0.0375 , 0.0483 , 0.0605 , 0.0736 , 0.0876 , 0.1028 , 0.1195 , 0.1364 , 0.1532 , 0.1693 , 0.1856 , 0.2020 , 0.2181 , 0.2342 , 0.3147],
-                                                        [0.0000 , 0.0033 , 0.0073 , 0.0122 , 0.0179 , 0.0242 , 0.0313 , 0.0399 , 0.0502 , 0.0620 , 0.0745 , 0.0876 , 0.1014 , 0.1162 , 0.1311 , 0.1460 , 0.1605 , 0.1753 , 0.1901 , 0.2032 , 0.2170 , 0.2860],
-                                                        [0.0000 , 0.0029 , 0.0067 , 0.0113 , 0.0164 , 0.0218 , 0.0277 , 0.0349 , 0.0435 , 0.0533 , 0.0640 , 0.0757 , 0.0886 , 0.1027 , 0.1166 , 0.1298 , 0.1417 , 0.1534 , 0.1648 , 0.1760 , 0.1870 , 0.2420]])
-      self.MOT['PROPELLER']['Tables']['CN'] = self.MOT['PROPELLER']['Tables']['CN'] * (1+self.UNC['Res']['MOT']['Gain']['CN'])
-      self.MOT['PROPELLER']['Tables']['CNfcn'] = RectBivariateSpline(self.MOT['PROPELLER']['Tables']['Alpha_deg'],
-                                                                     self.MOT['PROPELLER']['Tables']['J'],
-                                                                     self.MOT['PROPELLER']['Tables']['CN'],
-                                                                     kx=1, ky=1)
-      
-
-      self.MOT['PROPELLER']['Tables']['CP'] = np.array([[0.0439 , 0.0584 , 0.0706 , 0.0790 , 0.0846 , 0.0895 , 0.0936 , 0.0956 , 0.0958 , 0.0952 , 0.0934 , 0.0907 , 0.0875 , 0.0831 , 0.0775 , 0.0709 , 0.0640 , 0.0569 , 0.0495 , 0.0419 , 0.0340 , -0.0055],
-                                                        [0.0439 , 0.0555 , 0.0664 , 0.0753 , 0.0831 , 0.0890 , 0.0932 , 0.0969 , 0.1004 , 0.1042 , 0.1061 , 0.1067 , 0.1064 , 0.1056 , 0.1040 , 0.1017 , 0.0994 , 0.0974 , 0.0958 , 0.0947 , 0.0939 , 0.0899],
-                                                        [0.0439 , 0.0545 , 0.0657 , 0.0760 , 0.0845 , 0.0928 , 0.1013 , 0.1096 , 0.1179 , 0.1269 , 0.1340 , 0.1391 , 0.1426 , 0.1457 , 0.1480 , 0.1499 , 0.1514 , 0.1532 , 0.1555 , 0.1584 , 0.1617 , 0.1782],
-                                                        [0.0439 , 0.0570 , 0.0694 , 0.0803 , 0.0910 , 0.1014 , 0.1119 , 0.1244 , 0.1389 , 0.1554 , 0.1710 , 0.1862 , 0.2012 , 0.2164 , 0.2295 , 0.2407 , 0.2499 , 0.2593 , 0.2694 , 0.2803 , 0.2919 , 0.3499],
-                                                        [0.0439 , 0.0572 , 0.0687 , 0.0784 , 0.0901 , 0.1038 , 0.1194 , 0.1380 , 0.1599 , 0.1857 , 0.2107 , 0.2346 , 0.2570 , 0.2798 , 0.3027 , 0.3257 , 0.3493 , 0.3743 , 0.4010 , 0.4296 , 0.4594 , 0.6084],
-                                                        [0.0439 , 0.0550 , 0.0657 , 0.0762 , 0.0908 , 0.1096 , 0.1324 , 0.1577 , 0.1851 , 0.2145 , 0.2433 , 0.2720 , 0.3006 , 0.3308 , 0.3622 , 0.3947 , 0.4278 , 0.4613 , 0.4949 , 0.5282 , 0.5613 , 0.7268],
-                                                        [0.0439 , 0.0556 , 0.0673 , 0.0793 , 0.0960 , 0.1173 , 0.1429 , 0.1712 , 0.2019 , 0.2347 , 0.2680 , 0.3022 , 0.3375 , 0.3738 , 0.4073 , 0.4379 , 0.4653 , 0.4932 , 0.5211 , 0.5553 , 0.5906 , 0.7671],
-                                                        [0.0439 , 0.0555 , 0.0681 , 0.0821 , 0.0998 , 0.1215 , 0.1473 , 0.1780 , 0.2120 , 0.2485 , 0.2831 , 0.3169 , 0.3510 , 0.3868 , 0.4226 , 0.4580 , 0.4927 , 0.5284 , 0.5652 , 0.6030 , 0.6414 , 0.8334]])
-      self.MOT['PROPELLER']['Tables']['CP'] = self.MOT['PROPELLER']['Tables']['CP'] * (1+self.UNC['Res']['MOT']['Gain']['CP'])
-      self.MOT['PROPELLER']['Tables']['CPfcn'] = RectBivariateSpline(self.MOT['PROPELLER']['Tables']['Alpha_deg'],
-                                                                     self.MOT['PROPELLER']['Tables']['J'],
-                                                                     self.MOT['PROPELLER']['Tables']['CP'],
-                                                                     kx=1, ky=1)
-      self.MOT['PROPELLER']['M_kg']       = np.ones(self.MOT['n_motor']) * 0.526
-      self.MOT['PROPELLER']['I_kgm2']     = self.MOT['PROPELLER']['M_kg']  * self.MOT['PROPELLER']['Diameter_m']**2 / 12
-
-      self.MOT['TiltSurf_link']  = np.array([0,0,0,0,1,1,1,1])                 #ID of surface which the motor is linked. Every motor will rotate the same amount
-      
-      self.MOT['Bandwidth_radps'] = 40 * (1+self.UNC['Res']['MOT']['Gain']['Bandwidth'])
-      self.MOT['Beta'] = np.exp(-self.MOT['Bandwidth_radps']*self.t_step)
-      
-
-      self.MOT['MaxV_V']      = 450
-      self.MOT['imax_A']      = 500 #maximum constant is 250
-      self.MOT['i0_A']        = 0
-      self.MOT['R_ohm']       = 15*1e-3
-      self.MOT['Kq_A_Nm']     = 1/0.75  * (1+self.UNC['Res']['MOT']['Gain']['Kq'])
-      self.MOT['Kv_rpm_V']    = 6.53    * (1+self.UNC['Res']['MOT']['Gain']['Kv'])
-      self.MOT['dt']          = 0.001
-      
-      # Init Objects        
-      self.MOT['ESC']['obj'] = []
-      self.MOT['MOTOR']['obj'] = []
-      self.MOT['PROPELLER']['obj'] = []
-      self.MOT['ASSEMBLY']['obj'] = []
-      for i in range(self.MOT['n_motor']):
-        self.MOT['ESC']['obj'].append(MotorESC(KP = 0.5, KI = 50, KD = 0, MaxV_V = self.MOT['MaxV_V'], ESC_dt = self.MOT['dt']))
-        self.MOT['MOTOR']['obj'].append(ElectricalMotor(Kq_A_Nm = self.MOT['Kq_A_Nm'], Kv_rpm_V = self.MOT['Kv_rpm_V'], i0_A = self.MOT['i0_A'], R_ohm = self.MOT['R_ohm'], imax_A = self.MOT['imax_A']))
-        self.MOT['PROPELLER']['obj'].append(Propeller(Tables = self.MOT['PROPELLER']['Tables'],
-                                                      I_kgm2 = self.MOT['PROPELLER']['I_kgm2'][i],
-                                                      Diam_m = self.MOT['PROPELLER']['Diameter_m'][i],
-                                                      Sim_dt = self.MOT['dt']))
-        self.MOT['ASSEMBLY']['obj'].append(MotorAssembly(self.MOT['ESC']['obj'][i],
-                                                         self.MOT['MOTOR']['obj'][i], 
-                                                         self.MOT['PROPELLER']['obj'][i],
-                                                         self.t_step, self.MOT['dt']))
-      
+        for i in range(self.MOT['n_motor']):
+            if i not in self.MOT['SimRange']:
+                self.MOT['ASSEMBLY']['obj'][i] = self.MOT['ASSEMBLY']['obj'][self.MOT['Equiv_n'][i]]
+                   
+        
     def init_CONT (self):
-      
-      self.CONT['Actuators'] = {}
-      
-      # Wing Tilt
-      self.CONT['n_TiltSurf']    = 2
-      self.CONT['MinTilt_deg']   = np.ones(self.CONT['n_TiltSurf']) * 0
-      self.CONT['MaxTilt_deg']   = np.ones(self.CONT['n_TiltSurf']) * 90
-      self.CONT['TiltRange_deg'] = self.CONT['MaxTilt_deg'] - self.CONT['MinTilt_deg'] 
-      
-      self.CONT['Actuators']['WingTilt'] = {}
-      self.CONT['Actuators']['WingTilt']['CutFreq_radps'] = np.ones(self.CONT['n_TiltSurf']) * 20 * (1+self.UNC['Res']['CONT']['Gain']['WingTilt_Bandwidth'])
-      self.CONT['Actuators']['WingTilt']['MaxRate']       = np.ones(self.CONT['n_TiltSurf']) * 10 * (1+self.UNC['Res']['CONT']['Gain']['WingTilt_Rate'])
-      self.CONT['Actuators']['WingTilt']['t_act']         = np.ones(self.CONT['n_TiltSurf']) * 0.001
-      self.CONT['Actuators']['WingTilt']['Actuators'] = []
-     
-      for i in range(self.CONT['n_TiltSurf']):
-          self.CONT['Actuators']['WingTilt']['Actuators'].append(Actuator(CutFreq_radps = self.CONT['Actuators']['WingTilt']['CutFreq_radps'][i],
-                                                                 MaxRate = self.CONT['Actuators']['WingTilt']['MaxRate'][i], 
-                                                                 time_sample_actuator = self.CONT['Actuators']['WingTilt']['t_act'][i], 
-                                                                 time_sample_sim = self.t_step, 
-                                                                 bypassDynamic = not(self.OPT['UseActuator'])))
-      
-      # Elevons
-      self.CONT['n_elev'] = 4
-      self.CONT['MinElev_deg']   = np.ones(self.CONT['n_elev']) * -15
-      self.CONT['MaxElev_deg']   = np.ones(self.CONT['n_elev']) * +15
-      self.CONT['ElevRange_deg'] = self.CONT['MaxElev_deg'] - self.CONT['MinElev_deg'] 
-      self.CONT['ElevCenter_deg'] = (self.CONT['MinElev_deg'] + self.CONT['MaxElev_deg']) / 2
-
-      self.CONT['Actuators']['Elevon'] = {}
-      self.CONT['Actuators']['Elevon']['CutFreq_radps'] = np.ones(self.CONT['n_elev']) * 40 * (1+self.UNC['Res']['CONT']['Gain']['Elevon_Bandwidth'])
-      self.CONT['Actuators']['Elevon']['MaxRate']       = np.ones(self.CONT['n_elev']) * 20 * (1+self.UNC['Res']['CONT']['Gain']['Elevon_Rate'])
-      self.CONT['Actuators']['Elevon']['t_act']         = np.ones(self.CONT['n_elev']) * 0.001
-      self.CONT['Actuators']['Elevon']['Actuators'] = []
-     
-      for i in range(self.CONT['n_elev']):
-          self.CONT['Actuators']['Elevon']['Actuators'].append(Actuator(CutFreq_radps = self.CONT['Actuators']['Elevon']['CutFreq_radps'][i],
-                                                                      MaxRate = self.CONT['Actuators']['Elevon']['MaxRate'][i], 
-                                                                      time_sample_actuator = self.CONT['Actuators']['Elevon']['t_act'][i], 
-                                                                      time_sample_sim = self.t_step))
+        
+        self.CONT['Actuators'] = {}
+        
+        # Wing Tilt
+        self.CONT['n_TiltSurf']    = 2
+        self.CONT['MinTilt_deg']   = np.ones(self.CONT['n_TiltSurf']) * 0
+        self.CONT['MaxTilt_deg']   = np.ones(self.CONT['n_TiltSurf']) * 90
+        self.CONT['TiltRange_deg'] = self.CONT['MaxTilt_deg'] - self.CONT['MinTilt_deg'] 
+        
+        self.CONT['Actuators']['WingTilt'] = {}
+        self.CONT['Actuators']['WingTilt']['CutFreq_radps'] = np.ones(self.CONT['n_TiltSurf']) * 20 * (1+self.UNC['Res']['CONT']['Gain']['WingTilt_Bandwidth'])
+        self.CONT['Actuators']['WingTilt']['MaxRate']       = np.ones(self.CONT['n_TiltSurf']) * 10 * (1+self.UNC['Res']['CONT']['Gain']['WingTilt_Rate'])
+        self.CONT['Actuators']['WingTilt']['t_act']         = np.ones(self.CONT['n_TiltSurf']) * 0.001
+        self.CONT['Actuators']['WingTilt']['Actuators'] = []
+       
+        for i in range(self.CONT['n_TiltSurf']):
+            self.CONT['Actuators']['WingTilt']['Actuators'].append(Actuator(CutFreq_radps = self.CONT['Actuators']['WingTilt']['CutFreq_radps'][i],
+                                                                   MaxRate = self.CONT['Actuators']['WingTilt']['MaxRate'][i], 
+                                                                   time_sample_actuator = self.CONT['Actuators']['WingTilt']['t_act'][i], 
+                                                                   time_sample_sim = self.t_step, 
+                                                                   bypassDynamic = not(self.OPT['UseActuator'])))
+        
+        # Elevons
+        self.CONT['n_elev'] = 4
+        self.CONT['MinElev_deg']   = np.ones(self.CONT['n_elev']) * -15
+        self.CONT['MaxElev_deg']   = np.ones(self.CONT['n_elev']) * +15
+        self.CONT['ElevRange_deg'] = self.CONT['MaxElev_deg'] - self.CONT['MinElev_deg'] 
+        self.CONT['ElevCenter_deg'] = (self.CONT['MinElev_deg'] + self.CONT['MaxElev_deg']) / 2
+  
+        self.CONT['Actuators']['Elevon'] = {}
+        self.CONT['Actuators']['Elevon']['CutFreq_radps'] = np.ones(self.CONT['n_elev']) * 40 * (1+self.UNC['Res']['CONT']['Gain']['Elevon_Bandwidth'])
+        self.CONT['Actuators']['Elevon']['MaxRate']       = np.ones(self.CONT['n_elev']) * 20 * (1+self.UNC['Res']['CONT']['Gain']['Elevon_Rate'])
+        self.CONT['Actuators']['Elevon']['t_act']         = np.ones(self.CONT['n_elev']) * 0.001
+        self.CONT['Actuators']['Elevon']['Actuators'] = []
+       
+        for i in range(self.CONT['n_elev']):
+            self.CONT['Actuators']['Elevon']['Actuators'].append(Actuator(CutFreq_radps = self.CONT['Actuators']['Elevon']['CutFreq_radps'][i],
+                                                                        MaxRate = self.CONT['Actuators']['Elevon']['MaxRate'][i], 
+                                                                        time_sample_actuator = self.CONT['Actuators']['Elevon']['t_act'][i], 
+                                                                        time_sample_sim = self.t_step))
       
     def init_SENS (self):
         
@@ -1594,9 +1608,14 @@ class Vahana_VertFlight(gym.Env):
         self.SENS['Sensors']['IMU'] = {}
         self.SENS['Sensors']['ADS'] = {}
         
+        if self.UseLateralActions:
+            time_sample_lateral_sensor = self.t_step
+        else:
+            time_sample_lateral_sensor = 0.001
+
         self.SENS['Sensors']['IMU']['P_radps'] = Sensor(CutFreq_radps = self.SENS['Data']['IMU']['CutFreq_radps'],
                                                   Delay_s = self.SENS['Data']['IMU']['Delay_s'],
-                                                  time_sample_sensor = 0.001,
+                                                  time_sample_sensor = time_sample_lateral_sensor,
                                                   time_sample_sim = self.t_step,
                                                   bypassDynamic = not(self.OPT['UseSensors']))
         self.SENS['Sensors']['IMU']['Q_radps'] = Sensor(CutFreq_radps = self.SENS['Data']['IMU']['CutFreq_radps'],
@@ -1606,13 +1625,13 @@ class Vahana_VertFlight(gym.Env):
                                                   bypassDynamic = not(self.OPT['UseSensors']))
         self.SENS['Sensors']['IMU']['R_radps'] = Sensor(CutFreq_radps = self.SENS['Data']['IMU']['CutFreq_radps'],
                                                   Delay_s = self.SENS['Data']['IMU']['Delay_s'],
-                                                  time_sample_sensor = 0.001,
+                                                  time_sample_sensor = time_sample_lateral_sensor,
                                                   time_sample_sim = self.t_step,
                                                   bypassDynamic = not(self.OPT['UseSensors']))
         
         self.SENS['Sensors']['IMU']['Phi_rad'] = Sensor(CutFreq_radps = self.SENS['Data']['IMU']['CutFreq_radps'],
                                                     Delay_s = self.SENS['Data']['IMU']['Delay_s'],
-                                                    time_sample_sensor = 0.001,
+                                                    time_sample_sensor = time_sample_lateral_sensor,
                                                     time_sample_sim = self.t_step,
                                                     bypassDynamic = not(self.OPT['UseSensors']))
         self.SENS['Sensors']['IMU']['Theta_rad'] = Sensor(CutFreq_radps = self.SENS['Data']['IMU']['CutFreq_radps'],
@@ -1622,7 +1641,7 @@ class Vahana_VertFlight(gym.Env):
                                                       bypassDynamic = not(self.OPT['UseSensors']))
         self.SENS['Sensors']['IMU']['Psi_rad'] = Sensor(CutFreq_radps = self.SENS['Data']['IMU']['CutFreq_radps'],
                                                     Delay_s = self.SENS['Data']['IMU']['Delay_s'],
-                                                    time_sample_sensor = 0.001,
+                                                    time_sample_sensor = time_sample_lateral_sensor,
                                                     time_sample_sim = self.t_step,
                                                     bypassDynamic = not(self.OPT['UseSensors']))
         
@@ -1633,7 +1652,7 @@ class Vahana_VertFlight(gym.Env):
                                                    bypassDynamic = not(self.OPT['UseSensors']))
         self.SENS['Sensors']['IMU']['VY_mps'] = Sensor(CutFreq_radps = self.SENS['Data']['IMU']['CutFreq_radps'],
                                                    Delay_s = self.SENS['Data']['IMU']['Delay_s'],
-                                                   time_sample_sensor = 0.001,
+                                                   time_sample_sensor = time_sample_lateral_sensor,
                                                    time_sample_sim = self.t_step,
                                                    bypassDynamic = not(self.OPT['UseSensors']))
         self.SENS['Sensors']['IMU']['VZ_mps'] = Sensor(CutFreq_radps = self.SENS['Data']['IMU']['CutFreq_radps'],
@@ -1649,7 +1668,7 @@ class Vahana_VertFlight(gym.Env):
                                                    bypassDynamic = not(self.OPT['UseSensors']))
         self.SENS['Sensors']['IMU']['Y_m'] = Sensor(CutFreq_radps = self.SENS['Data']['IMU']['CutFreq_radps'],
                                                    Delay_s = self.SENS['Data']['IMU']['Delay_s'],
-                                                   time_sample_sensor = 0.001,
+                                                   time_sample_sensor = time_sample_lateral_sensor,
                                                    time_sample_sim = self.t_step,
                                                    bypassDynamic = not(self.OPT['UseSensors']))
         self.SENS['Sensors']['IMU']['Z_m'] = Sensor(CutFreq_radps = self.SENS['Data']['IMU']['CutFreq_radps'],
@@ -1665,7 +1684,7 @@ class Vahana_VertFlight(gym.Env):
                                                    bypassDynamic = not(self.OPT['UseSensors']))
         self.SENS['Sensors']['IMU']['NY_mps2'] = Sensor(CutFreq_radps = self.SENS['Data']['IMU']['CutFreq_radps'],
                                                    Delay_s = self.SENS['Data']['IMU']['Delay_s'],
-                                                   time_sample_sensor = 0.001,
+                                                   time_sample_sensor = time_sample_lateral_sensor,
                                                    time_sample_sim = self.t_step,
                                                    bypassDynamic = not(self.OPT['UseSensors']))
         self.SENS['Sensors']['IMU']['NZ_mps2'] = Sensor(CutFreq_radps = self.SENS['Data']['IMU']['CutFreq_radps'],
@@ -2090,12 +2109,14 @@ class Vahana_VertFlight(gym.Env):
             
             # Calculate RPM
             for i in range(self.MOT['n_motor']):
-                self.MOT['ASSEMBLY']['obj'][i].set_zero(self.CONT['Throttle_p'][i], MOT_VTotal_p[i,0] , self.ATM['rho_kgm3'])
-                self.MOT['RPM'][i] = self.MOT['ASSEMBLY']['obj'][i].RPM
+                if i in self.MOT['SimRange']:
+                    self.MOT['ASSEMBLY']['obj'][i].set_zero(self.CONT['Throttle_p'][i], MOT_VTotal_p[i,0] , self.ATM['rho_kgm3'])
+                    self.MOT['RPM'][i] = self.MOT['ASSEMBLY']['obj'][i].RPM
         else:
             for i in range(self.MOT['n_motor']):
-                self.MOT['ASSEMBLY']['obj'][i].step(self.CONT['Throttle_p'][i] * MotorNotFailed[i] , MOT_VTotal_p[i,0], self.ATM['rho_kgm3'])
-                self.MOT['RPM'][i] = self.MOT['ASSEMBLY']['obj'][i].RPM
+                if i in self.MOT['SimRange']:
+                    self.MOT['ASSEMBLY']['obj'][i].step(self.CONT['Throttle_p'][i] * MotorNotFailed[i] , MOT_VTotal_p[i,0], self.ATM['rho_kgm3'])
+                    self.MOT['RPM'][i] = self.MOT['ASSEMBLY']['obj'][i].RPM
                 
         self.MOT['RPS'] = self.MOT['RPM'] / 60
         
