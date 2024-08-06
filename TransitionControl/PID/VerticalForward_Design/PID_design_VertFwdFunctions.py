@@ -10,17 +10,20 @@ import control as ct
 
 def gen_Aircraft (TestEnv , VX_mps = 0, AX_mps2 = None, Elevator_deg = None):
     TestEnv.reset(VX_mps = VX_mps, VZ_mps = 0.0, AX_mps2 = AX_mps2, Elevator_deg = Elevator_deg, THETA = 0.0, DispMessages = False, Linearize = True,
-                        TermTheta_deg = 45, StaFreezeList = [] , UNC_seed = None , UNC_enable = 0, Training_Turb = False, Training_WindX = False)
+                        TermTheta_deg = 45, StaFreezeList = [] , UNC_seed = None , UNC_enable = 0, Training_Turb = False, Training_WindX = False, 
+                        Training_Trim = False)
     if (TestEnv.TrimData['Trimmed'] < 0.5) :
         if AX_mps2 < 0:
             if VX_mps < 31:
                 print('Not trimmed with required AX. Trimming with Tilt_deg = 90')
                 TestEnv.reset(VX_mps = VX_mps, VZ_mps = 0.0, Tilt_deg = 90, Elevator_deg = Elevator_deg, THETA = 0.0, DispMessages = False, Linearize = True,
-                        TermTheta_deg = 45, StaFreezeList = [] , UNC_seed = None , UNC_enable = 0, Training_Turb = False, Training_WindX = False)
+                        TermTheta_deg = 45, StaFreezeList = [] , UNC_seed = None , UNC_enable = 0, Training_Turb = False, Training_WindX = False,
+                        Training_Trim = False)
             else:
                 print('Not trimmed with required AX. Trimming with Throttle = 0')
                 TestEnv.reset(VX_mps = VX_mps, VZ_mps = 0.0, Throttle_u = -1.0, Elevator_deg = Elevator_deg, THETA = 0.0, DispMessages = False, Linearize = True,
-                        TermTheta_deg = 45, StaFreezeList = [] , UNC_seed = None , UNC_enable = 0, Training_Turb = False, Training_WindX = False)
+                        TermTheta_deg = 45, StaFreezeList = [] , UNC_seed = None , UNC_enable = 0, Training_Turb = False, Training_WindX = False, 
+                        Training_Trim = False)
                 
     if (TestEnv.TrimData['Trimmed'] < 0.5):
         print('VX[mps]: %0.0f, AX[mps2]: %0.1f : Not trimmed' %(VX_mps , AX_mps2))

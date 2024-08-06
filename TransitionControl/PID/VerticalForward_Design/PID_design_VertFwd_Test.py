@@ -15,8 +15,8 @@ from PID_design_VertFwdPlots import gen_Plots
 from PID_design_VertFwdFunctions import gen_Actuator, gen_AltController, gen_SpeedController, gen_Sensor, gen_Aircraft
 import pickle
 import sys
-sys.path.insert(1, '/home/dsalarc/Documents/DOUTORADO/Environments/VTOL/TransitionControl/PID/')
-from PID_design_PitchFunctions import Controller as gen_PitchController
+sys.path.insert(1, '/home/dsalarc/Documents/DOUTORADO/Environments/VTOL/TransitionControl/PID')
+from PID_design_PitchFunctions import gen_PitchController as gen_PitchController
 from PID_design_PitchFunctions import gen_ControlAllocation
 from PID_design_PitchClosedLoops import PitchClosedLoops as gen_PitchClosedLoops
 
@@ -40,6 +40,7 @@ TestEnv = gym.make('gym_VTOL:Vahana_VertFlight-v0')
 # %% LOAD PITCH CONTROLLER
 with open('/home/dsalarc/Documents/DOUTORADO/Environments/VTOL/TransitionControl/PID/SavedGains_20231222_1134_Nelder-Mead_smooth.pkl', 'rb') as fp:
     aux = pickle.load(fp)
+    
 PitchCont_gains = aux['GainsVec'].copy()
 PitchCont_gains['VX_mps'] = aux['TrimVec']['VX_mps'][:]
 
@@ -298,7 +299,7 @@ for n_t in range(len(TestVec['AX_mps2'])):
     plt.plot(TestVec['VX_mps'] , TrimRes['Thrust_1'][:,n_t],color, linewidth = 2)
     plt.ylim([0, 150])
     plt.xlabel('CAS [m/s]')
-    plt.ylabel('Thrust [N] \n Front Engines')
+    plt.ylabel('Thrust [N] \n Front Motors')
     plt.xticks(np.arange(45, 71, 5))
    
     plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
@@ -307,7 +308,7 @@ for n_t in range(len(TestVec['AX_mps2'])):
     plt.plot(TestVec['VX_mps'] , TrimRes['Thrust_5'][:,n_t],color, linewidth = 2)
     plt.ylim([0, 150])
     plt.xlabel('CAS [m/s]')
-    plt.ylabel('Thrust [N] \n Back Engines')
+    plt.ylabel('Thrust [N] \n Back Motors')
 
     plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
     plt.grid('on')
@@ -315,7 +316,7 @@ for n_t in range(len(TestVec['AX_mps2'])):
     plt.plot(TestVec['VX_mps'] , TrimRes['RPM_1'][:,n_t],color, linewidth = 2)
     plt.ylim([0, 3000])
     plt.xlabel('CAS [m/s]')
-    plt.ylabel('RPM \n Front Engines')
+    plt.ylabel('RPM \n Front Motors')
     plt.xticks(np.arange(45, 71, 5))
    
     plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
@@ -324,7 +325,7 @@ for n_t in range(len(TestVec['AX_mps2'])):
     plt.plot(TestVec['VX_mps'] , TrimRes['RPM_5'][:,n_t],color, linewidth = 2)
     plt.ylim([0, 3000])
     plt.xlabel('CAS [m/s]')
-    plt.ylabel('RPM \n Back Engines')
+    plt.ylabel('RPM \n Back Motors')
     plt.xticks(np.arange(45, 71, 5))
    
     plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
@@ -332,7 +333,7 @@ for n_t in range(len(TestVec['AX_mps2'])):
     plt.xlim([np.min(TestVec['VX_mps']),np.max(TestVec['VX_mps'])])
     plt.plot(TestVec['VX_mps'] , TrimRes['Throttle1_p'][:,n_t],color, linewidth = 2)
     plt.xlabel('CAS [m/s]')
-    plt.ylabel('Throttle [p] \n Front Engines')
+    plt.ylabel('Throttle [p] \n Front Motors')
     plt.xticks(np.arange(45, 71, 5))
    
     plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
@@ -340,7 +341,23 @@ for n_t in range(len(TestVec['AX_mps2'])):
     plt.xlim([np.min(TestVec['VX_mps']),np.max(TestVec['VX_mps'])])
     plt.plot(TestVec['VX_mps'] , TrimRes['Throttle5_p'][:,n_t],color, linewidth = 2)
     plt.xlabel('CAS [m/s]')
-    plt.ylabel('Throttle [p] \n Back Engines')
+    plt.ylabel('Throttle [p] \n Back Motors')
+    plt.xticks(np.arange(45, 71, 5))
+   
+    plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
+    plt.grid('on')
+    plt.xlim([np.min(TestVec['VX_mps']),np.max(TestVec['VX_mps'])])
+    plt.plot(TestVec['VX_mps'] , TrimRes['i1_A'][:,n_t],color, linewidth = 2)
+    plt.xlabel('CAS [m/s]')
+    plt.ylabel('Elec. Current [A] \n Front Motors')
+    plt.xticks(np.arange(45, 71, 5))
+   
+    plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
+    plt.grid('on')
+    plt.xlim([np.min(TestVec['VX_mps']),np.max(TestVec['VX_mps'])])
+    plt.plot(TestVec['VX_mps'] , TrimRes['i2_A'][:,n_t],color, linewidth = 2)
+    plt.xlabel('CAS [m/s]')
+    plt.ylabel('Elec. Current [A] \n Back Motors')
     plt.xticks(np.arange(45, 71, 5))
    
     # plt.subplot(plt_l,plt_c,plt_n); plt_n+=1

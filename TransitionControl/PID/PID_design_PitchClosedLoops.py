@@ -27,13 +27,15 @@ def PitchClosedLoops(Aircraft , Control, Sensor_q , Sensor_t , EngActuator, Elev
                                            'Control.PitchCmd', 
                                            'ControlAllocation.ThrottlePitch' , 'ControlAllocation.Elevator_u', 'ElevActuator.Elevator_u', 
                                            'Aircraft.Z_m' , 'Aircraft.VZ_mps', 'Aircraft.VX_mps',
-                                           'Aircraft.Nz_mps2' , 'Aircraft.Nx_mps2', 'Aircraft.Nzi_mps2', 'Aircraft.Nxi_mps2'],
+                                           'Aircraft.Nz_mps2' , 'Aircraft.Nx_mps2', 'Aircraft.Nzi_mps2', 'Aircraft.Nxi_mps2', 
+                                           'Aircraft.Throttle'],
                                 outputs = ['Theta_deg', 'Q_degps' , 
                                            'Q_cmd_degps' , 'Q_err_int_deg', 
                                            'PitchCmd_u' , 
                                            'ThrottlePitchCmd_u', 'ElevatorCmd_u', 'Elevator_u',
                                            'Z_m', 'VZ_mps', 'VX_mps' , 
-                                           'Nz_mps2', 'Nx_mps2','Nzi_mps2','Nxi_mps2'])
+                                           'Nz_mps2', 'Nx_mps2','Nzi_mps2','Nxi_mps2',
+                                           'Throttle_u'])
     
     ClosedLoops['AltitudeNotIncluded'] = ct.interconnect(
                                 [Aircraft['AltitudeNotIncluded']['SS'], Control['SS'] , Sensor_q['SS'] , Sensor_t['SS'] , EngActuator['SS']  , ElevActuator['SS']  , ControlAllocation['SS'] ],
@@ -162,7 +164,17 @@ def PitchClosedLoops(Aircraft , Control, Sensor_q , Sensor_t , EngActuator, Elev
                                 name = 'ClosedLoop_theta_open' , 
                                 inplist = ['Control.Q_ref_degps', 'Control.Theta_ref_deg', 'Control.PitchCmd_inp'],
                                 inputs = ['Q_ref_degps', 'Theta_ref_deg', 'PitchCmd_inp'],
-                                outlist = ['Aircraft.Theta_deg', 'Aircraft.Q_degps', 'Control.PitchCmd', 'Control.Q_cmd_degps', 'Control.Q_err_int_deg'],
-                                outputs = ['Theta_deg', 'Q_degps' , 'PitchCmd_u' , 'Q_cmd_degps' , 'Q_err_int_deg'])
+                                outlist = ['Aircraft.Theta_deg', 'Aircraft.Q_degps', 
+                                           'Control.Q_cmd_degps', 'Control.Q_err_int_deg' , 
+                                           'Control.PitchCmd', 
+                                           'ControlAllocation.ThrottlePitch' , 'ControlAllocation.Elevator_u', 'ElevActuator.Elevator_u', 
+                                           'Aircraft.Z_m' , 'Aircraft.VZ_mps', 'Aircraft.VX_mps',
+                                           'Aircraft.Nz_mps2' , 'Aircraft.Nx_mps2', 'Aircraft.Nzi_mps2', 'Aircraft.Nxi_mps2'],
+                                outputs = ['Theta_deg', 'Q_degps' , 
+                                           'Q_cmd_degps' , 'Q_err_int_deg', 
+                                           'PitchCmd_u' , 
+                                           'ThrottlePitchCmd_u', 'ElevatorCmd_u', 'Elevator_u',
+                                           'Z_m', 'VZ_mps', 'VX_mps' , 
+                                           'Nz_mps2', 'Nx_mps2','Nzi_mps2','Nxi_mps2'])
     
     return ClosedLoops

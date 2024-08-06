@@ -98,7 +98,7 @@ for nv in range(len(TestVec['VX_mps'])):
         else:
             plot_criteria = False
                 
-        PitchPlots(ClosedLoops , Criteria, ('%0.0f m/s |  %0.1f m/s2'%(VX_mps,AX_mps2)) ,color_rgb = ((1-color_u1),color_u2,color_u1), line_type = line_type_vec[nt], plot_criteria = plot_criteria)
+        # PitchPlots(ClosedLoops , Criteria, ('%0.0f m/s |  %0.1f m/s2'%(VX_mps,AX_mps2)) ,color_rgb = ((1-color_u1),color_u2,color_u1), line_type = line_type_vec[nt], plot_criteria = plot_criteria)
 
 plt.figure()
 for nt in range(len(TestVec['AX_mps2'])):
@@ -263,6 +263,13 @@ for n_t in range(len(TestVec['AX_mps2'])):
     plt.grid('on')
     plt.xlim([np.min(TestVec['VX_mps']),np.max(TestVec['VX_mps'])])
     plt.plot(TestVec['VX_mps'] , TrimRes['AX_mps2'][:,n_t],color, linewidth = 2)
+    plt.xlabel('Inertial X Speed [m/s]')
+    plt.ylabel('Inertial X Acceleration [m/s2]')
+
+    plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
+    plt.grid('on')
+    plt.xlim([np.min(TestVec['VX_mps']),np.max(TestVec['VX_mps'])])
+    plt.plot(TestVec['VX_mps'] , TrimRes['i1_A'][:,n_t],color, linewidth = 2)
     plt.xlabel('Inertial X Speed [m/s]')
     plt.ylabel('Inertial X Acceleration [m/s2]')
 

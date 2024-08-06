@@ -2,85 +2,126 @@ import numpy as np
 import control as ct
 import matplotlib.pyplot as plt
 
-def PitchPlots(ClosedLoops , Criteria, PlotLabel, color_rgb = (0,0,1), line_type = '-', plot_criteria = False):
+plt.rcParams.update({'font.size': 12})
+
+def PitchPlots(ClosedLoops , Criteria, PlotLabel, color_rgb = (0,0,1), line_type = '-', plot_criteria = False, plot_legend = True):
     
+    ReportPlot = True
+
     BodePlot_minFreq_10e_radps = -3
     BodePlot_maxFreq_10e_radps = 2
     
     # %% THETA CMD RESPONSE
     T, yout = ct.step_response(ClosedLoops['AltitudeIncluded'] , T=5, input = 1)
     
-    l = int(np.ceil(np.sqrt(len(yout))))
-    c = int(np.ceil(len(yout) / l))
+    if ReportPlot:
+        PlotList = np.array([0,1,2,4,5,6,7])
+    else:
+        PlotList = np.arange(len(yout))
+        
+    l = int(np.ceil(np.sqrt(len(PlotList))))
+    c = int(np.ceil(len(PlotList) / l))
     fig1 = plt.figure('ThetaStep')
-    for i in range(len(yout)):
-        plt.subplot(l,c,i+1)
+    n = 0
+    for i in PlotList:
+        n+=1
+        plt.subplot(l,c,n)
         plt.plot(T,yout[i][0], line_type, label = PlotLabel, color = color_rgb)
         plt.grid('on')
         plt.ylabel(ClosedLoops['AltitudeIncluded'].output_labels[i])
         plt.xlim([0,max(T)] )
-    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left',ncol=3)
+        if n > (l-1)*c:
+            plt.xlabel('Time [s]')
+
     if plot_criteria:
         plt.subplot(l,c,1)
-        plt.plot(np.array([Criteria['theta_risetime80']['target'] , np.max(T)]) , np.array([0.8 , 0.8]) , 'k--')
-        plt.text(Criteria['theta_risetime80']['target'] , 0.8+0.01 , 'Rise Time Criteria')
+        plt.plot(np.array([Criteria['theta_risetime80']['target'] , Criteria['theta_risetime80']['target'] , Criteria['theta_risetime80']['target']+7]) , np.array([0.6, 0.8 , 0.8]) , 'k--')
+        plt.text(Criteria['theta_risetime80']['target']+0.1 , 0.6 , 'Rise Time Criteria')
         plt.plot(np.array([0                                      , np.max(T)]) , 1+Criteria['theta_overshoot']['target']*np.array([1 , 1]) , 'k--')
         plt.text(0 , 1+Criteria['theta_overshoot']['target']+0.01 , 'Overshoot Criteria')
-        plt.ylim((0, 1.3))
+        plt.ylim((0, 1.4))
+        
     plt.suptitle('Theta Command Step')
-    figManager = plt.get_current_fig_manager()
-    figManager.window.showMaximized()
-    fig1.savefig('LinearResponse_PitchController_Thetastep.png', bbox_inches='tight')
+    fig1.set_size_inches(12, 6)
+    fig1.tight_layout(w_pad=1, h_pad=0.1,rect = (0,0,1,0.95))
     plt.show()
-
+    plt.subplot(l,c,n)
+    if plot_legend:
+        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left',ncol=3)
+    plt.savefig('LinearResponse_PitchController_Thetastep.pdf', format="pdf", dpi=fig1.dpi)
   
     # %% Q CMD RESPONSE, Theta Open
     T, yout = ct.step_response(ClosedLoops['NoThetaFeedback'] , T=5, input = 0)
     
-    l = int(np.ceil(np.sqrt(len(yout))))
-    c = int(np.ceil(len(yout) / l))
+    if ReportPlot:
+        PlotList = np.array([0,1,2,4,5,6,7])
+    else:
+        PlotList = np.arange(len(yout))
+
+    l = int(np.ceil(np.sqrt(len(PlotList))))
+    c = int(np.ceil(len(PlotList) / l))
     fig2 = plt.figure('QStep')
-    for i in range(len(yout)):
-        plt.subplot(l,c,i+1)
+    n = 0
+    for i in PlotList:
+        n+=1
+        plt.subplot(l,c,n)
         plt.plot(T,yout[i][0], line_type, label = PlotLabel, color = color_rgb)
         plt.grid('on')
         plt.ylabel(ClosedLoops['NoThetaFeedback'].output_labels[i])
         plt.xlim([0,max(T)] )
-    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left',ncol=3)
+        if n > (l-1)*c:
+            plt.xlabel('Time [s]')
+
     if plot_criteria:
         plt.subplot(l,c,2)
         plt.plot(np.array([0                                      , np.max(T)]) , 1+Criteria['q_overshoot']['target']*np.array([1 , 1]) , 'k--')
         plt.text(0 , 1+Criteria['q_overshoot']['target']+0.01 , 'Overshoot Criteria')
-        plt.ylim((0, 1.3))
+        plt.ylim((0, 1.4))
     plt.suptitle('Q Command Step (No theta feedback')
-    figManager = plt.get_current_fig_manager()
-    figManager.window.showMaximized()
-    fig2.savefig('LinearResponse_PitchController_Qstep.png', bbox_inches='tight')
+    fig2.set_size_inches(12, 6)
+    plt.tight_layout(w_pad=1, h_pad=0.1,rect = (0,0,1,0.95))
     plt.show()
+    plt.subplot(l,c,n)
+    if plot_legend:
+        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left',ncol=3)
+    fig2.savefig('LinearResponse_PitchController_Qstep.pdf', format="pdf", dpi=fig1.dpi)
 
     # %% THETA RESPONSE TO THROTTLE INPUT
     T, yout = ct.step_response(ClosedLoops['AltitudeIncluded'] , T=5, input = 3)
     
-    l = int(np.ceil(np.sqrt(len(yout))))
-    c = int(np.ceil(len(yout) / l))
+    if ReportPlot:
+        PlotList = np.array([0,1,2,4,5,6,7,15])
+    else:
+        PlotList = np.arange(len(yout))
+    
+    l = int(np.ceil(np.sqrt(len(PlotList))))
+    c = int(np.ceil(len(PlotList) / l))
     fig3 = plt.figure('ThrottleDist')
-    for i in range(len(yout)):
-        plt.subplot(l,c,i+1)
+    n = 0
+    for i in PlotList:
+        n+=1
+        plt.subplot(l,c,n)
         plt.plot(T,yout[i][0], line_type, label = PlotLabel, color = color_rgb)
         plt.grid('on')
         plt.ylabel(ClosedLoops['AltitudeIncluded'].output_labels[i])
         plt.xlim([0,max(T)] )
-    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left',ncol=3)
+        if n > (l-1)*c:
+            plt.xlabel('Time [s]')
+
     if plot_criteria:
         plt.subplot(l,c,1)
         plt.plot(np.array([Criteria['disturb_rejection']['target'] , np.max(T)]) , np.array([0.2 , 0.2]) , 'k--')
         plt.plot(np.array([Criteria['disturb_rejection']['target'] , np.max(T)]) , -np.array([0.2 , 0.2]) , 'k--')
         plt.text(Criteria['disturb_rejection']['target'] , 0.2+0.01 , 'Accomodation Time Criteria')
+
     plt.suptitle('Throttle Disturbance')
-    figManager = plt.get_current_fig_manager()
-    figManager.window.showMaximized()
-    fig3.savefig('LinearResponse_PitchController_ThrottleInp.png', bbox_inches='tight')
+    fig3.set_size_inches(12, 6)
+    plt.tight_layout(w_pad=1, h_pad=0.1,rect = (0,0,1,0.95))
     plt.show()
+    plt.subplot(l,c,n)
+    if plot_legend:
+        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left',ncol=3)
+    fig3.savefig('LinearResponse_PitchController_ThrottleInp.pdf', format="pdf", dpi=fig1.dpi)
 
    
     # %% OPEN LOOP PITCH CMD MARGIN PLOT
@@ -98,7 +139,7 @@ def PitchPlots(ClosedLoops , Criteria, PlotLabel, color_rgb = (0,0,1), line_type
     margins_res = ct.stability_margins(ClosedLoops['OpenLoop_pitchcmd'], returnall = True);
     GM_dB = 20*np.log10(margins_res[0])
     
-    fig5 = plt.figure('OpenLoop_PitchCmd_MarginPlot')
+    fig4 = plt.figure('OpenLoop_PitchCmd_MarginPlot')
     plt.subplot(2,2,1)
     plt.plot(w_radps , G_db, line_type, color = color_rgb)
     plt.plot(w_radps , (w_radps*0), 'k:')
@@ -138,20 +179,22 @@ def PitchPlots(ClosedLoops , Criteria, PlotLabel, color_rgb = (0,0,1), line_type
     plt.ylabel('Phase [deg]')
     
     plt.subplot(1,2,2)
-    plt.plot(180+P_deg , G_db, line_type, color = color_rgb)
+    plt.plot(180+P_deg , G_db, line_type, color = color_rgb, label = PlotLabel)
     plt.grid('on')
     plt.xlabel('Phase Margin [deg]')
     plt.ylabel('Gain Margin [dB]')
     plt.plot(+np.array([-Criteria['openloop_pitchcmd_phasemargin']['target'] , 0 , +Criteria['openloop_pitchcmd_phasemargin']['target'], 0 , -Criteria['openloop_pitchcmd_phasemargin']['target'] ]) , 
               np.array([0 , +Criteria['openloop_pitchcmd_gainmargin']['target'], 0 , -Criteria['openloop_pitchcmd_gainmargin']['target'] , 0]) ,
-                        'r', linewidth = 2) 
-    plt.xlim((-90,90))
+                        'k--', linewidth = 2) 
+    plt.xlim((-80,100))
     plt.ylim((-40,20))
     plt.suptitle('Open Loop PitchCmd Margin')
-    figManager = plt.get_current_fig_manager()
-    figManager.window.showMaximized()
-    fig5.savefig('LinearResponse_PitchController_Bode_OpenLoop_pitchcmd.png', bbox_inches='tight')
+    fig4.set_size_inches(8, 6)
+    plt.tight_layout(w_pad=1, h_pad=0.1,rect = (0,0,1,0.95))
+    if plot_legend:
+        plt.legend(loc='lower right',ncol=2, fontsize=8)
     plt.show()
+    fig4.savefig('LinearResponse_PitchController_Bode_OpenLoop_pitchcmd.pdf', format="pdf", dpi=fig1.dpi)
 
     # %% OPEN LOOP THETA MARGIN PLOT
     
@@ -168,7 +211,7 @@ def PitchPlots(ClosedLoops , Criteria, PlotLabel, color_rgb = (0,0,1), line_type
     margins_res = ct.stability_margins(ClosedLoops['OpenLoop_theta'], returnall = True);
     GM_dB = 20*np.log10(margins_res[0])
     
-    fig6 = plt.figure('OpenLoop_Theta_MarginPlot')
+    fig5 = plt.figure('OpenLoop_Theta_MarginPlot')
     plt.subplot(2,2,1)
     plt.plot(w_radps , G_db, line_type, color = color_rgb)
     plt.plot(w_radps , (w_radps*0), 'k:')
@@ -210,20 +253,22 @@ def PitchPlots(ClosedLoops , Criteria, PlotLabel, color_rgb = (0,0,1), line_type
     plt.ylabel('Phase [deg]')
     
     plt.subplot(1,2,2)
-    plt.plot(180+P_deg , G_db, line_type, color = color_rgb)
+    plt.plot(180+P_deg , G_db, line_type, color = color_rgb, label = PlotLabel)
     plt.grid('on')
     plt.xlabel('Phase Margin [deg]')
     plt.ylabel('Gain Margin [dB]')
     plt.plot(+np.array([-Criteria['openloop_theta_phasemargin']['target'] , 0 , +Criteria['openloop_theta_phasemargin']['target'], 0 , -Criteria['openloop_theta_phasemargin']['target'] ]) , 
               np.array([0 , +Criteria['openloop_theta_gainmargin']['target'], 0 , -Criteria['openloop_theta_gainmargin']['target'] , 0]) ,
-                        'r', linewidth = 2) 
-    plt.xlim((-90,90))
+                        'k--', linewidth = 2) 
+    plt.xlim((-80,100))
     plt.ylim((-40,20))
-    plt.suptitle('Open Loop PitchCmd Margin')
-    figManager = plt.get_current_fig_manager()
-    figManager.window.showMaximized()
-    fig6.savefig('LinearResponse_PitchController_Bode_OpenLoop_Theta.png', bbox_inches='tight')
+    plt.suptitle('Open Loop ThetaCmd Margin')
+    fig5.set_size_inches(8, 6)
+    plt.tight_layout(w_pad=1, h_pad=0.1,rect = (0,0,1,0.95))
+    if plot_legend:
+        plt.legend(loc='lower right',ncol=2, fontsize=8)
     plt.show()
+    fig5.savefig('LinearResponse_PitchController_Bode_OpenLoop_Theta.pdf', format="pdf", dpi=fig1.dpi)
 
     # %% OPEN LOOP Q MARGIN PLOT
     
@@ -241,7 +286,7 @@ def PitchPlots(ClosedLoops , Criteria, PlotLabel, color_rgb = (0,0,1), line_type
     margins_res = ct.stability_margins(ClosedLoops['OpenLoop_q'], returnall = True);
     GM_dB = 20*np.log10(margins_res[0])
     
-    fig7 = plt.figure('OpenLoop_Q_MarginPlot')
+    fig6 = plt.figure('OpenLoop_Q_MarginPlot')
     plt.subplot(2,2,1)
     plt.plot(w_radps , G_db, line_type, color = color_rgb)
     plt.plot(w_radps , (w_radps*0), 'k:')
@@ -283,17 +328,19 @@ def PitchPlots(ClosedLoops , Criteria, PlotLabel, color_rgb = (0,0,1), line_type
     plt.ylabel('Phase [deg]')
     
     plt.subplot(1,2,2)
-    plt.plot(180+P_deg , G_db, line_type, color = color_rgb)
+    plt.plot(180+P_deg , G_db, line_type, color = color_rgb, label = PlotLabel)
     plt.grid('on')
     plt.xlabel('Phase Margin [deg]')
     plt.ylabel('Gain Margin [dB]')
     plt.plot(np.array([-Criteria['openloop_q_phasemargin']['target'] , 0 , +Criteria['openloop_q_phasemargin']['target'], 0 , -Criteria['openloop_q_phasemargin']['target'] ]) , 
               np.array([0 , +Criteria['openloop_q_gainmargin']['target'], 0 , -Criteria['openloop_q_gainmargin']['target'] , 0]) ,
-                        'r', linewidth = 2) 
-    plt.xlim((-90,90))
+                        'k--', linewidth = 2) 
+    plt.xlim((-80,100))
     plt.ylim((-40,20))
-    plt.suptitle('Open Loop Q Margin')
-    figManager = plt.get_current_fig_manager()
-    figManager.window.showMaximized()
-    fig7.savefig('LinearResponse_PitchController_Bode_OpenLoop_Q.png', bbox_inches='tight')
+    plt.suptitle('Open Loop ThetaCmd Margin')
+    fig6.set_size_inches(8, 6)
+    plt.tight_layout(w_pad=1, h_pad=0.1,rect = (0,0,1,0.95))
+    if plot_legend:
+        plt.legend(loc='lower right',ncol=2, fontsize=8)
     plt.show()
+    fig6.savefig('LinearResponse_PitchController_Bode_OpenLoop_Q.pdf', format="pdf", dpi=fig1.dpi)

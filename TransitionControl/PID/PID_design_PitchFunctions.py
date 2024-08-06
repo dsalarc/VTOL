@@ -54,29 +54,18 @@ def gen_Aircraft (TestEnv , VX_mps = 0, AX_mps2 = None, Elevator_deg = None):
     
     return Aircraft, TestEnv.TrimData
    
-def gen_EngActuator(wn_radps = 40):
-    EngActuator = {}
-    EngActuator['wn_radps']  = wn_radps
-    EngActuator['SS'] = ct.ss(np.array([-EngActuator['wn_radps'] ]),
-                               np.array([1]),
-                               np.array([EngActuator['wn_radps'] ]),
-                               np.array([0]) ,
-                               inputs='PitchCmd_u', outputs='PitchThrottle_u', name = 'EngActuator')
-    
-    return EngActuator
-
-def gen_ElevActuator(wn_radps = 40):
+def gen_Actuator(wn_radps = 40, inp_name = 'inp_name', out_name = 'out_name' , actuator_name = 'actuator_name'):
     ElevActuator = {}
     ElevActuator['wn_radps']  = wn_radps
     ElevActuator['SS'] = ct.ss(np.array([-ElevActuator['wn_radps'] ]),
                                np.array([1]),
                                np.array([ElevActuator['wn_radps'] ]),
                                np.array([0]) ,
-                               inputs='ElevatorCmd_u', outputs='Elevator_u', name = 'ElevActuator')
+                               inputs=inp_name, outputs=out_name, name = actuator_name)
     
     return ElevActuator
 
-def Controller(Gains):
+def gen_PitchController(Gains):
     Controller = {}
     Controller['SS'] = ct.ss(np.array([0])               ,  
                        np.array([[-1, -Gains['Kt'], +1, +Gains['Kt'], 0]])   ,
@@ -104,7 +93,7 @@ def gen_ControlAllocation(Gains):
                                    name = 'ControlAllocation' )
     return ControlAllocation
 
-def Sensor(wn_radps = 40, inp_name = 'inp_name', out_name = 'out_name' , sensor_name = 'sensor_name'):
+def gen_Sensor(wn_radps = 40, inp_name = 'inp_name', out_name = 'out_name' , sensor_name = 'sensor_name'):
     Sensor = {}
     Sensor['wn_radps']  = wn_radps
     Sensor['TF'] = ct.tf([1],[1/Sensor['wn_radps'] , 1 ])
