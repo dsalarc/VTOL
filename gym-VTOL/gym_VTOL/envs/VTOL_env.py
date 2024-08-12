@@ -9,10 +9,15 @@ Created on Tue Apr 13 21:02:13 2021
 import gym
 from gym import spaces
 import numpy as np
+import time
 from scipy.interpolate import RegularGridInterpolator
 from scipy.interpolate import RectBivariateSpline
 import matplotlib.pyplot as plt
 
+def Cross3(A,B):
+    return np.array([A[1]*B[2] - A[2]*B[1] , 
+                     A[2]*B[0] - A[0]*B[2] ,
+                     A[0]*B[1] - A[1]*B[0] ])
 class LowPassDiscreteFilter:
 # https://x-engineer.org/discretizing-transfer-function/
 
@@ -450,7 +455,7 @@ class Vahana_VertFlight(gym.Env):
                    VX_mps = 0, VX_ref_mps = 60, VZ_mps = 0, Tilt_deg = None, AX_mps2 = None, Throttle_u = None, Elevator_deg = 0, 
                    DispMessages = False, Linearize = False, TermTheta_deg = 10, StaFreezeList = [],
                    UNC_seed = None , UNC_enable = False, reset_INPUT_VEC = None, GroundHeight_m = 0, Training_Trim = True, 
-                   Training_Turb = False, Training_WindX = False, Training_AllEngines = False, Training_HoverTime = 0):
+                   Training_Turb = True, Training_WindX = True, Training_AllEngines = False, Training_HoverTime = 0, TurbulenceSeed = None):
         self.CurrentStep = 0
         self.trimming = 0
 
@@ -475,10 +480,15 @@ class Vahana_VertFlight(gym.Env):
         self.OPT['UNC_enable']       = UNC_enable
 
         self.OPT['Seeds']            = {}
-        self.OPT['Seeds']['TurbU']   = 1
-        self.OPT['Seeds']['TurbV']   = 2
-        self.OPT['Seeds']['TurbW']   = 3
-
+        if TurbulenceSeed is None:
+            self.OPT['Seeds']['TurbU']   = 1
+            self.OPT['Seeds']['TurbV']   = 2
+            self.OPT['Seeds']['TurbW']   = 3
+        else:
+            self.OPT['Seeds']['TurbU']   = TurbulenceSeed[0]
+            self.OPT['Seeds']['TurbV']   = TurbulenceSeed[1]
+            self.OPT['Seeds']['TurbW']   = TurbulenceSeed[2]
+        # print('Turb Seed: ' + str(self.OPT['Seeds']['TurbU'])  + ', ' +str(self.OPT['Seeds']['TurbV'])  + ', ' +str(self.OPT['Seeds']['TurbW']))
         self.OPT['Training']               = {}
         self.OPT['Training']['Turb']       = Training_Turb
         self.OPT['Training']['WindX']      = Training_WindX
@@ -498,7 +508,7 @@ class Vahana_VertFlight(gym.Env):
         if ((self.OPT['Training']['WindX']) and ((reset_INPUT_VEC is None) or not ('WIND_TowerX_mps' in reset_INPUT_VEC))):
             if (reset_INPUT_VEC is None):
                 reset_INPUT_VEC = {}
-            WindX = (np.random.random()*15)
+            WindX = (np.random.random()*10+5)
             reset_INPUT_VEC['WIND_TowerX_mps'] = np.array([[0     , 30    ],
                                                            [WindX , WindX]])
         if (Training_HoverTime is None):
@@ -935,68 +945,83 @@ class Vahana_VertFlight(gym.Env):
        
 
     def step(self, action):
-      action = np.max((action,-np.ones(np.shape(action))),0)
-      action = np.min((action,+np.ones(np.shape(action))),0)
-      self.action = action
+        
+        TestTime = {}    
+        TestTime['start'] = time.time()
 
-      if not(self.trimming):  
-          self.CurrentStep += 1
-      
-      # If trimming, calculate the EQM outputs, but without 
-      # calculating derivatives, just to calculate the outputs
-      if self.trimming:  
-          self.EQM_fcn(np.zeros(3),np.zeros(3),self.MASS['I_kgm'],self.MASS['Weight_kgf'], CalcStaDot = False)
-      
-      # Calculate Control, Atmosphere, Motor Forces and Aero Forces
-      self.INP = self.INP_fcn(INPUT_VEC = self.VARS['INP'], CurrentStep = self.CurrentStep)
-      self.CONT_fcn(action)
-      self.ATM_fcn()
-      self.MOT_fcn()
-      self.AERO_fcn()
-      
-      # Execute one time step within the environment
+        action = np.max((action,-np.ones(np.shape(action))),0)
+        action = np.min((action,+np.ones(np.shape(action))),0)
+        self.action = action
+  
+        if not(self.trimming):  
+            self.CurrentStep += 1
+        
+        # If trimming, calculate the EQM outputs, but without 
+        # calculating derivatives, just to calculate the outputs
+        if self.trimming:  
+            self.EQM_fcn(np.zeros(3),np.zeros(3),self.MASS['I_kgm'],self.MASS['Weight_kgf'], CalcStaDot = False)
+        
+        # Calculate Control, Atmosphere, Motor Forces and Aero Forces
+        TestTime['init'] = time.time()
+        self.INP = self.INP_fcn(INPUT_VEC = self.VARS['INP'], CurrentStep = self.CurrentStep)
+        self.CONT_fcn(action)
+        TestTime['CONT'] = time.time()
+        self.ATM_fcn()
+        TestTime['ATM'] = time.time()
+        TestTime['MOT_fcn'] = self.MOT_fcn()
+        TestTime['MOT'] = time.time()
+        TestTime['AERO_fcn'] = self.AERO_fcn()
+        TestTime['AERO'] = time.time()
+       
+        # Execute one time step within the environment
+   
+        self.EQM['TotalForce'] = (self.MOT['TotalForce_BodyAx_N'] +
+                                  self.AERO['TotalForce_BodyAx_N'])
+        self.EQM['TotalMoment'] = (self.MOT['TotalMoment_BodyAx_Nm'] +
+                                   self.AERO['TotalMoment_BodyAx_Nm'])  
+   
+        Last_Xdot    = self.EQM['sta_dot'].copy()
+        self.EQM_fcn(self.EQM['TotalForce'],self.EQM['TotalMoment'],self.MASS['I_kgm'],self.MASS['Weight_kgf'])
+        self.EQM['sta_dotdot'] = (self.EQM['sta_dot'] - Last_Xdot)/self.t_step
+        
+        if not(self.trimming):  
+            self.EQM['sta'] = self.Euler_2nd(self.EQM['sta'],self.EQM['sta_dot'],self.EQM['sta_dotdot'],self.t_step)
+            self.AllStates = np.vstack((self.AllStates,self.EQM['sta']))
+  
+            self.EQM['sta_int'] = self.EQM['sta_int'] + self.EQM['sta'] * self.t_step
+        
+        TestTime['EQM'] = time.time()
+                
+        # Read all sensor data
+        TestTime['SENS_fcn'] = self.SENS_fcn()
+        TestTime['SENS'] = time.time()
  
-      self.EQM['TotalForce'] = (self.MOT['TotalForce_BodyAx_N'] +
-                                self.AERO['TotalForce_BodyAx_N'])
-      self.EQM['TotalMoment'] = (self.MOT['TotalMoment_BodyAx_Nm'] +
-                                 self.AERO['TotalMoment_BodyAx_Nm'])  
- 
-      Last_Xdot    = self.EQM['sta_dot'].copy()
-      self.EQM_fcn(self.EQM['TotalForce'],self.EQM['TotalMoment'],self.MASS['I_kgm'],self.MASS['Weight_kgf'])
-      self.EQM['sta_dotdot'] = (self.EQM['sta_dot'] - Last_Xdot)/self.t_step
-      
-      if not(self.trimming):  
-          self.EQM['sta'] = self.Euler_2nd(self.EQM['sta'],self.EQM['sta_dot'],self.EQM['sta_dotdot'],self.t_step)
-          self.AllStates = np.vstack((self.AllStates,self.EQM['sta']))
+        # Calculate Reward
+        if not(self.trimming):
+            self.LastReward = self.REW_fcn()
+        else:
+            self.LastReward = 0
+        TestTime['REW'] = time.time()
+       
+        # Terminal State = False   
+        done = False
+        if abs(np.rad2deg(self.EQM['sta'][4])) > self.Term['Theta_deg']:
+            done = True
+  
+            
+        # Export Model Oututs throught info
+        info = self.saveinfo()
+  
+        obs = self.OutputObs(self.EQM['sta'],self.EQM['sta_dot'],self.EQM['sta_int'],self.CONT['Throttle_p'])
+  
+        TestTime['END'] = time.time()
+        info['TestTime'] = TestTime
 
-          self.EQM['sta_int'] = self.EQM['sta_int'] + self.EQM['sta'] * self.t_step
-      
-              
-      # Read all sensor data
-      self.SENS_fcn()
-
-      # Calculate Reward
-      if not(self.trimming):
-          self.LastReward = self.REW_fcn()
-      else:
-          self.LastReward = 0
-      
-      # Terminal State = False   
-      done = False
-      if abs(np.rad2deg(self.EQM['sta'][4])) > self.Term['Theta_deg']:
-          done = True
-
-          
-      # Export Model Oututs throught info
-      info = self.saveinfo()
-
-      obs = self.OutputObs(self.EQM['sta'],self.EQM['sta_dot'],self.EQM['sta_int'],self.CONT['Throttle_p'])
-
-      if not(self.trimming):
-          return obs, self.LastReward, done, info
-      else:
-          return info
-           
+        if not(self.trimming):
+            return obs, self.LastReward, done, info
+        else:
+            return info
+             
     def render(self, mode='console', close=False):
         
         # Render the environment to the screen       
@@ -1359,6 +1384,7 @@ class Vahana_VertFlight(gym.Env):
       self.AERO['Wing2'] = {}
       self.AERO['Fus']  = {}
       self.AERO['Elevon']  = {}
+      self.AERO['Total']  = {}
       
       self.AERO['MRC_m']   = np.array([2.500 , 0.000 , 0.000])
       self.AERO['Sref_m2'] = 3.900
@@ -1609,9 +1635,9 @@ class Vahana_VertFlight(gym.Env):
         self.SENS['Sensors']['ADS'] = {}
         
         if self.UseLateralActions:
-            time_sample_lateral_sensor = self.t_step
-        else:
             time_sample_lateral_sensor = 0.001
+        else:
+            time_sample_lateral_sensor = self.t_step
 
         self.SENS['Sensors']['IMU']['P_radps'] = Sensor(CutFreq_radps = self.SENS['Data']['IMU']['CutFreq_radps'],
                                                   Delay_s = self.SENS['Data']['IMU']['Delay_s'],
@@ -1820,9 +1846,9 @@ class Vahana_VertFlight(gym.Env):
             W_b = np.dot(self.EQM['LE2B'],np.array([0,0,m*self.CONS['g_mps2']]))
             
             # CALCULO DAS DERIVADAS
-            dVL_b = (F_b+W_b)/m - np.cross(VR_b,VL_b)
+            dVL_b = (F_b+W_b)/m - Cross3(VR_b,VL_b)
                     
-            dVR_b = np.dot(np.linalg.inv(I),(M_b - np.cross(VR_b,np.dot(I,VR_b))))
+            dVR_b = np.dot(np.linalg.inv(I),(M_b - Cross3(VR_b,np.dot(I,VR_b))))
             
             dXL_e = np.dot(self.EQM['LB2E'] , VL_b)
             
@@ -1896,6 +1922,9 @@ class Vahana_VertFlight(gym.Env):
             Lw_ft = HAGL_limited_ft
 
             # Calculate standard deviations of u,v,w
+            # if self.CurrentStep == 1:
+            #     print('TotalTowerWindTurb_mps: ' + str(TotalTowerWindTurb_mps))
+
             sigma_w_ftps = (TotalTowerWindTurb_mps * self.CONS['mps2kt']) * 0.1
             sigma_u_ftps = sigma_w_ftps / ((0.177 + 0.000823*HAGL_limited_ft)**0.4)
             sigma_v_ftps = sigma_u_ftps
@@ -2047,7 +2076,10 @@ class Vahana_VertFlight(gym.Env):
         self.ATM['Beta_W2_deg'] = Beta_W2_aux * np.sign(self.cosd(Beta_W2_aux))         #sign correction to consider backward flight (AOA = 180)
        
     # %% MOTOR MODEL
-    def MOT_fcn(self):            
+    def MOT_fcn(self):   
+        TestTime = {}    
+        TestTime['start'] = time.time()
+         
         # Calcular Tracao/Torque de Cada Helice
         # Calcular Fp de cada hélice
         # Calcular Torque devido a inercia (conservacao momento angular)
@@ -2099,6 +2131,7 @@ class Vahana_VertFlight(gym.Env):
                               self.INP['FAILURE_MOT_8']])
         MotorNotFailed = 1 - MotorFail
 
+        TestTime['MOT1'] = time.time()
         # Calculate RPM and Rotation of each Propeller
         if self.trimming:   
             # Initialize arrays
@@ -2118,6 +2151,7 @@ class Vahana_VertFlight(gym.Env):
                     self.MOT['ASSEMBLY']['obj'][i].step(self.CONT['Throttle_p'][i] * MotorNotFailed[i] , MOT_VTotal_p[i,0], self.ATM['rho_kgm3'])
                     self.MOT['RPM'][i] = self.MOT['ASSEMBLY']['obj'][i].RPM
                 
+        TestTime['MOT2'] = time.time()
         self.MOT['RPS'] = self.MOT['RPM'] / 60
         
         
@@ -2135,13 +2169,18 @@ class Vahana_VertFlight(gym.Env):
             r    = self.MOT['Position_m'][i,:] - self.MASS['CG_m']
             r[0] = -r[0]
             r[2] = -r[2]
-            self.MOT['Moment_BodyAx_N'][i,:] = np.cross(r,self.MOT['Force_BodyAx_N'][i,:]) + np.dot(LM2B[:,:,i],np.array([self.MOT['Torque_Nm'][i],0,0]))*self.MOT['RotationSense'][i]
+            
+            self.MOT['Moment_BodyAx_N'][i,:] = Cross3(r,self.MOT['Force_BodyAx_N'][i,:]) + np.dot(LM2B[:,:,i],np.array([self.MOT['Torque_Nm'][i],0,0]))*self.MOT['RotationSense'][i]
+        TestTime['MOT3'] = time.time()
         
         self.MOT['TotalForce_BodyAx_N'] = np.sum(self.MOT['Force_BodyAx_N'] , axis = 0) * self.OPT['UsePropForce']
         self.MOT['TotalMoment_BodyAx_Nm'] = np.sum(self.MOT['Moment_BodyAx_N'] , axis = 0) * self.OPT['UsePropMoment']
 
+        return TestTime
         
     def AERO_fcn(self):
+        TestTime = {}    
+        TestTime['start'] = time.time()
         
         def CalcInducedAOA(Xw_m,XCG_m,q_radps,TAS_mps,Inc_deg,AOA_Acft_deg,EPS_deg):
             '''
@@ -2209,13 +2248,16 @@ class Vahana_VertFlight(gym.Env):
             return 2*(self.sind(Alpha_deg)**2)*abs(self.cosd(Beta_deg))
 
         def STAB2BODY (Alpha_rad,CDS,CYS,CLS,CRS,CMS,CNS):
-            CDB = np.cos(Alpha_rad) * CDS - np.sin(Alpha_rad) * CLS
-            CYB = CYS
-            CLB = np.sin(Alpha_rad) * CDS + np.cos(Alpha_rad) * CLS
+            ca = np.cos(Alpha_rad)
+            sa = np.sin(Alpha_rad)
 
-            CRB = np.cos(Alpha_rad) * CRS - np.sin(Alpha_rad) * CNS
+            CDB = ca * CDS - sa * CLS
+            CYB = CYS
+            CLB = sa * CDS + ca * CLS
+
+            CRB = ca * CRS - sa * CNS
             CMB = CMS
-            CNB = np.sin(Alpha_rad) * CRS + np.cos(Alpha_rad) * CNS
+            CNB = sa * CRS + ca * CNS
 
             return CDB, CYB, CLB, CRB, CMB, CNB
 
@@ -2231,6 +2273,8 @@ class Vahana_VertFlight(gym.Env):
 
             return CXB_CG, CYB_CG, CZB_CG, CDB_CG, CLB_CG, CRB_CG, CMB_CG, CNB_CG
         
+        TestTime['AER1'] = time.time()
+
         LimitedTAS = max(self.ATM['TAS_mps'] , 10)
         # Calculate W1 local stability coefs
         self.AERO['Wing1']['Incidence_deg'] = self.CONT['Tilt_deg'][0]
@@ -2256,6 +2300,8 @@ class Vahana_VertFlight(gym.Env):
         W1_Alpha_deg_aux, W1_sign_aux = AuxAOA(self.AERO['Wing1']['Alpha_deg'])
         W1_Beta_deg_aux = self.AERO['Wing1']['Beta_deg']
 
+        TestTime['AER2'] = time.time()
+
         if (self.OPT['Aero_useWingData']) and (W1_Alpha_deg_aux <= self.AERO['Wing1']['Coefs']['Alpha_deg'][-1] and W1_Alpha_deg_aux >= self.AERO['Wing1']['Coefs']['Alpha_deg'][0]):
             self.AERO['Wing1']['CDS_25Local'] = np.interp(W1_Alpha_deg_aux, self.AERO['Wing1']['Coefs']['Alpha_deg'], self.AERO['Wing1']['Coefs']['CDS_25Local'])
             self.AERO['Wing1']['CLS_25Local'] = W1_sign_aux*np.interp(W1_Alpha_deg_aux, self.AERO['Wing1']['Coefs']['Alpha_deg'], self.AERO['Wing1']['Coefs']['CLS_25Local'])
@@ -2265,6 +2311,8 @@ class Vahana_VertFlight(gym.Env):
             self.AERO['Wing1']['CLS_25Local'] = W1_sign_aux*FlatPlate_CL(W1_Alpha_deg_aux, W1_Beta_deg_aux)
             self.AERO['Wing1']['CMS_25Local'] = 0
         
+        TestTime['AER3'] = time.time()
+
         self.AERO['Wing1']['CLS_25Local'] = (1+self.UNC['Res']['AERO']['Gain']['CLa']) * self.AERO['Wing1']['CLS_25Local']
         self.AERO['Wing1']['CMS_25Local'] = (self.UNC['Res']['AERO']['Bias']['CM0'] + self.AERO['Wing1']['CMS_25Local']
                                            + self.AERO['Wing1']['Coefs']['CMq'] * self.EQM['VelRot_BodyAx_radps'][1] * self.AERO['cref_m'] / (2* LimitedTAS))
@@ -2274,6 +2322,7 @@ class Vahana_VertFlight(gym.Env):
         self.AERO['Wing1']['CNS_25Local'] = (self.AERO['Wing1']['Coefs']['CNp'] * self.EQM['VelRot_BodyAx_radps'][0] * self.AERO['bref_m'] / (2* LimitedTAS)
                                            + self.AERO['Wing1']['Coefs']['CNr'] * self.EQM['VelRot_BodyAx_radps'][2] * self.AERO['bref_m'] / (2* LimitedTAS))
 
+        TestTime['AER4'] = time.time()
 
         # Calculate W2 local stability coefs
         self.AERO['Wing2']['Incidence_deg'] = self.CONT['Tilt_deg'][1]
@@ -2319,6 +2368,8 @@ class Vahana_VertFlight(gym.Env):
         self.AERO['Wing2']['CNS_25Local'] = (self.AERO['Wing2']['Coefs']['CNp'] * self.EQM['VelRot_BodyAx_radps'][0] * self.AERO['bref_m'] / (2* LimitedTAS)
                                            + self.AERO['Wing2']['Coefs']['CNr'] * self.EQM['VelRot_BodyAx_radps'][2] * self.AERO['bref_m'] / (2* LimitedTAS))
 
+        TestTime['AER5'] = time.time()
+
         # Calculate Fuselage local stability coefs
         self.AERO['Fus']['Beta_deg'] = self.ATM['Beta_deg']
 
@@ -2333,17 +2384,20 @@ class Vahana_VertFlight(gym.Env):
         self.AERO['Fus']['CNS_25Local'] = (self.AERO['Fus']['Coefs']['CNp'] * self.EQM['VelRot_BodyAx_radps'][0] * self.AERO['bref_m'] / (2* LimitedTAS)
                                          + self.AERO['Fus']['Coefs']['CNr'] * self.EQM['VelRot_BodyAx_radps'][2] * self.AERO['bref_m'] / (2* LimitedTAS))
 
+
         ElevonGain_1 = np.cos(np.deg2rad(np.min((90,np.abs(self.AERO['Wing1']['Alpha_deg'])))))
         ElevonGain_2 = np.cos(np.deg2rad(np.min((90,np.abs(self.AERO['Wing2']['Alpha_deg'])))))
         ElevonGain = np.array([ElevonGain_1 , ElevonGain_1 , ElevonGain_2 , ElevonGain_2])
 
-        self.AERO['Elevon']['CDS_MRC']  = self.AERO['Elevon']['dCDSde_MRC'] * self.CONT['Elevon_deg'] * ElevonGain
-        self.AERO['Elevon']['CYS_MRC']  = self.AERO['Elevon']['dCYSde_MRC'] * self.CONT['Elevon_deg'] * ElevonGain
-        self.AERO['Elevon']['CLS_MRC']  = self.AERO['Elevon']['dCLSde_MRC'] * self.CONT['Elevon_deg'] * ElevonGain
-        self.AERO['Elevon']['CRS_MRC']  = self.AERO['Elevon']['dCRSde_MRC'] * self.CONT['Elevon_deg'] * ElevonGain
-        self.AERO['Elevon']['CMS_MRC']  = self.AERO['Elevon']['dCMSde_MRC'] * self.CONT['Elevon_deg'] * ElevonGain
-        self.AERO['Elevon']['CNS_MRC']  = self.AERO['Elevon']['dCNSde_MRC'] * self.CONT['Elevon_deg'] * ElevonGain
-        
+        self.AERO['Elevon']['CDS_MRC']  = np.sum(self.AERO['Elevon']['dCDSde_MRC'] * self.CONT['Elevon_deg'] * ElevonGain)
+        self.AERO['Elevon']['CYS_MRC']  = np.sum(self.AERO['Elevon']['dCYSde_MRC'] * self.CONT['Elevon_deg'] * ElevonGain)
+        self.AERO['Elevon']['CLS_MRC']  = np.sum(self.AERO['Elevon']['dCLSde_MRC'] * self.CONT['Elevon_deg'] * ElevonGain)
+        self.AERO['Elevon']['CRS_MRC']  = np.sum(self.AERO['Elevon']['dCRSde_MRC'] * self.CONT['Elevon_deg'] * ElevonGain)
+        self.AERO['Elevon']['CMS_MRC']  = np.sum(self.AERO['Elevon']['dCMSde_MRC'] * self.CONT['Elevon_deg'] * ElevonGain)
+        self.AERO['Elevon']['CNS_MRC']  = np.sum(self.AERO['Elevon']['dCNSde_MRC'] * self.CONT['Elevon_deg'] * ElevonGain)
+
+        TestTime['AER6'] = time.time()
+
         # Calculate Coefficcient in Body Local Axis
         (CDB, CYB, CLB, CRB, CMB, CNB) = STAB2BODY (self.ATM['Alpha_W1_rad'],
                                                     self.AERO['Wing1']['CDS_25Local'],
@@ -2413,9 +2467,10 @@ class Vahana_VertFlight(gym.Env):
         self.AERO['Elevon']['CMB_MRC'] = CMB
         self.AERO['Elevon']['CNB_MRC'] = CNB
 
+        TestTime['AER6'] = time.time()
         # Calculate Coefficcient in Body CG Axis
 
-        (CXB_CG, CYB_CG, CZB_CG, CDB_CG, CLB_CG, CRB_CG, CMB_CG, CNB_CG) = BODYMRC2CG(self.GEOM['Wing1']['XYZ_m'], self.MASS['CG_m'], self.AERO['bref_m'], self.AERO['cref_m'], 
+        (W1_CXB_CG, W1_CYB_CG, W1_CZB_CG, W1_CDB_CG, W1_CLB_CG, W1_CRB_CG, W1_CMB_CG, W1_CNB_CG) = BODYMRC2CG(self.GEOM['Wing1']['XYZ_m'], self.MASS['CG_m'], self.AERO['bref_m'], self.AERO['cref_m'], 
                                                                                       self.AERO['Wing1']['CXB_25Local'], 
                                                                                       self.AERO['Wing1']['CYB_25Local'],
                                                                                       self.AERO['Wing1']['CZB_25Local'],
@@ -2424,16 +2479,16 @@ class Vahana_VertFlight(gym.Env):
                                                                                       self.AERO['Wing1']['CRB_25Local'],
                                                                                       self.AERO['Wing1']['CMB_25Local'],
                                                                                       self.AERO['Wing1']['CNB_25Local'])
-        self.AERO['Wing1']['CXB_CG'] = CXB_CG
-        self.AERO['Wing1']['CYB_CG'] = CYB_CG
-        self.AERO['Wing1']['CZB_CG'] = CZB_CG
-        self.AERO['Wing1']['CDB_CG'] = CDB_CG
-        self.AERO['Wing1']['CLB_CG'] = CLB_CG
-        self.AERO['Wing1']['CRB_CG'] = CRB_CG
-        self.AERO['Wing1']['CMB_CG'] = CMB_CG
-        self.AERO['Wing1']['CNB_CG'] = CNB_CG
+        # self.AERO['Wing1']['CXB_CG'] = CXB_CG
+        # self.AERO['Wing1']['CYB_CG'] = CYB_CG
+        # self.AERO['Wing1']['CZB_CG'] = CZB_CG
+        # self.AERO['Wing1']['CDB_CG'] = CDB_CG
+        # self.AERO['Wing1']['CLB_CG'] = CLB_CG
+        # self.AERO['Wing1']['CRB_CG'] = CRB_CG
+        # self.AERO['Wing1']['CMB_CG'] = CMB_CG
+        # self.AERO['Wing1']['CNB_CG'] = CNB_CG
 
-        (CXB_CG, CYB_CG, CZB_CG, CDB_CG, CLB_CG, CRB_CG, CMB_CG, CNB_CG) = BODYMRC2CG(self.GEOM['Wing2']['XYZ_m'], self.MASS['CG_m'], self.AERO['bref_m'], self.AERO['cref_m'], 
+        (W2_CXB_CG, W2_CYB_CG, W2_CZB_CG, W2_CDB_CG, W2_CLB_CG, W2_CRB_CG, W2_CMB_CG, W2_CNB_CG) = BODYMRC2CG(self.GEOM['Wing2']['XYZ_m'], self.MASS['CG_m'], self.AERO['bref_m'], self.AERO['cref_m'], 
                                                                                       self.AERO['Wing2']['CXB_25Local'], 
                                                                                       self.AERO['Wing2']['CYB_25Local'],
                                                                                       self.AERO['Wing2']['CZB_25Local'],
@@ -2442,16 +2497,16 @@ class Vahana_VertFlight(gym.Env):
                                                                                       self.AERO['Wing2']['CRB_25Local'],
                                                                                       self.AERO['Wing2']['CMB_25Local'],
                                                                                       self.AERO['Wing2']['CNB_25Local'])
-        self.AERO['Wing2']['CXB_CG'] = CXB_CG
-        self.AERO['Wing2']['CYB_CG'] = CYB_CG
-        self.AERO['Wing2']['CZB_CG'] = CZB_CG
-        self.AERO['Wing2']['CDB_CG'] = CDB_CG
-        self.AERO['Wing2']['CLB_CG'] = CLB_CG
-        self.AERO['Wing2']['CRB_CG'] = CRB_CG
-        self.AERO['Wing2']['CMB_CG'] = CMB_CG
-        self.AERO['Wing2']['CNB_CG'] = CNB_CG
+        # self.AERO['Wing2']['CXB_CG'] = CXB_CG
+        # self.AERO['Wing2']['CYB_CG'] = CYB_CG
+        # self.AERO['Wing2']['CZB_CG'] = CZB_CG
+        # self.AERO['Wing2']['CDB_CG'] = CDB_CG
+        # self.AERO['Wing2']['CLB_CG'] = CLB_CG
+        # self.AERO['Wing2']['CRB_CG'] = CRB_CG
+        # self.AERO['Wing2']['CMB_CG'] = CMB_CG
+        # self.AERO['Wing2']['CNB_CG'] = CNB_CG
 
-        (CXB_CG, CYB_CG, CZB_CG, CDB_CG, CLB_CG, CRB_CG, CMB_CG, CNB_CG) = BODYMRC2CG(self.GEOM['Fus']['XYZ_m'], self.MASS['CG_m'], self.AERO['bref_m'], self.AERO['cref_m'], 
+        (FU_CXB_CG, FU_CYB_CG, FU_CZB_CG, FU_CDB_CG, FU_CLB_CG, FU_CRB_CG, FU_CMB_CG, FU_CNB_CG) = BODYMRC2CG(self.GEOM['Fus']['XYZ_m'], self.MASS['CG_m'], self.AERO['bref_m'], self.AERO['cref_m'], 
                                                                                       self.AERO['Fus']['CXB_25Local'], 
                                                                                       self.AERO['Fus']['CYB_25Local'],
                                                                                       self.AERO['Fus']['CZB_25Local'],
@@ -2460,16 +2515,16 @@ class Vahana_VertFlight(gym.Env):
                                                                                       self.AERO['Fus']['CRB_25Local'],
                                                                                       self.AERO['Fus']['CMB_25Local'],
                                                                                       self.AERO['Fus']['CNB_25Local'])
-        self.AERO['Fus']['CXB_CG'] = CXB_CG
-        self.AERO['Fus']['CYB_CG'] = CYB_CG
-        self.AERO['Fus']['CZB_CG'] = CZB_CG
-        self.AERO['Fus']['CDB_CG'] = CDB_CG
-        self.AERO['Fus']['CLB_CG'] = CLB_CG
-        self.AERO['Fus']['CRB_CG'] = CRB_CG
-        self.AERO['Fus']['CMB_CG'] = CMB_CG
-        self.AERO['Fus']['CNB_CG'] = CNB_CG
+        # self.AERO['Fus']['CXB_CG'] = CXB_CG
+        # self.AERO['Fus']['CYB_CG'] = CYB_CG
+        # self.AERO['Fus']['CZB_CG'] = CZB_CG
+        # self.AERO['Fus']['CDB_CG'] = CDB_CG
+        # self.AERO['Fus']['CLB_CG'] = CLB_CG
+        # self.AERO['Fus']['CRB_CG'] = CRB_CG
+        # self.AERO['Fus']['CMB_CG'] = CMB_CG
+        # self.AERO['Fus']['CNB_CG'] = CNB_CG
 
-        (CXB_CG, CYB_CG, CZB_CG, CDB_CG, CLB_CG, CRB_CG, CMB_CG, CNB_CG) = BODYMRC2CG(self.AERO['MRC_m'], self.MASS['CG_m'], self.AERO['bref_m'], self.AERO['cref_m'], 
+        (EL_CXB_CG, EL_CYB_CG, EL_CZB_CG, EL_CDB_CG, EL_CLB_CG, EL_CRB_CG, EL_CMB_CG, EL_CNB_CG) = BODYMRC2CG(self.AERO['MRC_m'], self.MASS['CG_m'], self.AERO['bref_m'], self.AERO['cref_m'], 
                                                                                       self.AERO['Elevon']['CXB_MRC'], 
                                                                                       self.AERO['Elevon']['CYB_MRC'],
                                                                                       self.AERO['Elevon']['CZB_MRC'],
@@ -2478,72 +2533,97 @@ class Vahana_VertFlight(gym.Env):
                                                                                       self.AERO['Elevon']['CRB_MRC'],
                                                                                       self.AERO['Elevon']['CMB_MRC'],
                                                                                       self.AERO['Elevon']['CNB_MRC'])
-        self.AERO['Elevon']['CXB_CG'] = CXB_CG
-        self.AERO['Elevon']['CYB_CG'] = CYB_CG
-        self.AERO['Elevon']['CZB_CG'] = CZB_CG
-        self.AERO['Elevon']['CDB_CG'] = CDB_CG
-        self.AERO['Elevon']['CLB_CG'] = CLB_CG
-        self.AERO['Elevon']['CRB_CG'] = CRB_CG
-        self.AERO['Elevon']['CMB_CG'] = CMB_CG
-        self.AERO['Elevon']['CNB_CG'] = CNB_CG
+        # self.AERO['Elevon']['CXB_CG'] = CXB_CG
+        # self.AERO['Elevon']['CYB_CG'] = CYB_CG
+        # self.AERO['Elevon']['CZB_CG'] = CZB_CG
+        # self.AERO['Elevon']['CDB_CG'] = CDB_CG
+        # self.AERO['Elevon']['CLB_CG'] = CLB_CG
+        # self.AERO['Elevon']['CRB_CG'] = CRB_CG
+        # self.AERO['Elevon']['CMB_CG'] = CMB_CG
+        # self.AERO['Elevon']['CNB_CG'] = CNB_CG
+
+        self.AERO['Total']['CXB_CG'] = (W1_CXB_CG * self.GEOM['Wing1']['S_m2'] + W2_CXB_CG * self.GEOM['Wing2']['S_m2'] + FU_CXB_CG*self.GEOM['Fus']['S_m2'] + EL_CXB_CG* self.AERO['Sref_m2'])
+        self.AERO['Total']['CYB_CG'] = (W1_CYB_CG * self.GEOM['Wing1']['S_m2'] + W2_CYB_CG * self.GEOM['Wing2']['S_m2'] + FU_CYB_CG*self.GEOM['Fus']['S_m2'] + EL_CYB_CG* self.AERO['Sref_m2'])
+        self.AERO['Total']['CZB_CG'] = (W1_CZB_CG * self.GEOM['Wing1']['S_m2'] + W2_CZB_CG * self.GEOM['Wing2']['S_m2'] + FU_CZB_CG*self.GEOM['Fus']['S_m2'] + EL_CZB_CG* self.AERO['Sref_m2'])
+        self.AERO['Total']['CDB_CG'] = (W1_CDB_CG * self.GEOM['Wing1']['S_m2'] + W2_CDB_CG * self.GEOM['Wing2']['S_m2'] + FU_CDB_CG*self.GEOM['Fus']['S_m2'] + EL_CDB_CG* self.AERO['Sref_m2'])
+        self.AERO['Total']['CLB_CG'] = (W1_CLB_CG * self.GEOM['Wing1']['S_m2'] + W2_CLB_CG * self.GEOM['Wing2']['S_m2'] + FU_CLB_CG*self.GEOM['Fus']['S_m2'] + EL_CLB_CG* self.AERO['Sref_m2'])
+        self.AERO['Total']['CRB_CG'] = (W1_CRB_CG * self.GEOM['Wing1']['S_m2'] * self.GEOM['Wing1']['b_m']    + W2_CRB_CG * self.GEOM['Wing2']['S_m2'] * self.GEOM['Wing2']['b_m']  + FU_CRB_CG*self.GEOM['Fus']['S_m2']* self.GEOM['Fus']['b_m']   + EL_CRB_CG* self.AERO['Sref_m2']* self.AERO['bref_m'])
+        self.AERO['Total']['CMB_CG'] = (W1_CMB_CG * self.GEOM['Wing1']['S_m2'] * self.GEOM['Wing1']['cma_m']  + W2_CMB_CG * self.GEOM['Wing2']['S_m2'] * self.GEOM['Wing2']['cma_m']+ FU_CMB_CG*self.GEOM['Fus']['S_m2']* self.GEOM['Fus']['cma_m'] + EL_CMB_CG* self.AERO['Sref_m2']* self.AERO['cref_m'])
+        self.AERO['Total']['CNB_CG'] = (W1_CNB_CG * self.GEOM['Wing1']['S_m2'] * self.GEOM['Wing1']['b_m']    + W2_CNB_CG * self.GEOM['Wing2']['S_m2'] * self.GEOM['Wing2']['b_m']  + FU_CNB_CG*self.GEOM['Fus']['S_m2']* self.GEOM['Fus']['b_m']   + EL_CNB_CG* self.AERO['Sref_m2']* self.AERO['bref_m'])
 
         # Calculate Surfaces Forces and Moments
-        self.AERO['Wing1']['FXB_N']   = self.AERO['Wing1']['CXB_CG'] * self.ATM['DynPres_Pa'] * self.GEOM['Wing1']['S_m2']
-        self.AERO['Wing1']['FYB_N']   = self.AERO['Wing1']['CYB_CG'] * self.ATM['DynPres_Pa'] * self.GEOM['Wing1']['S_m2']
-        self.AERO['Wing1']['FZB_N']   = self.AERO['Wing1']['CZB_CG'] * self.ATM['DynPres_Pa'] * self.GEOM['Wing1']['S_m2']
-        self.AERO['Wing1']['MXB_Nm']  = self.AERO['Wing1']['CRB_CG'] * self.ATM['DynPres_Pa'] * self.GEOM['Wing1']['S_m2'] * self.GEOM['Wing1']['b_m']
-        self.AERO['Wing1']['MYB_Nm']  = self.AERO['Wing1']['CMB_CG'] * self.ATM['DynPres_Pa'] * self.GEOM['Wing1']['S_m2'] * self.GEOM['Wing1']['cma_m']
-        self.AERO['Wing1']['MZB_Nm']  = self.AERO['Wing1']['CNB_CG'] * self.ATM['DynPres_Pa'] * self.GEOM['Wing1']['S_m2'] * self.GEOM['Wing1']['b_m']
+        # self.AERO['Wing1']['FXB_N']   = self.AERO['Wing1']['CXB_CG'] * self.ATM['DynPres_Pa'] * self.GEOM['Wing1']['S_m2']
+        # self.AERO['Wing1']['FYB_N']   = self.AERO['Wing1']['CYB_CG'] * self.ATM['DynPres_Pa'] * self.GEOM['Wing1']['S_m2']
+        # self.AERO['Wing1']['FZB_N']   = self.AERO['Wing1']['CZB_CG'] * self.ATM['DynPres_Pa'] * self.GEOM['Wing1']['S_m2']
+        # self.AERO['Wing1']['MXB_Nm']  = self.AERO['Wing1']['CRB_CG'] * self.ATM['DynPres_Pa'] * self.GEOM['Wing1']['S_m2'] * self.GEOM['Wing1']['b_m']
+        # self.AERO['Wing1']['MYB_Nm']  = self.AERO['Wing1']['CMB_CG'] * self.ATM['DynPres_Pa'] * self.GEOM['Wing1']['S_m2'] * self.GEOM['Wing1']['cma_m']
+        # self.AERO['Wing1']['MZB_Nm']  = self.AERO['Wing1']['CNB_CG'] * self.ATM['DynPres_Pa'] * self.GEOM['Wing1']['S_m2'] * self.GEOM['Wing1']['b_m']
 
-        self.AERO['Wing2']['FXB_N']   = self.AERO['Wing2']['CXB_CG'] * self.ATM['DynPres_Pa'] * self.GEOM['Wing2']['S_m2']
-        self.AERO['Wing2']['FYB_N']   = self.AERO['Wing2']['CYB_CG'] * self.ATM['DynPres_Pa'] * self.GEOM['Wing2']['S_m2']
-        self.AERO['Wing2']['FZB_N']   = self.AERO['Wing2']['CZB_CG'] * self.ATM['DynPres_Pa'] * self.GEOM['Wing2']['S_m2']
-        self.AERO['Wing2']['MXB_Nm']  = self.AERO['Wing2']['CRB_CG'] * self.ATM['DynPres_Pa'] * self.GEOM['Wing2']['S_m2'] * self.GEOM['Wing2']['b_m']
-        self.AERO['Wing2']['MYB_Nm']  = self.AERO['Wing2']['CMB_CG'] * self.ATM['DynPres_Pa'] * self.GEOM['Wing2']['S_m2'] * self.GEOM['Wing2']['cma_m']
-        self.AERO['Wing2']['MZB_Nm']  = self.AERO['Wing2']['CNB_CG'] * self.ATM['DynPres_Pa'] * self.GEOM['Wing2']['S_m2'] * self.GEOM['Wing2']['b_m']
+        # self.AERO['Wing2']['FXB_N']   = self.AERO['Wing2']['CXB_CG'] * self.ATM['DynPres_Pa'] * self.GEOM['Wing2']['S_m2']
+        # self.AERO['Wing2']['FYB_N']   = self.AERO['Wing2']['CYB_CG'] * self.ATM['DynPres_Pa'] * self.GEOM['Wing2']['S_m2']
+        # self.AERO['Wing2']['FZB_N']   = self.AERO['Wing2']['CZB_CG'] * self.ATM['DynPres_Pa'] * self.GEOM['Wing2']['S_m2']
+        # self.AERO['Wing2']['MXB_Nm']  = self.AERO['Wing2']['CRB_CG'] * self.ATM['DynPres_Pa'] * self.GEOM['Wing2']['S_m2'] * self.GEOM['Wing2']['b_m']
+        # self.AERO['Wing2']['MYB_Nm']  = self.AERO['Wing2']['CMB_CG'] * self.ATM['DynPres_Pa'] * self.GEOM['Wing2']['S_m2'] * self.GEOM['Wing2']['cma_m']
+        # self.AERO['Wing2']['MZB_Nm']  = self.AERO['Wing2']['CNB_CG'] * self.ATM['DynPres_Pa'] * self.GEOM['Wing2']['S_m2'] * self.GEOM['Wing2']['b_m']
 
-        self.AERO['Fus']['FXB_N']   = self.AERO['Fus']['CXB_CG'] * self.ATM['DynPres_Pa'] * self.GEOM['Fus']['S_m2']
-        self.AERO['Fus']['FYB_N']   = self.AERO['Fus']['CYB_CG'] * self.ATM['DynPres_Pa'] * self.GEOM['Fus']['S_m2']
-        self.AERO['Fus']['FZB_N']   = self.AERO['Fus']['CZB_CG'] * self.ATM['DynPres_Pa'] * self.GEOM['Fus']['S_m2']
-        self.AERO['Fus']['MXB_Nm']  = self.AERO['Fus']['CRB_CG'] * self.ATM['DynPres_Pa'] * self.GEOM['Fus']['S_m2'] * self.GEOM['Fus']['b_m']
-        self.AERO['Fus']['MYB_Nm']  = self.AERO['Fus']['CMB_CG'] * self.ATM['DynPres_Pa'] * self.GEOM['Fus']['S_m2'] * self.GEOM['Fus']['cma_m']
-        self.AERO['Fus']['MZB_Nm']  = self.AERO['Fus']['CNB_CG'] * self.ATM['DynPres_Pa'] * self.GEOM['Fus']['S_m2'] * self.GEOM['Fus']['b_m']
+        # self.AERO['Fus']['FXB_N']   = self.AERO['Fus']['CXB_CG'] * self.ATM['DynPres_Pa'] * self.GEOM['Fus']['S_m2']
+        # self.AERO['Fus']['FYB_N']   = self.AERO['Fus']['CYB_CG'] * self.ATM['DynPres_Pa'] * self.GEOM['Fus']['S_m2']
+        # self.AERO['Fus']['FZB_N']   = self.AERO['Fus']['CZB_CG'] * self.ATM['DynPres_Pa'] * self.GEOM['Fus']['S_m2']
+        # self.AERO['Fus']['MXB_Nm']  = self.AERO['Fus']['CRB_CG'] * self.ATM['DynPres_Pa'] * self.GEOM['Fus']['S_m2'] * self.GEOM['Fus']['b_m']
+        # self.AERO['Fus']['MYB_Nm']  = self.AERO['Fus']['CMB_CG'] * self.ATM['DynPres_Pa'] * self.GEOM['Fus']['S_m2'] * self.GEOM['Fus']['cma_m']
+        # self.AERO['Fus']['MZB_Nm']  = self.AERO['Fus']['CNB_CG'] * self.ATM['DynPres_Pa'] * self.GEOM['Fus']['S_m2'] * self.GEOM['Fus']['b_m']
 
-        self.AERO['Elevon']['FXB_N']   = self.AERO['Elevon']['CXB_CG'] * self.ATM['DynPres_Pa'] * self.AERO['Sref_m2']
-        self.AERO['Elevon']['FYB_N']   = self.AERO['Elevon']['CYB_CG'] * self.ATM['DynPres_Pa'] * self.AERO['Sref_m2']
-        self.AERO['Elevon']['FZB_N']   = self.AERO['Elevon']['CZB_CG'] * self.ATM['DynPres_Pa'] * self.AERO['Sref_m2']
-        self.AERO['Elevon']['MXB_Nm']  = self.AERO['Elevon']['CRB_CG'] * self.ATM['DynPres_Pa'] * self.AERO['Sref_m2'] * self.AERO['bref_m']
-        self.AERO['Elevon']['MYB_Nm']  = self.AERO['Elevon']['CMB_CG'] * self.ATM['DynPres_Pa'] * self.AERO['Sref_m2'] * self.AERO['cref_m']
-        self.AERO['Elevon']['MZB_Nm']  = self.AERO['Elevon']['CNB_CG'] * self.ATM['DynPres_Pa'] * self.AERO['Sref_m2'] * self.AERO['bref_m']
+        # self.AERO['Elevon']['FXB_N']   = self.AERO['Elevon']['CXB_CG'] * self.ATM['DynPres_Pa'] * self.AERO['Sref_m2']
+        # self.AERO['Elevon']['FYB_N']   = self.AERO['Elevon']['CYB_CG'] * self.ATM['DynPres_Pa'] * self.AERO['Sref_m2']
+        # self.AERO['Elevon']['FZB_N']   = self.AERO['Elevon']['CZB_CG'] * self.ATM['DynPres_Pa'] * self.AERO['Sref_m2']
+        # self.AERO['Elevon']['MXB_Nm']  = self.AERO['Elevon']['CRB_CG'] * self.ATM['DynPres_Pa'] * self.AERO['Sref_m2'] * self.AERO['bref_m']
+        # self.AERO['Elevon']['MYB_Nm']  = self.AERO['Elevon']['CMB_CG'] * self.ATM['DynPres_Pa'] * self.AERO['Sref_m2'] * self.AERO['cref_m']
+        # self.AERO['Elevon']['MZB_Nm']  = self.AERO['Elevon']['CNB_CG'] * self.ATM['DynPres_Pa'] * self.AERO['Sref_m2'] * self.AERO['bref_m']
 
-        # Calculate Total Forces and Moments
-        self.AERO['TotalForce_BodyAx_N']  = self.OPT['UseAeroForce'] * (
-                                            np.array([np.sum( self.AERO['Wing1']['FXB_N'] ),
-                                                      np.sum( self.AERO['Wing1']['FYB_N'] ),
-                                                      np.sum( self.AERO['Wing1']['FZB_N'] )]) +
-                                            np.array([np.sum( self.AERO['Wing2']['FXB_N'] ),
-                                                      np.sum( self.AERO['Wing2']['FYB_N'] ),
-                                                      np.sum( self.AERO['Wing2']['FZB_N'] )]) +
-                                            np.array([np.sum( self.AERO['Fus']['FXB_N'] ),
-                                                      np.sum( self.AERO['Fus']['FYB_N'] ),
-                                                      np.sum( self.AERO['Fus']['FZB_N'] )]) +
-                                            np.array([np.sum( self.AERO['Elevon']['FXB_N'] ),
-                                                      np.sum( self.AERO['Elevon']['FYB_N'] ),
-                                                      np.sum( self.AERO['Elevon']['FZB_N'] )]))
+        self.AERO['Total']['FXB_N']   = self.AERO['Total']['CXB_CG'] * self.ATM['DynPres_Pa'] 
+        self.AERO['Total']['FYB_N']   = self.AERO['Total']['CYB_CG'] * self.ATM['DynPres_Pa'] 
+        self.AERO['Total']['FZB_N']   = self.AERO['Total']['CZB_CG'] * self.ATM['DynPres_Pa'] 
+        self.AERO['Total']['MXB_Nm']  = self.AERO['Total']['CRB_CG'] * self.ATM['DynPres_Pa'] 
+        self.AERO['Total']['MYB_Nm']  = self.AERO['Total']['CMB_CG'] * self.ATM['DynPres_Pa'] 
+        self.AERO['Total']['MZB_Nm']  = self.AERO['Total']['CNB_CG'] * self.ATM['DynPres_Pa'] 
+
+   # Calculate Total Forces and Moments
+        # self.AERO['TotalForce_BodyAx_N']  = self.OPT['UseAeroForce'] * (
+        #                                     np.array([np.sum( self.AERO['Wing1']['FXB_N'] ),
+        #                                               np.sum( self.AERO['Wing1']['FYB_N'] ),
+        #                                               np.sum( self.AERO['Wing1']['FZB_N'] )]) +
+        #                                     np.array([np.sum( self.AERO['Wing2']['FXB_N'] ),
+        #                                               np.sum( self.AERO['Wing2']['FYB_N'] ),
+        #                                               np.sum( self.AERO['Wing2']['FZB_N'] )]) +
+        #                                     np.array([np.sum( self.AERO['Fus']['FXB_N'] ),
+        #                                               np.sum( self.AERO['Fus']['FYB_N'] ),
+        #                                               np.sum( self.AERO['Fus']['FZB_N'] )]) +
+        #                                     np.array([np.sum( self.AERO['Elevon']['FXB_N'] ),
+        #                                               np.sum( self.AERO['Elevon']['FYB_N'] ),
+        #                                               np.sum( self.AERO['Elevon']['FZB_N'] )]))
                                             
-        self.AERO['TotalMoment_BodyAx_Nm'] = self.OPT['UseAeroMoment'] * (
-                                             np.array([np.sum( self.AERO['Wing1']['MXB_Nm'] ),
-                                                       np.sum( self.AERO['Wing1']['MYB_Nm'] ),
-                                                       np.sum( self.AERO['Wing1']['MZB_Nm'] )]) + 
-                                             np.array([np.sum( self.AERO['Wing2']['MXB_Nm'] ),
-                                                       np.sum( self.AERO['Wing2']['MYB_Nm'] ),
-                                                       np.sum( self.AERO['Wing2']['MZB_Nm'] )]) + 
-                                             np.array([np.sum( self.AERO['Fus']['MXB_Nm'] ),
-                                                       np.sum( self.AERO['Fus']['MYB_Nm'] ),
-                                                       np.sum( self.AERO['Fus']['MZB_Nm'] )]) +
-                                             np.array([np.sum( self.AERO['Elevon']['MXB_Nm'] ),
-                                                       np.sum( self.AERO['Elevon']['MYB_Nm'] ),
-                                                       np.sum( self.AERO['Elevon']['MZB_Nm'] )]))
+        # self.AERO['TotalMoment_BodyAx_Nm'] = self.OPT['UseAeroMoment'] * (
+        #                                      np.array([np.sum( self.AERO['Wing1']['MXB_Nm'] ),
+        #                                                np.sum( self.AERO['Wing1']['MYB_Nm'] ),
+        #                                                np.sum( self.AERO['Wing1']['MZB_Nm'] )]) + 
+        #                                      np.array([np.sum( self.AERO['Wing2']['MXB_Nm'] ),
+        #                                                np.sum( self.AERO['Wing2']['MYB_Nm'] ),
+        #                                                np.sum( self.AERO['Wing2']['MZB_Nm'] )]) + 
+        #                                      np.array([np.sum( self.AERO['Fus']['MXB_Nm'] ),
+        #                                                np.sum( self.AERO['Fus']['MYB_Nm'] ),
+        #                                                np.sum( self.AERO['Fus']['MZB_Nm'] )]) +
+        #                                      np.array([np.sum( self.AERO['Elevon']['MXB_Nm'] ),
+        #                                                np.sum( self.AERO['Elevon']['MYB_Nm'] ),
+        #                                                np.sum( self.AERO['Elevon']['MZB_Nm'] )]))
+        self.AERO['TotalForce_BodyAx_N']  = self.OPT['UseAeroForce'] * np.array([self.AERO['Total']['FXB_N'] , 
+                                                                                 self.AERO['Total']['FYB_N'] ,
+                                                                                 self.AERO['Total']['FZB_N']])
+        self.AERO['TotalMoment_BodyAx_Nm']  = self.OPT['UseAeroMoment'] * np.array([self.AERO['Total']['MXB_Nm'] , 
+                                                                                    self.AERO['Total']['MYB_Nm'] ,
+                                                                                    self.AERO['Total']['MZB_Nm']])
+        TestTime['AER7'] = time.time()
+
+        return TestTime
 
     def CONT_fcn(self,action_vec):
         def VerticalControlAllocation(u):    
@@ -2628,6 +2708,9 @@ class Vahana_VertFlight(gym.Env):
                 self.CONT['Elevon_deg'][i],v,a = self.CONT['Actuators']['Elevon']['Actuators'][i].step(ElevCmd_deg[i])
                 
     def SENS_fcn(self):
+        TestTime = {}    
+        TestTime['start'] = time.time()
+
         if self.trimming:
             self.SENS['Sensors']['IMU']['P_radps'].set_zero(self.EQM['VelRot_BodyAx_radps'][0])
             self.SENS['Sensors']['IMU']['Q_radps'].set_zero(self.EQM['VelRot_BodyAx_radps'][1])
@@ -2674,6 +2757,7 @@ class Vahana_VertFlight(gym.Env):
             
             self.SENS['Sensors']['ADS']['CAS_mps'].step(self.ATM['CAS_mps'])
                             
+        TestTime['SEN1'] = time.time()
         self.SENS['P_radps']   = self.SENS['Sensors']['IMU']['P_radps'].y * (1+self.UNC['Res']['SENS']['Gain']['IMU_P']) + (self.UNC['Res']['SENS']['Bias']['IMU_P'])
         self.SENS['Q_radps']   = self.SENS['Sensors']['IMU']['Q_radps'].y * (1+self.UNC['Res']['SENS']['Gain']['IMU_Q']) + (self.UNC['Res']['SENS']['Bias']['IMU_Q'])
         self.SENS['R_radps']   = self.SENS['Sensors']['IMU']['R_radps'].y * (1+self.UNC['Res']['SENS']['Gain']['IMU_R']) + (self.UNC['Res']['SENS']['Bias']['IMU_R'])
@@ -2690,12 +2774,16 @@ class Vahana_VertFlight(gym.Env):
         self.SENS['NY_mps2']   = self.SENS['Sensors']['IMU']['NY_mps2'].y * (1+self.UNC['Res']['SENS']['Gain']['IMU_NY']) + (self.UNC['Res']['SENS']['Bias']['IMU_NY'])
         self.SENS['NZ_mps2']   = self.SENS['Sensors']['IMU']['NZ_mps2'].y * (1+self.UNC['Res']['SENS']['Gain']['IMU_NZ']) + (self.UNC['Res']['SENS']['Bias']['IMU_NZ'])
         self.SENS['CAS_mps']   = self.SENS['Sensors']['ADS']['CAS_mps'].y * (1+self.UNC['Res']['SENS']['Gain']['ADS_CAS'])
+        TestTime['SEN2'] = time.time()
         
         LE2B,LB2E = self.RotationMatrix(self.SENS['Phi_rad'],self.SENS['Theta_rad'],self.SENS['Psi_rad'])
         [X,Y,Z] = np.dot(LB2E , np.array([self.SENS['NX_mps2'] , self.SENS['NY_mps2'] , self.SENS['NZ_mps2'] ]))
         self.SENS['NXi_mps2'] = X
         self.SENS['NYi_mps2'] = Y
         self.SENS['NZi_mps2'] = Z
+        TestTime['SEN3'] = time.time()
+
+        return TestTime
 
     def REW_fcn(self):
 
