@@ -308,7 +308,7 @@ for n_t in range(len(TestVec['AX_mps2'])):
     plt.plot(TestVec['VX_mps'] , TrimRes['Thrust_5'][:,n_t],color, linewidth = 2)
     plt.ylim([0, 150])
     plt.xlabel('CAS [m/s]')
-    plt.ylabel('Thrust [N] \n Back Motors')
+    plt.ylabel('Thrust [N] \n Rear Motors')
 
     plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
     plt.grid('on')
@@ -325,7 +325,7 @@ for n_t in range(len(TestVec['AX_mps2'])):
     plt.plot(TestVec['VX_mps'] , TrimRes['RPM_5'][:,n_t],color, linewidth = 2)
     plt.ylim([0, 3000])
     plt.xlabel('CAS [m/s]')
-    plt.ylabel('RPM \n Back Motors')
+    plt.ylabel('RPM \n Rear Motors')
     plt.xticks(np.arange(45, 71, 5))
    
     plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
@@ -341,7 +341,7 @@ for n_t in range(len(TestVec['AX_mps2'])):
     plt.xlim([np.min(TestVec['VX_mps']),np.max(TestVec['VX_mps'])])
     plt.plot(TestVec['VX_mps'] , TrimRes['Throttle5_p'][:,n_t],color, linewidth = 2)
     plt.xlabel('CAS [m/s]')
-    plt.ylabel('Throttle [p] \n Back Motors')
+    plt.ylabel('Throttle [p] \n Rear Motors')
     plt.xticks(np.arange(45, 71, 5))
    
     plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
@@ -357,7 +357,7 @@ for n_t in range(len(TestVec['AX_mps2'])):
     plt.xlim([np.min(TestVec['VX_mps']),np.max(TestVec['VX_mps'])])
     plt.plot(TestVec['VX_mps'] , TrimRes['i2_A'][:,n_t],color, linewidth = 2)
     plt.xlabel('CAS [m/s]')
-    plt.ylabel('Elec. Current [A] \n Back Motors')
+    plt.ylabel('Elec. Current [A] \n Rear Motors')
     plt.xticks(np.arange(45, 71, 5))
    
     # plt.subplot(plt_l,plt_c,plt_n); plt_n+=1

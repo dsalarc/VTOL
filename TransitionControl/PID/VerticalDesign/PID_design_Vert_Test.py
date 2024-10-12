@@ -278,7 +278,7 @@ for n_t in range(len(TestVec['AX_mps2'])):
     plt.plot(TestVec['VX_mps'] , TrimRes['Thrust_5'][:,n_t],color, linewidth = 2)
     plt.ylim([0, 1250])
     plt.xlabel('CAS [m/s]')
-    plt.ylabel('Thrust [N] \n Back Engines')
+    plt.ylabel('Thrust [N] \n Rear Engines')
 
     plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
     plt.grid('on')
@@ -296,7 +296,7 @@ for n_t in range(len(TestVec['AX_mps2'])):
     plt.plot(TestVec['VX_mps'] , TrimRes['RPM_5'][:,n_t],color, linewidth = 2)
     plt.ylim([0, 2500])
     plt.xlabel('CAS [m/s]')
-    plt.ylabel('RPM \n Back Engines')
+    plt.ylabel('RPM \n Rear Engines')
     plt.xticks(XTICKS)
 
    
@@ -316,7 +316,7 @@ for n_t in range(len(TestVec['AX_mps2'])):
     plt.plot(TestVec['VX_mps'] , TrimRes['Throttle5_p'][:,n_t],color, linewidth = 2, label = ('$AX = %0.1f m/s^2$'%(TestVec['AX_mps2'][n_t])) )
     plt.xlabel('CAS [m/s]')
     plt.ylim([0, 0.6])
-    plt.ylabel('Throttle [p] \n Back Engines')
+    plt.ylabel('Throttle [p] \n Rear Engines')
     plt.xticks(XTICKS)
    
     plt.subplot(plt_l,plt_c,plt_n); plt_n+=1

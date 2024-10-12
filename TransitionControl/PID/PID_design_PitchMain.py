@@ -463,7 +463,7 @@ for n_t in range(len(TrimVec['AX_mps2'])):
     plt.plot(TrimVec['VX_mps'] , TrimRes['Thrust_5'][:,n_t],color, linewidth = 2)
     plt.ylim([0, 1250])
     plt.xlabel('Inertial X Speed [m/s]')
-    plt.ylabel('Thrust - Back Engines [N]')
+    plt.ylabel('Thrust - Rear Engines [N]')
 
     plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
     plt.grid('on')
@@ -479,7 +479,7 @@ for n_t in range(len(TrimVec['AX_mps2'])):
     plt.plot(TrimVec['VX_mps'] , TrimRes['RPM_5'][:,n_t],color, linewidth = 2)
     plt.ylim([0, 3000])
     plt.xlabel('Inertial X Speed [m/s]')
-    plt.ylabel('RPM - Back Engines')
+    plt.ylabel('RPM - Rear Engines')
 
 
     # plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
@@ -527,7 +527,7 @@ for n_t in range(len(TrimVec['AX_mps2'])):
     plt.xlim([np.min(TrimVec['VX_mps']),np.max(TrimVec['VX_mps'])])
     plt.plot(TrimVec['VX_mps'] , TrimRes['Throttle5_p'][:,n_t],color, linewidth = 2)
     plt.xlabel('Inertial X Speed [m/s]')
-    plt.ylabel('Throttle - Back Engines [p]')
+    plt.ylabel('Throttle - Rear Engines [p]')
 
     plt.subplot(plt_l,plt_c,plt_n); plt_n+=1
     plt.grid('on')
