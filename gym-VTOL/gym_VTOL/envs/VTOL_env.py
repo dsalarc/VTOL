@@ -455,7 +455,7 @@ class Vahana_VertFlight(gym.Env):
     def reset(self,W = 0, Altitude_m = 100, Altitude_ref_m = 100, THETA = 0,  PHI = 0,  PSI = 0, PaxIn = np.array([1,1]),
                    VX_mps = 0, VX_ref_mps = 60, VZ_mps = 0, Tilt_deg = None, AX_mps2 = None, Throttle_u = None, Elevator_deg = 0, 
                    DispMessages = False, Linearize = False, TermTheta_deg = 10, StaFreezeList = [],
-                   UNC_seed = None , UNC_enable = True, UNC_force = None, reset_INPUT_VEC = None, GroundHeight_m = 0, Training_Trim = False, 
+                   UNC_seed = None , UNC_enable = True, UNC_force = {}, reset_INPUT_VEC = None, GroundHeight_m = 0, Training_Trim = False, 
                    Training_Turb = True, Training_WindX = True, Training_AllEngines = False, Training_HoverTime = 0, TurbulenceSeed = None, UseTiltAction = False):
         self.CurrentStep = 0
         self.trimming = 0
